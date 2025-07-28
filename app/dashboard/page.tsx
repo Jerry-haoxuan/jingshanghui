@@ -213,7 +213,11 @@ export default function Dashboard() {
                     <div
                       key={person.id}
                       className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 cursor-pointer"
-                      onClick={() => router.push(`/person/${person.id}`)}
+                      onClick={() => {
+                        console.log('点击人物卡片，ID:', person.id, '姓名:', person.name)
+                        console.log('即将跳转到:', `/person/${person.id}`)
+                        router.push(`/person/${person.id}`)
+                      }}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-3">

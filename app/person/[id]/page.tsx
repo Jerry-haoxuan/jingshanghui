@@ -22,6 +22,7 @@ export default function PersonDetail() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [showContactDialog, setShowContactDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string>('')
 
   // 重新分析关系的函数
   const handleAnalyzeRelationships = async () => {
@@ -226,15 +227,17 @@ export default function PersonDetail() {
         
         if (people.length === 0) {
           console.error('没有加载到任何人物数据')
-          router.push('/dashboard')
+          setError('没有加载到任何人物数据。请检查数据是否正确加载。')
           return
         }
         
         const foundPerson = people.find(p => p.id === params.id)
         console.log('查找人物ID:', params.id, '找到:', foundPerson?.name)
+        console.log('可用的人物IDs:', people.map(p => p.id))
         
         if (foundPerson) {
           setPerson(foundPerson)
+          setError('')
           
           // 检查是否存在关系数据
           const relationships = getPersonRelationships(foundPerson.id)
@@ -244,13 +247,13 @@ export default function PersonDetail() {
           }
           setGraphData(generateGraphData(foundPerson))
         } else {
-          // 如果找不到，返回列表页
-          console.log('未找到指定人物，返回列表页')
-          router.push('/dashboard')
+          // 如果找不到，显示错误而不是立即跳转
+          console.log('未找到指定人物')
+          setError(`未找到ID为 "${params.id}" 的人物。可用的人物数量: ${people.length}`)
         }
       } catch (error) {
         console.error('加载人物数据失败:', error)
-        router.push('/dashboard')
+        setError(`加载人物数据失败: ${error}`)
       } finally {
         setIsLoading(false)
       }
@@ -259,7 +262,7 @@ export default function PersonDetail() {
     return () => clearTimeout(timer)
   }, [params.id, router, refreshKey])
 
-  if (isLoading || !person) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -268,6 +271,48 @@ export default function PersonDetail() {
           <p className="text-sm text-gray-400 mt-2">
             {typeof window !== 'undefined' ? '客户端加载中' : '服务端渲染中'}
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="mb-4">
+            <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-600 text-xl">⚠️</span>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">加载失败</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <div className="space-y-2">
+              <Button onClick={() => window.location.reload()} className="mr-2">
+                重新加载
+              </Button>
+              <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                返回列表
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-gray-100 rounded-md text-sm text-left">
+            <p className="font-medium mb-1">调试信息：</p>
+            <p>URL参数ID: {params.id}</p>
+            <p>当前环境: {typeof window !== 'undefined' ? '客户端' : '服务端'}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!person) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500">未找到人物数据</p>
+          <Button onClick={() => router.push('/dashboard')} className="mt-4">
+            返回列表
+          </Button>
         </div>
       </div>
     )
