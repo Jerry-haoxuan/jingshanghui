@@ -23,6 +23,7 @@ export default function PersonDetail() {
   const [showContactDialog, setShowContactDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const [isClient, setIsClient] = useState(false)
 
   // 重新分析关系的函数
   const handleAnalyzeRelationships = async () => {
@@ -214,6 +215,9 @@ export default function PersonDetail() {
   }
 
   useEffect(() => {
+    // 设置客户端标志
+    setIsClient(true)
+    
     // 确保在客户端环境中加载数据
     if (typeof window === 'undefined') return
 
@@ -340,6 +344,17 @@ export default function PersonDetail() {
             <p>URL参数ID: {params.id}</p>
             <p>当前环境: {typeof window !== 'undefined' ? '客户端' : '服务端'}</p>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 在渲染前确保客户端已准备好
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-gray-500">加载中...</div>
         </div>
       </div>
     )

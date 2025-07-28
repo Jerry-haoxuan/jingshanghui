@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,13 @@ export default function Home() {
   const [userType, setUserType] = useState<UserRole | null>(null)
   const [betaCode, setBetaCode] = useState('')
   const [error, setError] = useState('')
+  const [isClient, setIsClient] = useState(false)
   const router = useRouter()
+
+  // 确保客户端渲染的标志
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleUserTypeSelect = (type: UserRole) => {
     setUserType(type)
@@ -55,6 +61,17 @@ export default function Home() {
     setUserType(null)
     setBetaCode('')
     setError('')
+  }
+
+  // 在hydration期间显示简单的加载状态
+  if (!isClient) {
+    return (
+      <div className="min-h-screen relative overflow-hidden bg-black">
+        <div className="relative z-10 min-h-screen flex items-center justify-center">
+          <div className="text-white">加载中...</div>
+        </div>
+      </div>
+    )
   }
 
   return (

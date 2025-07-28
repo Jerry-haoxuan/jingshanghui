@@ -19,10 +19,15 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [people, setPeople] = useState<PersonData[]>([])
   const [companies, setCompanies] = useState<CompanyData[]>([])
+  const [isClient, setIsClient] = useState(false)
   
   // 文件上传引用
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // 确保客户端渲染的标志
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // 加载数据和处理查询参数
   useEffect(() => {
@@ -135,6 +140,17 @@ export default function Dashboard() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+  }
+
+  // 在渲染前确保客户端已准备好
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-gray-500">加载中...</div>
+        </div>
+      </div>
+    )
   }
 
   return (
