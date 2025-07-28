@@ -11,7 +11,7 @@ import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
 import { getPersonRelationships } from '@/lib/relationshipManager'
 import { forceAnalyzeAllRelationships } from '@/lib/relationshipManager'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
-import { isMember, isManager, getUserRole } from '@/lib/userRole'
+import { isMember, isManager } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 
 export default function PersonDetail() {
@@ -216,14 +216,6 @@ export default function PersonDetail() {
   useEffect(() => {
     // 确保在客户端环境中加载数据
     if (typeof window === 'undefined') return
-
-    // 检查用户是否已登录
-    const userRole = getUserRole()
-    if (!userRole) {
-      // 如果没有用户角色，重定向到首页
-      router.push('/')
-      return
-    }
 
     console.log('person页面开始加载，ID:', params.id)
 
