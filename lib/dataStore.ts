@@ -58,6 +58,15 @@ export const getPeople = (): PersonData[] => {
     if (data) {
       const parsedData = JSON.parse(data)
       console.log('从localStorage加载人物数据:', parsedData.length, '个人物')
+      
+      // 验证数据完整性，如果数据少于4个人，重置为默认数据
+      if (parsedData.length < 4) {
+        console.log('检测到数据不完整，重置为默认数据')
+        const defaultData = getDefaultPeople()
+        localStorage.setItem(PEOPLE_KEY, JSON.stringify(defaultData))
+        return defaultData
+      }
+      
       return parsedData
     } else {
       console.log('localStorage中没有人物数据，返回默认数据')
@@ -91,6 +100,15 @@ export const getCompanies = (): CompanyData[] => {
     if (data) {
       const parsedData = JSON.parse(data)
       console.log('从localStorage加载企业数据:', parsedData.length, '个企业')
+      
+      // 验证数据完整性，如果数据少于2个企业，重置为默认数据
+      if (parsedData.length < 2) {
+        console.log('检测到企业数据不完整，重置为默认数据')
+        const defaultData = getDefaultCompanies()
+        localStorage.setItem(COMPANIES_KEY, JSON.stringify(defaultData))
+        return defaultData
+      }
+      
       return parsedData
     } else {
       console.log('localStorage中没有企业数据，返回默认数据')
@@ -110,6 +128,20 @@ export const getCompanies = (): CompanyData[] => {
     }
     return defaultData
   }
+}
+
+// 重置为默认数据（用于调试和修复数据问题）
+export const resetToDefaultData = (): void => {
+  if (typeof window === 'undefined') return
+  
+  console.log('重置为默认数据')
+  const defaultPeople = getDefaultPeople()
+  const defaultCompanies = getDefaultCompanies()
+  
+  localStorage.setItem(PEOPLE_KEY, JSON.stringify(defaultPeople))
+  localStorage.setItem(COMPANIES_KEY, JSON.stringify(defaultCompanies))
+  
+  console.log('数据重置完成:', defaultPeople.length, '个人物,', defaultCompanies.length, '个企业')
 }
 
 // 保存人物数据

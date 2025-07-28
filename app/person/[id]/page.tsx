@@ -222,45 +222,83 @@ export default function PersonDetail() {
 
     setIsLoading(true)
     
-    // 延迟一帧确保组件完全挂载
-    const timer = setTimeout(() => {
+    // 延迟一帧确保组件完全挂载，并多次尝试加载数据
+    let attempts = 0
+    const maxAttempts = 3
+    
+    const tryLoadData = () => {
+      attempts++
+      console.log(`第${attempts}次尝试加载数据`)
+      
       try {
         const people = getPeople()
         console.log('加载的人物数据:', people.length, '个人物')
+        console.log('人物数据详情:', people.map(p => ({ id: p.id, name: p.name })))
         
         if (people.length === 0) {
-          console.error('没有加载到任何人物数据')
-          setError('没有加载到任何人物数据。请检查数据是否正确加载。')
-          return
+          if (attempts < maxAttempts) {
+            console.log('数据为空，1秒后重试...')
+            setTimeout(tryLoadData, 1000)
+            return
+          } else {
+            console.error('多次尝试后仍无数据')
+            setError('没有加载到任何人物数据。请检查数据是否正确加载。')
+            setIsLoading(false)
+            return
+          }
         }
         
         const foundPerson = people.find(p => p.id === params.id)
-        console.log('查找人物ID:', params.id, '找到:', foundPerson?.name)
-        console.log('可用的人物IDs:', people.map(p => p.id))
+        console.log('查找人物ID:', params.id, '类型:', typeof params.id)
+        console.log('找到的人物:', foundPerson?.name)
+        console.log('可用的人物IDs:', people.map(p => ({ id: p.id, type: typeof p.id })))
         
         if (foundPerson) {
+          console.log('成功找到人物，设置数据')
           setPerson(foundPerson)
           setError('')
           
           // 检查是否存在关系数据
           const relationships = getPersonRelationships(foundPerson.id)
           if (relationships.length === 0) {
-            // 如果没有关系数据，自动触发分析（但不要在这里直接调用handleAnalyzeRelationships避免循环）
             console.log('未找到关系数据，建议点击"分析关系"按钮')
           }
           setGraphData(generateGraphData(foundPerson))
+          setIsLoading(false)
         } else {
-          // 如果找不到，显示错误而不是立即跳转
-          console.log('未找到指定人物')
-          setError(`未找到ID为 "${params.id}" 的人物。可用的人物数量: ${people.length}`)
+          // 尝试将参数转换为字符串匹配
+          const foundPersonStr = people.find(p => String(p.id) === String(params.id))
+          if (foundPersonStr) {
+            console.log('通过字符串匹配找到人物:', foundPersonStr.name)
+            setPerson(foundPersonStr)
+            setError('')
+            setGraphData(generateGraphData(foundPersonStr))
+            setIsLoading(false)
+          } else if (attempts < maxAttempts) {
+            console.log('未找到人物，1秒后重试...')
+            setTimeout(tryLoadData, 1000)
+            return
+          } else {
+            console.log('多次尝试后仍未找到指定人物')
+            setError(`未找到ID为 "${params.id}" 的人物。可用的人物数量: ${people.length}`)
+            setIsLoading(false)
+          }
         }
       } catch (error) {
         console.error('加载人物数据失败:', error)
-        setError(`加载人物数据失败: ${error}`)
-      } finally {
-        setIsLoading(false)
+        if (attempts < maxAttempts) {
+          console.log('出错，1秒后重试...')
+          setTimeout(tryLoadData, 1000)
+          return
+        } else {
+          setError(`加载人物数据失败: ${error}`)
+          setIsLoading(false)
+        }
       }
-    }, 100)
+    }
+
+    // 立即尝试加载，如果失败会自动重试
+    const timer = setTimeout(tryLoadData, 100)
 
     return () => clearTimeout(timer)
   }, [params.id, router, refreshKey])
