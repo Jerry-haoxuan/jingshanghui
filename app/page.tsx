@@ -22,17 +22,32 @@ export default function Home() {
     setBetaCode('')
   }
 
-  const handleBetaAccess = () => {
-    // 验证内测码
-    if (userType === UserRole.MANAGER && betaCode === 'ECOSYSTEM2024') {
-      setUserRole(UserRole.MANAGER)
-      router.push('/dashboard')
-    } else if (userType === UserRole.MEMBER && betaCode === 'MEMBER2024') {
-      // 会员使用不同的内测码
-      setUserRole(UserRole.MEMBER)
-      router.push('/dashboard')
-    } else {
-      setError('无效的内测码，请重试')
+  const handleBetaAccess = async () => {
+    try {
+      // 调用登录API
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userType,
+          betaCode
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // 在客户端也设置localStorage
+        setUserRole(userType as UserRole)
+        // 跳转到dashboard
+        router.push('/dashboard')
+      } else {
+        setError(data.message || '无效的内测码，请重试')
+      }
+    } catch (error) {
+      setError('登录失败，请稍后重试')
     }
   }
 
