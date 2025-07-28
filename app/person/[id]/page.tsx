@@ -13,7 +13,6 @@ import { forceAnalyzeAllRelationships } from '@/lib/relationshipManager'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
 import { isMember, isManager } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import { getUserRole } from '@/lib/userRole'
 
 export default function PersonDetail() {
   const params = useParams()
@@ -218,13 +217,8 @@ export default function PersonDetail() {
     // 确保在客户端环境中加载数据
     if (typeof window === 'undefined') return
 
-    // 检查用户角色，如果未设置则重定向到首页
-    const userRole = getUserRole()
-    if (!userRole) {
-      console.log('用户未登录，重定向到首页')
-      router.push('/')
-      return
-    }
+    // 移除用户角色检查，因为能到Dashboard说明已登录
+    console.log('person页面开始加载，ID:', params.id)
 
     setIsLoading(true)
     
