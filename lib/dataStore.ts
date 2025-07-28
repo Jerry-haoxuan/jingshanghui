@@ -48,16 +48,68 @@ const COMPANIES_KEY = 'ecosystem_companies'
 
 // 获取所有人物数据
 export const getPeople = (): PersonData[] => {
-  if (typeof window === 'undefined') return getDefaultPeople()
-  const data = localStorage.getItem(PEOPLE_KEY)
-  return data ? JSON.parse(data) : getDefaultPeople()
+  if (typeof window === 'undefined') {
+    console.log('服务端渲染，返回默认人物数据')
+    return getDefaultPeople()
+  }
+  
+  try {
+    const data = localStorage.getItem(PEOPLE_KEY)
+    if (data) {
+      const parsedData = JSON.parse(data)
+      console.log('从localStorage加载人物数据:', parsedData.length, '个人物')
+      return parsedData
+    } else {
+      console.log('localStorage中没有人物数据，返回默认数据')
+      const defaultData = getDefaultPeople()
+      // 自动保存默认数据到localStorage
+      localStorage.setItem(PEOPLE_KEY, JSON.stringify(defaultData))
+      return defaultData
+    }
+  } catch (error) {
+    console.error('加载人物数据时出错:', error)
+    const defaultData = getDefaultPeople()
+    // 保存默认数据
+    try {
+      localStorage.setItem(PEOPLE_KEY, JSON.stringify(defaultData))
+    } catch (e) {
+      console.error('保存默认数据失败:', e)
+    }
+    return defaultData
+  }
 }
 
 // 获取所有公司数据
 export const getCompanies = (): CompanyData[] => {
-  if (typeof window === 'undefined') return getDefaultCompanies()
-  const data = localStorage.getItem(COMPANIES_KEY)
-  return data ? JSON.parse(data) : getDefaultCompanies()
+  if (typeof window === 'undefined') {
+    console.log('服务端渲染，返回默认企业数据')
+    return getDefaultCompanies()
+  }
+  
+  try {
+    const data = localStorage.getItem(COMPANIES_KEY)
+    if (data) {
+      const parsedData = JSON.parse(data)
+      console.log('从localStorage加载企业数据:', parsedData.length, '个企业')
+      return parsedData
+    } else {
+      console.log('localStorage中没有企业数据，返回默认数据')
+      const defaultData = getDefaultCompanies()
+      // 自动保存默认数据到localStorage
+      localStorage.setItem(COMPANIES_KEY, JSON.stringify(defaultData))
+      return defaultData
+    }
+  } catch (error) {
+    console.error('加载企业数据时出错:', error)
+    const defaultData = getDefaultCompanies()
+    // 保存默认数据
+    try {
+      localStorage.setItem(COMPANIES_KEY, JSON.stringify(defaultData))
+    } catch (e) {
+      console.error('保存默认数据失败:', e)
+    }
+    return defaultData
+  }
 }
 
 // 保存人物数据

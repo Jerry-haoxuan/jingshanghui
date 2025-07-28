@@ -21,6 +21,7 @@ export default function PersonDetail() {
   const [graphData, setGraphData] = useState<any>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [showContactDialog, setShowContactDialog] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // 重新分析关系的函数
   const handleAnalyzeRelationships = async () => {
@@ -212,29 +213,61 @@ export default function PersonDetail() {
   }
 
   useEffect(() => {
-    const people = getPeople()
-    const foundPerson = people.find(p => p.id === params.id)
-    if (foundPerson) {
-      setPerson(foundPerson)
-      
-      // 检查是否存在关系数据
-      const relationships = getPersonRelationships(foundPerson.id)
-      if (relationships.length === 0) {
-        // 如果没有关系数据，自动触发分析（但不要在这里直接调用handleAnalyzeRelationships避免循环）
-        console.log('未找到关系数据，建议点击"分析关系"按钮')
+    // 确保在客户端环境中加载数据
+    if (typeof window === 'undefined') return
+
+    setIsLoading(true)
+    
+    // 延迟一帧确保组件完全挂载
+    const timer = setTimeout(() => {
+      try {
+        const people = getPeople()
+        console.log('加载的人物数据:', people.length, '个人物')
+        
+        if (people.length === 0) {
+          console.error('没有加载到任何人物数据')
+          router.push('/dashboard')
+          return
+        }
+        
+        const foundPerson = people.find(p => p.id === params.id)
+        console.log('查找人物ID:', params.id, '找到:', foundPerson?.name)
+        
+        if (foundPerson) {
+          setPerson(foundPerson)
+          
+          // 检查是否存在关系数据
+          const relationships = getPersonRelationships(foundPerson.id)
+          if (relationships.length === 0) {
+            // 如果没有关系数据，自动触发分析（但不要在这里直接调用handleAnalyzeRelationships避免循环）
+            console.log('未找到关系数据，建议点击"分析关系"按钮')
+          }
+          setGraphData(generateGraphData(foundPerson))
+        } else {
+          // 如果找不到，返回列表页
+          console.log('未找到指定人物，返回列表页')
+          router.push('/dashboard')
+        }
+      } catch (error) {
+        console.error('加载人物数据失败:', error)
+        router.push('/dashboard')
+      } finally {
+        setIsLoading(false)
       }
-      setGraphData(generateGraphData(foundPerson))
-    } else {
-      // 如果找不到，返回列表页
-      router.push('/dashboard')
-    }
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [params.id, router, refreshKey])
 
-  if (!person) {
+  if (isLoading || !person) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500">加载中...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">正在加载人物信息...</p>
+          <p className="text-sm text-gray-400 mt-2">
+            {typeof window !== 'undefined' ? '客户端加载中' : '服务端渲染中'}
+          </p>
         </div>
       </div>
     )

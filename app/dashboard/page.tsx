@@ -23,14 +23,29 @@ export default function Dashboard() {
 
   // 加载数据和处理查询参数
   useEffect(() => {
-    setPeople(getPeople())
-    setCompanies(getCompanies())
+    // 确保在客户端环境中加载数据
+    if (typeof window === 'undefined') return
+
+    const loadData = () => {
+      const peopleData = getPeople()
+      const companiesData = getCompanies()
+      
+      console.log('Dashboard 加载数据:', peopleData.length, '个人物,', companiesData.length, '个企业')
+      
+      setPeople(peopleData)
+      setCompanies(companiesData)
+    }
+
+    // 延迟加载确保localStorage可用
+    const timer = setTimeout(loadData, 50)
     
     // 处理tab查询参数
     const tab = searchParams.get('tab')
     if (tab === 'companies') {
       setActiveTab('companies')
     }
+
+    return () => clearTimeout(timer)
   }, [searchParams])
 
   // 过滤搜索结果
