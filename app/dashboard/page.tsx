@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, downloadDataAsFile, importAllData } from '@/lib/dataStore'
+import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData } from '@/lib/dataStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole } from '@/lib/userRole'
 
@@ -20,9 +20,6 @@ export default function Dashboard() {
   const [people, setPeople] = useState<PersonData[]>([])
   const [companies, setCompanies] = useState<CompanyData[]>([])
   const [isClient, setIsClient] = useState(false)
-  
-  // 文件上传引用
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 确保客户端渲染的标志
   useEffect(() => {
@@ -110,35 +107,6 @@ export default function Dashboard() {
         setCompanies(updatedCompanies)
         saveCompanies(updatedCompanies)
       }
-    }
-  }
-
-  // 处理数据导入
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target?.result as string
-      const result = importAllData(content)
-      
-      if (result.success) {
-        // 重新加载数据
-        const peopleData = getPeople()
-        const companiesData = getCompanies()
-        setPeople(peopleData)
-        setCompanies(companiesData)
-        alert('数据导入成功！')
-      } else {
-        alert(result.message)
-      }
-    }
-    reader.readAsText(file)
-    
-    // 清空input，允许重复选择同一文件
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
     }
   }
 
@@ -249,39 +217,6 @@ export default function Dashboard() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-4 py-2 w-80"
-                />
-              </div>
-              
-              {/* 导入导出按钮 */}
-              <div className="flex items-center space-x-2">
-                <Button
-                  onClick={downloadDataAsFile}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  title="导出所有数据"
-                >
-                  <Download className="h-4 w-4" />
-                  导出数据
-                </Button>
-                
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  title="导入数据文件"
-                >
-                  <Upload className="h-4 w-4" />
-                  导入数据
-                </Button>
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportData}
-                  className="hidden"
                 />
               </div>
             </div>
