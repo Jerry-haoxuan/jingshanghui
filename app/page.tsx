@@ -30,6 +30,8 @@ export default function Home() {
 
   const handleBetaAccess = async () => {
     try {
+      console.log('[Client] 开始登录流程:', { userType, betaCode })
+      
       // 调用登录API
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -42,17 +44,30 @@ export default function Home() {
         })
       })
 
+      console.log('[Client] API响应状态:', response.status)
+      console.log('[Client] 响应头:', Object.fromEntries(response.headers.entries()))
+
       const data = await response.json()
+      console.log('[Client] API响应数据:', data)
 
       if (response.ok && data.success) {
+        console.log('[Client] 登录成功，设置localStorage')
+        
         // 在客户端也设置localStorage
         setUserRole(userType as UserRole)
+        
+        // 检查Cookie是否被设置
+        console.log('[Client] 当前所有Cookies:', document.cookie)
+        
+        console.log('[Client] 跳转到dashboard')
         // 跳转到dashboard
         router.push('/dashboard')
       } else {
+        console.log('[Client] 登录失败:', data.message)
         setError(data.message || '无效的内测码，请重试')
       }
     } catch (error) {
+      console.error('[Client] 登录过程中出错:', error)
       setError('登录失败，请稍后重试')
     }
   }
