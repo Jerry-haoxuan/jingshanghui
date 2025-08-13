@@ -73,13 +73,20 @@ export async function POST(request: NextRequest) {
       const processedData = jsonData.map((row: any, index: number) => {
         // 基本信息
         const name = row['姓名'] || row['名字'] || row['Name'] || row['name'] || ''
-        const birthDate = row['出生年月日'] || row['出生日期'] || row['生日'] || row['BirthDate'] || row['birthDate'] || ''
         
-        // 联系方式
-        const phone1 = row['电话1'] || row['主要电话'] || row['电话'] || row['手机'] || row['Phone'] || row['phone'] || row['联系电话'] || ''
-        const phone2 = row['电话2'] || row['备用电话'] || row['Phone2'] || row['phone2'] || ''
-        const phone3 = row['电话3'] || row['其他电话'] || row['Phone3'] || row['phone3'] || ''
-        const email = row['邮箱'] || row['Email'] || row['email'] || row['电子邮件'] || ''
+        // 处理日期格式（Excel日期可能是序列号）
+        let birthDate = row['出生年月日'] || row['出生日期'] || row['生日'] || row['BirthDate'] || row['birthDate'] || ''
+        if (typeof birthDate === 'number' && birthDate > 0) {
+          // Excel日期序列号转换为日期
+          const excelDate = new Date((birthDate - 25569) * 86400 * 1000)
+          birthDate = excelDate.toISOString().split('T')[0] // YYYY-MM-DD格式
+        }
+        
+        // 联系方式（确保转换为字符串）
+        const phone1 = String(row['电话1'] || row['主要电话'] || row['电话'] || row['手机'] || row['Phone'] || row['phone'] || row['联系电话'] || '').trim()
+        const phone2 = String(row['电话2'] || row['备用电话'] || row['Phone2'] || row['phone2'] || '').trim()
+        const phone3 = String(row['电话3'] || row['其他电话'] || row['Phone3'] || row['phone3'] || '').trim()
+        const email = String(row['邮箱'] || row['Email'] || row['email'] || row['电子邮件'] || '').trim()
         
         // 工作信息
         const company1 = row['公司1'] || row['主要公司'] || row['公司'] || row['单位'] || row['Company'] || row['company'] || ''
@@ -112,6 +119,10 @@ export async function POST(request: NextRequest) {
         const phdYear = row['博士毕业年份'] || ''
         const emba = row['EMBA院校'] || row['EMBA'] || ''
         const embaYear = row['EMBA毕业年份'] || ''
+        const emba2 = row['EMBA院校2'] || ''
+        const embaYear2 = row['EMBA毕业年份2'] || ''
+        const emba3 = row['EMBA院校3'] || ''
+        const embaYear3 = row['EMBA毕业年份3'] || ''
         
         // 个人特征
         const hobbies = row['个人爱好'] || row['兴趣爱好'] || row['爱好'] || row['Hobbies'] || row['hobbies'] || ''
@@ -168,6 +179,22 @@ export async function POST(request: NextRequest) {
             year: embaYear.trim()
           })
         }
+        if (emba2.trim()) {
+          educations.push({
+            level: 'EMBA',
+            school: emba2.trim(),
+            major: '',
+            year: embaYear2.trim()
+          })
+        }
+        if (emba3.trim()) {
+          educations.push({
+            level: 'EMBA',
+            school: emba3.trim(),
+            major: '',
+            year: embaYear3.trim()
+          })
+        }
         
         return {
           id: `temp_${index}`, // 临时ID
@@ -177,6 +204,7 @@ export async function POST(request: NextRequest) {
           phone: phones[0] || '', // 主要电话
           email: String(email).trim(),
           companies: companies,
+          allCompanies: companies, // 确保设置allCompanies字段
           company: companies[0]?.company || '', // 主要公司
           position: companies[0]?.position || '', // 主要职位
           industry: String(industry).trim(),
@@ -193,7 +221,7 @@ export async function POST(request: NextRequest) {
           additionalInfo: String(additionalInfo).trim(),
           // 保留旧字段以兼容现有数据
           products: '', // 已删除，但保留以兼容
-          isValid: !!name && !!companies.length && !!phones.length && !!email // 验证必填字段
+          isValid: !!name // 只要有姓名就认为是有效数据
         }
       })
       
@@ -203,7 +231,7 @@ export async function POST(request: NextRequest) {
       if (validData.length === 0) {
         return NextResponse.json({ 
           error: '未能从Excel中提取到有效数据，请检查文件格式', 
-          hint: '请确保Excel文件包含姓名、公司、电话、邮箱等必填列' 
+          hint: '请确保Excel文件包含姓名列，且数据行不为空' 
         }, { status: 400 })
       }
       

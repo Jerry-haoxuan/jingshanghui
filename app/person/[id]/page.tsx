@@ -441,9 +441,9 @@ export default function PersonDetail() {
       {/* 主要内容 - 全屏双栏布局 */}
       <div className="flex h-[calc(100vh-80px)]">
         {/* 左侧：人物信息 */}
-        <div className="w-1/2 p-8 overflow-y-auto">
-          <Card className="h-full">
-            <CardHeader>
+        <div className="w-1/2 p-8 bg-gray-50">
+          <Card className="h-full flex flex-col overflow-hidden shadow-lg">
+            <CardHeader className="pb-4 flex-shrink-0">
               <div className="flex items-center space-x-4">
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
                   {deterministicAliasName(person.name).charAt(0)}
@@ -456,139 +456,116 @@ export default function PersonDetail() {
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Briefcase className="h-4 w-4" />
-                    {person.position} @ {person.company}
+                    {person?.allCompanies && person.allCompanies.length > 0 ? (
+                      <div className="space-y-1">
+                        {person.allCompanies.map((comp: {position: string, company: string}, index: number) => (
+                          <div key={index}>
+                            {comp.position} @ {comp.company}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span>{person.position} @ {person.company}</span>
+                    )}
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-6">
-              {/* 基本信息 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    基本信息
-                  </h3>
-                  
-                  {/* 任职信息 */}
+            <CardContent className="space-y-6 px-8 pb-8 overflow-y-auto flex-1">
+              {/* 任职信息 */}
+              {(person?.allCompanies && person.allCompanies.length > 0) || person?.position || person?.company ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-base font-semibold text-gray-800">任职信息</h3>
+                  </div>
                   {person?.allCompanies && person.allCompanies.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Briefcase className="h-4 w-4 text-gray-500" />
-                        <p className="text-sm font-medium text-gray-700">任职信息</p>
-                      </div>
+                    <div className="space-y-2 ml-7">
                       {person.allCompanies.map((comp: {position: string, company: string}, index: number) => (
-                        <div key={index} className="ml-6">
-                          <p className="text-sm">{comp.position} @ {comp.company}</p>
+                        <div key={index}>
+                          <p className="text-sm font-medium text-gray-900">{comp.position}</p>
+                          <p className="text-sm text-gray-600">{comp.company}</p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex items-start gap-3">
-                      <Briefcase className="h-4 w-4 text-gray-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500">职位</p>
-                        <p className="text-sm">{person.position} @ {person.company}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 教育背景 */}
-                  {person?.educations && person.educations.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <GraduationCap className="h-4 w-4 text-gray-500" />
-                        <p className="text-sm font-medium text-gray-700">教育背景</p>
-                      </div>
-                      {person.educations.map((edu: {level: string, school: string, major?: string, year?: string}, index: number) => (
-                        <div key={index} className="ml-6">
-                          <p className="text-sm">
-                            <span className="font-medium">{edu.level}</span> - {edu.school}
-                            {edu.major && <span className="text-gray-600"> ({edu.major})</span>}
-                            {edu.year && <span className="text-gray-500"> {edu.year}</span>}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* 行业 */}
-                  {person.industry && (
-                    <div className="flex items-start gap-3">
-                      <Building2 className="h-4 w-4 text-gray-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500">行业</p>
-                        <p className="text-sm">{person.industry}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 现居地 */}
-                  {person.currentCity && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500">现居地</p>
-                        <p className="text-sm">{person.currentCity}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 家乡 */}
-                  {person.hometown && person.hometown !== person.currentCity && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500">家乡</p>
-                        <p className="text-sm">{person.hometown}</p>
-                      </div>
+                    <div className="ml-7">
+                      <p className="text-sm font-medium text-gray-900">{person.position}</p>
+                      <p className="text-sm text-gray-600">{person.company}</p>
                     </div>
                   )}
                 </div>
+              ) : null}
 
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">联系方式</h3>
-                  
-                  {person?.phones && person.phones.length > 0 ? (
-                    person.phones.map((phone: string, index: number) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <Phone className="h-4 w-4 text-gray-500 mt-0.5" />
-                        <div>
-                          <p className="text-sm text-gray-500">电话 {index + 1}</p>
-                          {isMember() ? (
-                            <Button variant="link" className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowContactDialog(true)}>
-                              <Eye className="h-3 w-3 mr-1" />
-                              查看联系方式
-                            </Button>
-                          ) : (
-                            <p className="text-sm">{phone}</p>
-                          )}
-                        </div>
+              {/* 教育背景 */}
+              {person?.educations && person.educations.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-base font-semibold text-gray-800">教育背景</h3>
+                  </div>
+                  <div className="space-y-2 ml-7">
+                    {person.educations.map((edu: {level: string, school: string, major?: string, year?: string}, index: number) => (
+                      <div key={index}>
+                        <p className="text-sm font-medium text-gray-900">
+                          <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs mr-2">{edu.level}</span>
+                          {edu.school}
+                        </p>
+                        {edu.major && <p className="text-sm text-gray-600 mt-1">专业：{edu.major}</p>}
+                        {edu.year && <p className="text-sm text-gray-500 mt-1">毕业年份：{edu.year}</p>}
                       </div>
-                    ))
-                  ) : person?.phone && (
-                    <div className="flex items-start gap-3">
-                      <Phone className="h-4 w-4 text-gray-500 mt-0.5" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 联系方式 */}
+              {(person?.phones && person.phones.length > 0) || person?.phone || person?.email ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-base font-semibold text-gray-800">联系方式</h3>
+                  </div>
+                  
+                  <div className="space-y-3 ml-7">
+                    {/* 电话信息 */}
+                    {person?.phones && person.phones.length > 0 ? (
+                      <div className="space-y-2">
+                        {person.phones.map((phone: string, index: number) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-500">电话 {index + 1} {index === 0 && person.phones && person.phones.length > 1 && '(主)'}</p>
+                              {isMember() ? (
+                                <Button variant="link" className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowContactDialog(true)}>
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  查看联系方式
+                                </Button>
+                              ) : (
+                                <p className="text-sm font-medium text-gray-900">{phone}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : person?.phone && (
                       <div>
-                        <p className="text-sm text-gray-500">电话</p>
+                        <p className="text-xs text-gray-500">电话</p>
                         {isMember() ? (
                           <Button variant="link" className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowContactDialog(true)}>
                             <Eye className="h-3 w-3 mr-1" />
                             查看联系方式
                           </Button>
                         ) : (
-                          <p className="text-sm">{person.phone}</p>
+                          <p className="text-sm font-medium text-gray-900">{person.phone}</p>
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {person.email && (
-                    <div className="flex items-start gap-3">
-                      <Mail className="h-4 w-4 text-gray-500 mt-0.5" />
+                    {/* 邮箱信息 */}
+                    {person.email && (
                       <div>
-                        <p className="text-sm text-gray-500">邮箱</p>
+                        <p className="text-xs text-gray-500">邮箱</p>
                         {isMember() ? (
                           <Button
                             variant="link"
@@ -599,135 +576,180 @@ export default function PersonDetail() {
                             查看联系方式
                           </Button>
                         ) : (
-                          <p className="text-sm">{person.email}</p>
+                          <p className="text-sm font-medium text-gray-900">{person.email}</p>
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
-              {/* 其他个人信息 */}
-              <div className="space-y-4">
-                {/* 出生日期 */}
-                {person.birthDate && (
-                  <div className="flex items-start gap-3">
-                    <Calendar className="h-4 w-4 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500">出生日期</p>
-                      <p className="text-sm">{person.birthDate}</p>
-                    </div>
+              {/* 基本信息 */}
+              {(person.industry || person.currentCity || person.hometown) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-base font-semibold text-gray-800">基本信息</h3>
                   </div>
-                )}
+                  <div className="space-y-2 ml-7">
+                    {/* 行业 */}
+                    {person.industry && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">行业</p>
+                        <p className="text-sm font-medium text-gray-900">{person.industry}</p>
+                      </div>
+                    )}
 
-                {/* 党派 */}
-                {person.politicalParty && (
-                  <div className="flex items-start gap-3">
-                    <Shield className="h-4 w-4 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500">党派</p>
-                      <p className="text-sm">{person.politicalParty}</p>
-                    </div>
+                    {/* 现居地 */}
+                    {person.currentCity && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">现居地</p>
+                        <p className="text-sm font-medium text-gray-900">{person.currentCity}</p>
+                      </div>
+                    )}
+
+                    {/* 家乡 */}
+                    {person.hometown && person.hometown !== person.currentCity && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">家乡</p>
+                        <p className="text-sm font-medium text-gray-900">{person.hometown}</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* 社会组织身份 */}
-                {person.socialOrganizations && person.socialOrganizations.length > 0 && person.socialOrganizations.some(org => org.trim()) && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <p className="text-sm font-medium text-gray-700">社会组织身份</p>
-                    </div>
-                    <div className="ml-6 space-y-1">
-                      {person.socialOrganizations.filter(org => org.trim()).map((org, index) => (
-                        <p key={index} className="text-sm">{org}</p>
-                      ))}
-                    </div>
+              {/* 社会组织身份 */}
+              {(person.birthDate || person.politicalParty || (person.socialOrganizations && person.socialOrganizations.length > 0)) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-base font-semibold text-gray-800">社会组织身份</h3>
                   </div>
-                )}
+                  
+                  <div className="space-y-3 ml-7">
+                    {/* 出生日期 */}
+                    {person.birthDate && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">出生日期</p>
+                        <p className="text-sm font-medium text-gray-900">{person.birthDate}</p>
+                      </div>
+                    )}
 
-                {/* 个人爱好 */}
-                {person.hobbies && (
-                  <div className="flex items-start gap-3">
-                    <span className="h-4 w-4 text-gray-500 mt-0.5">🎯</span>
-                    <div>
-                      <p className="text-sm text-gray-500">个人爱好</p>
-                      <p className="text-sm">{person.hobbies}</p>
-                    </div>
+                    {/* 党派 */}
+                    {person.politicalParty && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">党派</p>
+                        <p className="text-sm font-medium text-gray-900">{person.politicalParty}</p>
+                      </div>
+                    )}
+
+                    {/* 社会组织身份 */}
+                    {person.socialOrganizations && person.socialOrganizations.length > 0 && person.socialOrganizations.some(org => org.trim()) && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500">社会组织身份</p>
+                        <div className="space-y-1">
+                          {person.socialOrganizations.filter(org => org.trim()).map((org, index) => (
+                            <p key={index} className="text-sm font-medium text-gray-900">{org}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* 擅长能力 */}
-                {person.skills && (
-                  <div className="flex items-start gap-3">
-                    <span className="h-4 w-4 text-gray-500 mt-0.5">💡</span>
-                    <div>
-                      <p className="text-sm text-gray-500">擅长能力</p>
-                      <p className="text-sm">{person.skills}</p>
-                    </div>
+              {/* 个人爱好 */}
+              {(person.hobbies || person.skills || person.expectations) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🎯</span>
+                    <h3 className="text-base font-semibold text-gray-800">个人爱好与能力</h3>
                   </div>
-                )}
+                  
+                  <div className="space-y-3 ml-7">
+                    {/* 个人爱好 */}
+                    {person.hobbies && (
+                      <div>
+                        <p className="text-xs text-gray-500">个人爱好</p>
+                        <p className="text-sm font-medium text-gray-900">{person.hobbies}</p>
+                      </div>
+                    )}
 
-                {/* 期望从精尚慧获得什么 */}
-                {person.expectations && (
-                  <div className="flex items-start gap-3">
-                    <span className="h-4 w-4 text-gray-500 mt-0.5">🎁</span>
-                    <div>
-                      <p className="text-sm text-gray-500">期望从精尚慧获得</p>
-                      <p className="text-sm">{person.expectations}</p>
-                    </div>
+                    {/* 擅长能力 */}
+                    {person.skills && (
+                      <div>
+                        <p className="text-xs text-gray-500">擅长能力</p>
+                        <p className="text-sm font-medium text-gray-900">{person.skills}</p>
+                      </div>
+                    )}
+
+                    {/* 期望从精尚慧获得什么 */}
+                    {person.expectations && (
+                      <div>
+                        <p className="text-xs text-gray-500">期望获得</p>
+                        <p className="text-sm font-medium text-gray-900">{person.expectations}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* 产品/服务 */}
-              {person.products && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">产品/服务</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{person.products}</p>
                 </div>
               )}
 
               {/* 工作经历 */}
               {person.workHistory && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">工作经历</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{person.workHistory}</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">💼</span>
+                    <h3 className="text-base font-semibold text-gray-800">工作经历</h3>
+                  </div>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed ml-7">{person.workHistory}</p>
                 </div>
               )}
 
-              {/* 其他信息 */}
-              {person.additionalInfo && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">其他信息</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{person.additionalInfo}</p>
-                </div>
-              )}
+              {/* 标签和其他信息 */}
+              {(person.additionalInfo || (person.tags && person.tags.length > 0)) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📝</span>
+                    <h3 className="text-base font-semibold text-gray-800">标签与备注</h3>
+                  </div>
+                  
+                  <div className="space-y-4 ml-7">
+                    {/* 其他信息 */}
+                    {person.additionalInfo && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2">其他信息</p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{person.additionalInfo}</p>
+                      </div>
+                    )}
 
-              {/* 标签 */}
-              {person.tags && person.tags.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">标签</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {person.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                    {/* 标签 */}
+                    {person.tags && person.tags.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-3">个人标签</p>
+                        <div className="flex flex-wrap gap-2">
+                          {person.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                            )}
+              )}
  
             </CardContent>
           </Card>
         </div>
 
         {/* 右侧：关系图 */}
-        <div className="w-1/2 bg-white border-l border-gray-200 p-8">
-          <div className="h-full">
+        <div className="w-1/2 bg-gray-50 border-l border-gray-200 p-8">
+          <div className="h-full bg-white rounded-lg p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold">关系网络</h3>
               <Button

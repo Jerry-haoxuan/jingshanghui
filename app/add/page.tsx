@@ -23,6 +23,9 @@ interface BatchData {
   name: string
   company: string
   position: string
+  companies: Array<{company: string, position: string}>
+  allCompanies: Array<{company: string, position: string}>
+  phones: string[]
   phone: string
   email: string
   school: string
@@ -32,6 +35,12 @@ interface BatchData {
   products: string // 保留以兼容现有数据结构
   workHistory: string
   additionalInfo: string
+  politicalParty: string
+  socialOrganizations: string[]
+  educations: Array<{level: string, school: string, major: string, year: string}>
+  hobbies: string
+  skills: string
+  expectations: string
   isValid: boolean
 }
 
@@ -863,7 +872,54 @@ export default function AddPerson() {
               </TabsContent>
 
               {/* 上传模式 */}
-              <TabsContent value="upload" className="space-y-6">
+              <TabsContent value="upload" className="space-y-6 relative">
+                {/* Excel解析Loading覆盖层 */}
+                {loading && (
+                  <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                    <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4">
+                      <div className="text-center space-y-6">
+                        {/* 动画图标 */}
+                        <div className="relative">
+                          <div className="w-20 h-20 mx-auto bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <FileText className="h-10 w-10 text-white" />
+                          </div>
+                          {/* 旋转圆环 */}
+                          <div className="absolute inset-0 w-20 h-20 mx-auto">
+                            <div className="w-full h-full border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                          </div>
+                          {/* 脉冲效果 */}
+                          <div className="absolute inset-0 w-20 h-20 mx-auto">
+                            <div className="w-full h-full bg-blue-400 rounded-full opacity-30 animate-ping"></div>
+                          </div>
+                        </div>
+                        
+                        {/* 文字描述 */}
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold text-gray-900">慧慧AI解析中</h3>
+                          <p className="text-sm text-gray-600">正在智能解析您的Excel文件...</p>
+                        </div>
+                        
+                        {/* 进度指示器 */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>正在处理</span>
+                            <span>请稍候</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                          </div>
+                        </div>
+                        
+                        {/* 提示信息 */}
+                        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                          <Sparkles className="h-3 w-3" />
+                          <span>AI正在分析多个公司和职位信息</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <p className="text-sm text-blue-800">
                     <Sparkles className="inline h-4 w-4 mr-1" />

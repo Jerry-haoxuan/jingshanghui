@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, Messa
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData } from '@/lib/dataStore'
+import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, resetToDefaultData, clearAllData, hasStoredData } from '@/lib/dataStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole } from '@/lib/userRole'
 
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [people, setPeople] = useState<PersonData[]>([])
   const [companies, setCompanies] = useState<CompanyData[]>([])
   const [isClient, setIsClient] = useState(false)
+  const [showDataPanel, setShowDataPanel] = useState(false)
 
   // 确保客户端渲染的标志
   useEffect(() => {
@@ -73,6 +74,40 @@ export default function Dashboard() {
     company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     company.industry.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // 数据管理功能
+  const handleResetData = () => {
+    if (confirm('确定要重置为默认数据吗？这将清除您添加的所有数据！')) {
+      resetToDefaultData()
+      // 重新加载数据
+      setPeople(getPeople())
+      setCompanies(getCompanies())
+      alert('数据已重置为默认数据')
+    }
+  }
+
+  const handleClearData = () => {
+    if (confirm('确定要清除所有数据吗？这将删除包括默认数据在内的所有内容！')) {
+      clearAllData()
+      // 重新加载数据
+      setPeople(getPeople())
+      setCompanies(getCompanies())
+      alert('所有数据已清除')
+    }
+  }
+
+  const checkDataStatus = () => {
+    const hasData = hasStoredData()
+    const peopleCount = people.length
+    const companiesCount = companies.length
+    
+    alert(`数据状态：
+• 是否有存储的数据：${hasData ? '是' : '否'}
+• 当前人物数量：${peopleCount}
+• 当前企业数量：${companiesCount}
+• localStorage 人物数据：${localStorage.getItem('ecosystem_people') ? '存在' : '不存在'}
+• localStorage 企业数据：${localStorage.getItem('ecosystem_companies') ? '存在' : '不存在'}`)
+  }
 
   // 获取关注列表
   const followedPeople = people.filter(p => p.isFollowed)
@@ -219,8 +254,51 @@ export default function Dashboard() {
                   className="pl-10 pr-4 py-2 w-80"
                 />
               </div>
+              <Button
+                onClick={() => setShowDataPanel(!showDataPanel)}
+                variant="outline"
+                className="px-4 py-2"
+              >
+                数据管理
+              </Button>
             </div>
           </div>
+
+          {/* 数据管理面板 */}
+          {showDataPanel && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h3 className="font-semibold text-lg mb-3">🛠️ 数据管理面板</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button
+                  onClick={checkDataStatus}
+                  variant="outline"
+                  className="flex items-center justify-center"
+                >
+                  📊 检查数据状态
+                </Button>
+                <Button
+                  onClick={handleResetData}
+                  variant="outline"
+                  className="flex items-center justify-center text-orange-600 border-orange-300 hover:bg-orange-50"
+                >
+                  🔄 重置为默认数据
+                </Button>
+                <Button
+                  onClick={handleClearData}
+                  variant="outline"
+                  className="flex items-center justify-center text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  🗑️ 清除所有数据
+                </Button>
+              </div>
+              <div className="mt-3 text-sm text-gray-600">
+                💡 <strong>数据持久化说明：</strong>所有数据保存在浏览器的localStorage中。刷新页面后数据应该保持不变。如果您的数据丢失，可能是因为：
+                <br />• 浏览器隐私模式或清除了存储数据
+                <br />• 之前版本的数据完整性检查被触发（已修复）
+                <br />• 使用了不同的浏览器或设备
+              </div>
+            </div>
+          )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-6">
