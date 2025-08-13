@@ -40,7 +40,7 @@ export default function DataInputChoice() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm text-gray-600">
-                <li>• 基本信息（姓名、电话、邮箱）</li>
+                <li>• 基本信息（姓名、电话、邮箱 可选）</li>
                 <li>• 工作信息（公司、职位、行业）</li>
                 <li>• 教育背景（学校、专业）</li>
                 <li>• 地域信息（现居地、家乡）</li>

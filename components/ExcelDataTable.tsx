@@ -61,7 +61,7 @@ export function ExcelDataTable({ data: initialData, onSave, onCancel }: ExcelDat
     // 验证必填字段
     const hasCompany = !!editingData.company || (editingData.companies && editingData.companies.length > 0)
     const hasPhone = !!editingData.phone || (editingData.phones && editingData.phones.length > 0)
-    const isValid = !!editingData.name && hasCompany && hasPhone && !!editingData.email
+    const isValid = !!editingData.name && hasCompany && hasPhone
     
     setData(data.map(item => 
       item.id === editingData.id 
@@ -154,7 +154,7 @@ export function ExcelDataTable({ data: initialData, onSave, onCancel }: ExcelDat
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">职位详情</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">行业</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">电话 *</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">邮箱 *</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">邮箱</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">现居地</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">学校</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">社会组织</th>

@@ -245,8 +245,8 @@ export default function AddPerson() {
 
   const handleSubmit = async () => {
     // 验证必填字段
-    if (!formData.name || companyPositions[0].company === '' || formData.phones[0] === '' || !formData.email) {
-      alert('请填写所有必填字段（姓名、公司、电话、邮箱）')
+    if (!formData.name || companyPositions[0].company === '' || formData.phones[0] === '') {
+      alert('请填写所有必填字段（姓名、公司、电话）')
       return
     }
     
@@ -687,15 +687,14 @@ export default function AddPerson() {
                     ))}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">邮箱 *</Label>
+                    <Label htmlFor="email">邮箱</Label>
                     <Input
                       id="email"
                       name="email"
                       type="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      placeholder="请输入邮箱地址"
-                      required
+                      placeholder="可选"
                     />
                   </div>
                 </div>
@@ -854,7 +853,7 @@ export default function AddPerson() {
 
                 <Button 
                   onClick={handleSubmit}
-                  disabled={loading || !formData.name || companyPositions[0].company === '' || formData.phones[0] === '' || !formData.email}
+                  disabled={loading || !formData.name || companyPositions[0].company === '' || formData.phones[0] === ''}
                   className="w-full"
                 >
                   {loading ? (

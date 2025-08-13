@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         '个人爱好', '擅长能力', '期望获得', '工作履历', '备注'
       ],
       [
-        '必填', '可选(YYYY-MM-DD)', '必填', '可选', '可选', '必填',
+        '必填', '可选(YYYY-MM-DD)', '必填', '可选', '可选', '可选',
         '必填', '可选', '可选', '可选', '可选', '可选', '可选',
         '可选', '可选', '可选', '可选',
         '可选', '可选',
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const helpData = [
       ['精尚慧个人信息导入模板使用说明'],
       [''],
-      ['1. 必填字段：姓名、电话1、邮箱、公司1'],
+      ['1. 必填字段：姓名、电话1、公司1'],
       ['2. 党派选择：请参考"党派选项"工作表'],
       ['3. 日期格式：YYYY-MM-DD（如：1990-01-15）'],
       ['4. 多个爱好用逗号分隔（如：摄影,旅行,阅读）'],
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename="精尚慧个人信息模板.xlsx"',
+        'Content-Disposition': 'attachment; filename="person-template.xlsx"',
         'Cache-Control': 'no-cache'
       }
     })
