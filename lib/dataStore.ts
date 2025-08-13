@@ -325,19 +325,34 @@ const getDefaultPeople = (): PersonData[] => [
   {
     id: '4',
     name: '徐翔',
-    company: '精尚慧科技',
-    position: '创始人',
-    tags: ['创业者', '清华校友', '管理咨询'],
-    location: '北京',
-    currentCity: '北京市',
-    industry: '管理咨询',
+    company: '苏州永鑫方舟股权投资管理合伙企业（有限合伙）',
+    position: '合伙人',
+    allCompanies: [
+      { company: '苏州永鑫方舟股权投资管理合伙企业（有限合伙）', position: '合伙人' },
+      { company: '苏州福润科技有限公司', position: '法定代表人' }
+    ],
+    phones: ['18951108822'],
+    phone: '18951108822',
+    email: 'xuxiang@jsh-china.com',
+    politicalParty: '',
+    socialOrganizations: ['苏州市小红帽义工协会会长', '西交利物浦大学商学院特聘教授'],
+    hobbies: '跑步，阅读',
+    skills: '投资，链接供应链上下游资源',
+    expectations: '',
+    educations: [
+      { level: '本科', school: '同济大学' },
+      { level: 'EMBA', school: '清华大学' },
+      { level: 'EMBA', school: '上海交通大学' }
+    ],
+    school: '同济大学',
+    tags: ['投资', '供应链', '同济校友', '私募股权'],
+    location: '苏州',
+    currentCity: '苏州',
+    hometown: '苏州',
+    industry: '投资/一级市场私募股权投资',
     isFollowed: false,
-    phone: '13600136000',
-    email: 'xuxiang@jinshang.com',
-    school: '清华大学',
-    hometown: '上海市',
-    products: '智能人脉管理平台',
-    additionalInfo: '精尚慧创始人，专注于人脉网络分析'
+    workHistory: '德尔福电子采购总监；莱克电气海外营业总经理',
+    additionalInfo: ''
   }
 ]
 
