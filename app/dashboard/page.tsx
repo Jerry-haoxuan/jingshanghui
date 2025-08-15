@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -116,6 +116,133 @@ export default function Dashboard() {
     }
   }
 
+  // 导出人物为Excel（与导入模板字段一致）
+  const handleExportPeople = async () => {
+    if (!isManager()) return
+    const XLSX = await import('xlsx')
+
+    const header = [
+      '姓名', '出生年月日', '电话1', '电话2', '电话3', '邮箱',
+      '公司1', '职位1', '公司2', '职位2', '公司3', '职位3', '行业',
+      '党派', '社会组织1', '社会组织2', '社会组织3',
+      '现居地', '家乡',
+      '本科院校', '本科专业', '本科毕业年份',
+      '硕士院校', '硕士专业', '硕士毕业年份',
+      '博士院校', '博士专业', '博士毕业年份',
+      'EMBA院校', 'EMBA毕业年份',
+      'EMBA院校2', 'EMBA毕业年份2',
+      'EMBA院校3', 'EMBA毕业年份3',
+      '个人爱好', '擅长能力', '期望获得', '工作履历', '备注'
+    ]
+
+    const rows = people.map(p => {
+      const phoneList = Array.isArray(p.phones) ? p.phones : []
+      const primaryPhone = p.phone || phoneList[0] || ''
+      const phone2 = phoneList[1] || ''
+      const phone3 = phoneList[2] || ''
+
+      const company1 = p.company || ''
+      const position1 = p.position || ''
+      const extraCompanies = Array.isArray(p.allCompanies) ? p.allCompanies.filter(ec => ec && (ec.company || ec.position)) : []
+      const company2 = extraCompanies[0]?.company || ''
+      const position2 = extraCompanies[0]?.position || ''
+      const company3 = extraCompanies[1]?.company || ''
+      const position3 = extraCompanies[1]?.position || ''
+
+      const socialList = Array.isArray(p.socialOrganizations) ? p.socialOrganizations : []
+      const social1 = socialList[0] || ''
+      const social2 = socialList[1] || ''
+      const social3 = socialList[2] || ''
+
+      const educations = Array.isArray(p.educations) ? p.educations : []
+      const findEdu = (level: string) => educations.filter(e => e.level === level)
+      const undergrad = findEdu('本科')[0]
+      const master = findEdu('硕士')[0]
+      const doctor = findEdu('博士')[0]
+      const embas = findEdu('EMBA')
+      const emba1 = embas[0]
+      const emba2 = embas[1]
+      const emba3 = embas[2]
+
+      return [
+        p.name || '', p.birthDate || '', primaryPhone, phone2, phone3, p.email || '',
+        company1, position1, company2, position2, company3, position3, p.industry || '',
+        p.politicalParty || '', social1, social2, social3,
+        p.currentCity || '', p.hometown || '',
+        undergrad?.school || '', undergrad?.major || '', undergrad?.year || '',
+        master?.school || '', master?.major || '', master?.year || '',
+        doctor?.school || '', doctor?.major || '', doctor?.year || '',
+        emba1?.school || '', emba1?.year || '',
+        emba2?.school || '', emba2?.year || '',
+        emba3?.school || '', emba3?.year || '',
+        p.hobbies || '', p.skills || '', p.expectations || '', p.workHistory || '', p.additionalInfo || ''
+      ]
+    })
+
+    const aoa = [header, ...rows]
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    ws['!cols'] = header.map(() => ({ wch: 15 }))
+    XLSX.utils.book_append_sheet(wb, ws, '人物数据')
+
+    const fileName = `people-export-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`
+    XLSX.writeFile(wb, fileName)
+  }
+
+  // 导出企业为Excel（多工作表：企业信息/上游供应商明细/下游客户明细）
+  const handleExportCompanies = async () => {
+    if (!isManager()) return
+    const XLSX = await import('xlsx')
+
+    const mainHeader = [
+      '企业名称', '所属行业', '企业规模', '企业定位', '企业价值', '关键成就', '企业诉求', '上游供应商(名称列表)', '下游客户(名称列表)', '其他补充信息'
+    ]
+    const mainRows = companies.map(c => [
+      c.name || '', c.industry || '', c.scale || '', c.positioning || '', c.value || '', c.achievements || '', c.demands || '',
+      (Array.isArray(c.suppliers) ? c.suppliers.join('、') : ''),
+      (Array.isArray(c.customers) ? c.customers.join('、') : ''),
+      c.additionalInfo || ''
+    ])
+
+    const wb = XLSX.utils.book_new()
+    const wsMain = XLSX.utils.aoa_to_sheet([mainHeader, ...mainRows])
+    wsMain['!cols'] = mainHeader.map(() => ({ wch: 20 }))
+    XLSX.utils.book_append_sheet(wb, wsMain, '企业信息')
+
+    const supplierHeader = ['企业名称', '原材料名称', '原材料类别', '供应商名称']
+    const supplierRows: any[] = []
+    companies.forEach(c => {
+      const infos = Array.isArray(c.supplierInfos) ? c.supplierInfos : []
+      if (infos.length === 0) {
+        const names = Array.isArray(c.suppliers) ? c.suppliers : []
+        names.forEach(n => supplierRows.push([c.name || '', '', '', n]))
+      } else {
+        infos.forEach(info => supplierRows.push([c.name || '', info.materialName || '', info.materialCategory || '', info.supplierName || '']))
+      }
+    })
+    const wsSup = XLSX.utils.aoa_to_sheet([supplierHeader, ...supplierRows])
+    wsSup['!cols'] = supplierHeader.map(() => ({ wch: 20 }))
+    XLSX.utils.book_append_sheet(wb, wsSup, '上游供应商明细')
+
+    const customerHeader = ['企业名称', '产品名称', '产品类别', '客户名称']
+    const customerRows: any[] = []
+    companies.forEach(c => {
+      const infos = Array.isArray(c.customerInfos) ? c.customerInfos : []
+      if (infos.length === 0) {
+        const names = Array.isArray(c.customers) ? c.customers : []
+        names.forEach(n => customerRows.push([c.name || '', '', '', n]))
+      } else {
+        infos.forEach(info => customerRows.push([c.name || '', info.productName || '', info.productCategory || '', info.customerName || '']))
+      }
+    })
+    const wsCus = XLSX.utils.aoa_to_sheet([customerHeader, ...customerRows])
+    wsCus['!cols'] = customerHeader.map(() => ({ wch: 20 }))
+    XLSX.utils.book_append_sheet(wb, wsCus, '下游客户明细')
+
+    const fileName = `companies-export-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`
+    XLSX.writeFile(wb, fileName)
+  }
+
   // 在渲染前确保客户端已准备好
   if (!isClient) {
     return (
@@ -225,6 +352,16 @@ export default function Dashboard() {
                   className="pl-10 pr-4 py-2 w-80"
                 />
               </div>
+              {isManager() && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={handleExportPeople}>
+                    <Download className="h-4 w-4 mr-1" /> 导出人物
+                  </Button>
+                  <Button variant="outline" onClick={handleExportCompanies}>
+                    <Download className="h-4 w-4 mr-1" /> 导出企业
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -41,6 +41,10 @@ export interface CompanyData {
   achievements?: string // 关键成就（证明实力）
   suppliers?: string[] // 上游供应商
   customers?: string[] // 下游客户
+  // 下述字段来自企业录入页面的新表单项，用于更完整的导出
+  demands?: string // 企业诉求
+  supplierInfos?: { materialName: string; materialCategory: string; supplierName: string }[] // 供应商明细
+  customerInfos?: { productName: string; productCategory: string; customerName: string }[] // 客户明细
 }
 
 const PEOPLE_KEY = 'ecosystem_people'
