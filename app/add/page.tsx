@@ -7,15 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText, ArrowLeft, Save, Loader2, Sparkles, Brain, Download, Plus, X } from 'lucide-react'
+import { Upload, ArrowLeft, Save, Loader2, Plus, X } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { DEEPSEEK_CONFIG } from '@/lib/config'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
-import { ExcelDataTable } from '@/components/ExcelDataTable'
-import { addPerson } from '@/lib/dataStore'
+import { addPerson, getCompanies, saveCompanies, addCompany } from '@/lib/dataStore'
 import { updateRelationshipNetwork } from '@/lib/relationshipManager'
 
 interface BatchData {
@@ -56,6 +55,19 @@ interface Education {
   year?: string
 }
 
+// 供应链信息结构（从企业录入页迁移）
+interface SupplierInfo {
+  materialName: string
+  materialCategory: string
+  supplierName: string
+}
+
+interface CustomerInfo {
+  productName: string
+  productCategory: string
+  customerName: string
+}
+
 // 党派选项
 const politicalParties = [
   '中国共产党',
@@ -89,7 +101,16 @@ export default function AddPerson() {
     skills: '', // 新增：擅长能力
     expectations: '', // 新增：想从精尚慧获得什么
     workHistory: '',
-    additionalInfo: ''
+    additionalInfo: '',
+    // 以下为企业信息字段（融合进个人录入下的公司信息）
+    companyIndustry: '',
+    companyScale: '',
+    companyPositioning: '',
+    companyValue: '',
+    companyAchievements: '',
+    companyDemands: '',
+    companySuppliers: '', // 使用“、/，/,”或换行分隔
+    companyCustomers: '' // 使用“、/，/,”或换行分隔
   })
   
   // 公司职位数组（支持多个）
@@ -102,9 +123,12 @@ export default function AddPerson() {
     { level: '本科', school: '', major: '', year: '' }
   ])
   
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [showBatchData, setShowBatchData] = useState(false)
-  const [batchData, setBatchData] = useState<BatchData[]>([])
+  // 已移除上传文件功能
+  // 上下游供应链信息（可选）
+  const [supplierInfos, setSupplierInfos] = useState<SupplierInfo[]>([])
+  const [customerInfos, setCustomerInfos] = useState<CustomerInfo[]>([])
+  const [uploadingSuppliers, setUploadingSuppliers] = useState(false)
+  const [uploadingCustomers, setUploadingCustomers] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -244,9 +268,18 @@ export default function AddPerson() {
   }
 
   const handleSubmit = async () => {
-    // 验证必填字段
-    if (!formData.name || companyPositions[0].company === '' || formData.phones[0] === '') {
-      alert('请填写所有必填字段（姓名、公司、电话）')
+    // 验证必填字段（含企业信息）
+    if (
+      !formData.name ||
+      companyPositions[0].company === '' ||
+      formData.phones[0] === '' ||
+      !formData.companyIndustry ||
+      !formData.companyPositioning ||
+      !formData.companyValue ||
+      !formData.companyAchievements ||
+      !formData.companyDemands
+    ) {
+      alert('请填写所有必填字段（姓名、公司、电话、所属行业、企业定位、企业价值、关键成就、企业诉求）')
       return
     }
     
@@ -266,7 +299,7 @@ export default function AddPerson() {
         email: formData.email,
         hometown: formData.hometown,
         currentCity: formData.currentCity,
-        industry: formData.industry,
+        industry: formData.companyIndustry || formData.industry,
         politicalParty: formData.politicalParty,
         socialOrganizations: formData.socialOrganizations.filter(org => org.trim() !== ''),
         hobbies: formData.hobbies,
@@ -280,6 +313,42 @@ export default function AddPerson() {
       
       // 1. 保存人物数据到 dataStore
       const newPerson = addPerson(personData)
+
+      // 1.1 如果填写了企业信息，则创建/更新企业数据
+      try {
+        const mainCompany = companyPositions[0]?.company?.trim()
+        if (mainCompany) {
+          const companies = getCompanies()
+          const idx = companies.findIndex(c => c.name === mainCompany)
+          const suppliers = supplierInfos.map(s => s.supplierName).filter(Boolean)
+          const customers = customerInfos.map(c => c.customerName).filter(Boolean)
+          const products = (formData.companyPositioning || '').split(/[\n、,，]/).map(s => s.trim()).filter(Boolean)
+          const base = {
+            name: mainCompany,
+            industry: formData.companyIndustry || formData.industry || '待分类',
+            scale: formData.companyScale || '',
+            products,
+            positioning: formData.companyPositioning || undefined,
+            value: formData.companyValue || undefined,
+            achievements: formData.companyAchievements || undefined,
+            demands: formData.companyDemands || undefined,
+            suppliers,
+            customers,
+            additionalInfo: ''
+          }
+          if (idx >= 0) {
+            companies[idx] = {
+              ...companies[idx],
+              ...base,
+            }
+            saveCompanies(companies)
+          } else {
+            addCompany(base as any)
+          }
+        }
+      } catch (e) {
+        console.warn('同步企业信息失败（跳过，不阻塞人物保存）', e)
+      }
       
       // 2. 使用AI自动梳理关系网络
       await updateRelationshipNetwork(newPerson)
@@ -301,141 +370,15 @@ export default function AddPerson() {
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setUploadedFile(acceptedFiles[0])
+      /* 上传功能已移除，忽略文件 */
     }
   }, [])
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'], // 支持Excel
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] // 支持Excel
-    },
-    maxFiles: 1
-  })
-
-  const handleFileUpload = async () => {
-    if (!uploadedFile) return
-    
-    setLoading(true)
-    
-    // 检查是否是Excel文件
-    const fileName = uploadedFile.name.toLowerCase()
-    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
-    
-    if (isExcel) {
-      // 处理Excel文件
-      try {
-        const formData = new FormData()
-        formData.append('file', uploadedFile)
-        
-        const response = await fetch('/api/parse-excel', {
-          method: 'POST',
-          body: formData
-        })
-        
-        const result = await response.json()
-        
-        if (result.success && result.data) {
-          setBatchData(result.data)
-          setShowBatchData(true)
-          setLoading(false)
-        } else {
-          alert(result.error || '解析Excel文件失败')
-          setLoading(false)
-        }
-      } catch (error) {
-        console.error('Excel处理错误:', error)
-        alert('处理Excel文件时出错')
-        setLoading(false)
-      }
-    } else {
-      // 处理其他文件类型（PDF、Word等）
-      setAiProcessing(true)
-      
-      const fileContent = await uploadedFile.text()
-      
-      const prompt = `请从以下文件内容中提取人物信息，包括姓名、公司、职位、学校、电话、邮箱、现居地、家乡、行业、工作经历等，并以JSON格式返回：\n\n${fileContent}`
-      const aiResult = await callDeepSeekAPI(prompt)
-      
-      if (aiResult) {
-        try {
-          const extractedData = JSON.parse(aiResult)
-          setFormData(prev => ({
-            ...prev,
-            name: extractedData.name || '',
-            phones: [extractedData.phone || ''],
-            email: extractedData.email || '',
-            hometown: extractedData.hometown || '',
-            currentCity: extractedData.currentCity || '',
-            industry: extractedData.industry || '',
-            workHistory: extractedData.workHistory || '',
-            additionalInfo: ''
-          }))
-          
-          if (extractedData.company || extractedData.position) {
-            setCompanyPositions([{
-              company: extractedData.company || '',
-              position: extractedData.position || ''
-            }])
-          }
-          
-          if (extractedData.school) {
-            setEducations([{
-              level: '本科',
-              school: extractedData.school,
-              major: '',
-              year: ''
-            }])
-          }
-        } catch (e) {
-          // 设置模拟数据
-          setFormData(prev => ({
-            ...prev,
-            name: '从文件中提取的姓名',
-            phones: ['从文件中提取的电话'],
-            email: '从文件中提取的邮箱',
-            hometown: '从文件中提取的家乡',
-            currentCity: '从文件中提取的现居地',
-            industry: '从文件中提取的行业',
-            workHistory: '从文件中提取的工作经历',
-            additionalInfo: ''
-          }))
-          
-          setCompanyPositions([{
-            company: '从文件中提取的公司',
-            position: '从文件中提取的职位'
-          }])
-          
-          setEducations([{
-            level: '本科',
-            school: '从文件中提取的学校',
-            major: '',
-            year: ''
-          }])
-        }
-      }
-      
-      setAiProcessing(false)
-      setLoading(false)
-    }
-  }
-
-  // 批量保存后的处理
-  const handleBatchSave = () => {
-    setShowBatchData(false)
-    setBatchData([])
-    setUploadedFile(null)
-    router.push('/dashboard')
-  }
+  // 已移除供应商/客户Excel上传功能
 
   // 取消批量导入
   const handleBatchCancel = () => {
-    setShowBatchData(false)
-    setBatchData([])
+    /* 批量导入已移除 */
   }
 
   // AI处理中界面
@@ -446,8 +389,7 @@ export default function AddPerson() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center space-y-4">
               <div className="relative">
-                <Brain className="h-16 w-16 text-purple-500 animate-pulse" />
-                <Sparkles className="h-6 w-6 text-yellow-400 absolute -top-2 -right-2 animate-spin" />
+                <Loader2 className="h-16 w-16 text-purple-500 animate-spin" />
               </div>
               <h3 className="text-xl font-semibold">慧慧AI处理中</h3>
               <p className="text-gray-600 text-center">
@@ -463,37 +405,7 @@ export default function AddPerson() {
     )
   }
 
-  // 显示批量数据编辑表格
-  if (showBatchData && batchData.length > 0) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container max-w-full py-8 px-4">
-          <Link href="/dashboard">
-            <Button variant="ghost" className="mb-6">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              返回控制台
-            </Button>
-          </Link>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>批量导入数据预览</CardTitle>
-              <CardDescription>
-                请检查从Excel文件中提取的数据，您可以编辑或删除任何记录
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ExcelDataTable
-                data={batchData}
-                onSave={handleBatchSave}
-                onCancel={handleBatchCancel}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
+  // 批量导入视图已移除
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -515,9 +427,8 @@ export default function AddPerson() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="form" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-1">
                 <TabsTrigger value="form">手动填写</TabsTrigger>
-                <TabsTrigger value="upload">上传文件</TabsTrigger>
               </TabsList>
 
               {/* 表单模式 */}
@@ -592,18 +503,8 @@ export default function AddPerson() {
                   ))}
                 </div>
 
-                {/* 行业和党派 */}
+                {/* 党派 */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="industry">行业</Label>
-                    <AutocompleteInput
-                      id="industry"
-                      value={formData.industry}
-                      onChange={(value) => handleAutocompleteChange('industry', value)}
-                      placeholder="请选择或输入行业"
-                      suggestions={industries}
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="politicalParty">党派</Label>
                     <select
@@ -618,6 +519,180 @@ export default function AddPerson() {
                         <option key={party} value={party}>{party}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                {/* 企业信息（融合） */}
+                <div className="space-y-4">
+                  <Label>企业信息（必填）</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyIndustry">所属行业</Label>
+                      <AutocompleteInput
+                        id="companyIndustry"
+                        value={formData.companyIndustry}
+                        onChange={(value) => setFormData(prev => ({ ...prev, companyIndustry: value }))}
+                        placeholder="请选择或输入企业所属行业"
+                        suggestions={industries}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyScale">企业规模</Label>
+                      <Input
+                        id="companyScale"
+                        value={formData.companyScale}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyScale: e.target.value }))}
+                        placeholder="如：0-50人 / 50-100人 / 100-500人 等"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyPositioning">企业定位（我们是做什么的）</Label>
+                      <Textarea
+                        id="companyPositioning"
+                        value={formData.companyPositioning}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyPositioning: e.target.value }))}
+                        placeholder="简要描述企业定位，可用 '、' 分隔主要产品/服务"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyValue">企业价值（为什么选择我们）</Label>
+                      <Textarea
+                        id="companyValue"
+                        value={formData.companyValue}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyValue: e.target.value }))}
+                        placeholder="企业核心价值/差异化优势"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyAchievements">关键成就（证明实力）</Label>
+                      <Textarea
+                        id="companyAchievements"
+                        value={formData.companyAchievements}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyAchievements: e.target.value }))}
+                        placeholder="里程碑、奖项、典型客户等"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyDemands">企业诉求</Label>
+                      <Textarea
+                        id="companyDemands"
+                        value={formData.companyDemands}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyDemands: e.target.value }))}
+                        placeholder="当前最需要的资源/合作/资金等"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* 供应链关系（迁移自企业录入页） */}
+                  <div className="space-y-8">
+                    {/* 上游供应商 */}
+                    <div>
+                      <Label className="text-lg font-semibold">5. 上游供应商</Label>
+                      <div className="mt-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">直接输入供应商信息：</span>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setSupplierInfos(prev => [...prev, { materialName: '', materialCategory: '', supplierName: '' }])} className="flex items-center gap-1">
+                            <Plus className="h-4 w-4" /> 添加供应商
+                          </Button>
+                        </div>
+                        {supplierInfos.length === 0 && (
+                          <Button type="button" variant="outline" onClick={() => setSupplierInfos(prev => [...prev, { materialName: '', materialCategory: '', supplierName: '' }])} className="w-full h-20 border-dashed">
+                            <Plus className="h-6 w-6 mr-2" /> 点击添加第一个供应商
+                          </Button>
+                        )}
+                        {supplierInfos.map((supplier, index) => (
+                          <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-sm font-medium">供应商 {index + 1}</span>
+                              {supplierInfos.length > 1 && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setSupplierInfos(prev => prev.filter((_, i) => i !== index))} className="text-red-600 hover:text-red-800">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div>
+                                <Label htmlFor={`supplier-material-${index}`} className="text-xs">原材料名称</Label>
+                                <Input id={`supplier-material-${index}`} value={supplier.materialName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialName: e.target.value } : s))} placeholder="如：钢材、塑料等" className="mt-1" />
+                              </div>
+                              <div>
+                                <Label htmlFor={`supplier-category-${index}`} className="text-xs">原材料类别</Label>
+                                <Input id={`supplier-category-${index}`} value={supplier.materialCategory} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialCategory: e.target.value } : s))} placeholder="如：金属材料、化工原料等" className="mt-1" />
+                              </div>
+                              <div>
+                                <Label htmlFor={`supplier-name-${index}`} className="text-xs">供应商名称</Label>
+                                <Input id={`supplier-name-${index}`} value={supplier.supplierName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, supplierName: e.target.value } : s))} placeholder="供应商公司名称" className="mt-1" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Excel 上传 */}
+                      <div className="mt-6">
+                        <Label className="text-sm font-medium">或上传Excel文件：</Label>
+                        {/* 上传Excel入口已移除 */}
+                      </div>
+                    </div>
+
+                    {/* 下游客户 */}
+                    <div>
+                      <Label className="text-lg font-semibold">6. 下游客户</Label>
+                      <div className="mt-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">直接输入客户信息：</span>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setCustomerInfos(prev => [...prev, { productName: '', productCategory: '', customerName: '' }])} className="flex items-center gap-1">
+                            <Plus className="h-4 w-4" /> 添加客户
+                          </Button>
+                        </div>
+                        {customerInfos.length === 0 && (
+                          <Button type="button" variant="outline" onClick={() => setCustomerInfos(prev => [...prev, { productName: '', productCategory: '', customerName: '' }])} className="w-full h-20 border-dashed">
+                            <Plus className="h-6 w-6 mr-2" /> 点击添加第一个客户
+                          </Button>
+                        )}
+                        {customerInfos.map((customer, index) => (
+                          <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-sm font-medium">客户 {index + 1}</span>
+                              {customerInfos.length > 1 && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerInfos(prev => prev.filter((_, i) => i !== index))} className="text-red-600 hover:text-red-800">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div>
+                                <Label htmlFor={`customer-product-${index}`} className="text-xs">产品名称</Label>
+                                <Input id={`customer-product-${index}`} value={customer.productName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productName: e.target.value } : c))} placeholder="如：机械设备、电子产品等" className="mt-1" />
+                              </div>
+                              <div>
+                                <Label htmlFor={`customer-category-${index}`} className="text-xs">产品类别</Label>
+                                <Input id={`customer-category-${index}`} value={customer.productCategory} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productCategory: e.target.value } : c))} placeholder="如：工业设备、消费电子等" className="mt-1" />
+                              </div>
+                              <div>
+                                <Label htmlFor={`customer-name-${index}`} className="text-xs">客户名称</Label>
+                                <Input id={`customer-name-${index}`} value={customer.customerName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, customerName: e.target.value } : c))} placeholder="客户公司名称" className="mt-1" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Excel 上传 */}
+                      <div className="mt-6">
+                        <Label className="text-sm font-medium">或上传Excel文件：</Label>
+                        {/* 上传Excel入口已移除 */}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -870,8 +945,10 @@ export default function AddPerson() {
                 </Button>
               </TabsContent>
 
-              {/* 上传模式 */}
-              <TabsContent value="upload" className="space-y-6 relative">
+              {/* 上传模式（已移除） */}
+              {/**
+               * 上传模式移除
+               */}
                 {/* Excel解析Loading覆盖层 */}
                 {loading && (
                   <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -880,7 +957,7 @@ export default function AddPerson() {
                         {/* 动画图标 */}
                         <div className="relative">
                           <div className="w-20 h-20 mx-auto bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                            <FileText className="h-10 w-10 text-white" />
+                            {/* File icon removed */}
                           </div>
                           {/* 旋转圆环 */}
                           <div className="absolute inset-0 w-20 h-20 mx-auto">
@@ -911,7 +988,7 @@ export default function AddPerson() {
                         
                         {/* 提示信息 */}
                         <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                          <Sparkles className="h-3 w-3" />
+                          {/* Sparkles icon removed */}
                           <span>AI正在分析多个公司和职位信息</span>
                         </div>
                       </div>
@@ -919,79 +996,14 @@ export default function AddPerson() {
                   </div>
                 )}
                 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800">
-                    <Sparkles className="inline h-4 w-4 mr-1" />
-                    慧慧AI将智能解析您上传的文件：
-                  </p>
-                  <ul className="text-xs text-blue-700 mt-2 ml-5 list-disc">
-                    <li>Excel文件：批量导入多条数据，支持编辑确认后保存</li>
-                    <li>PDF/Word文件：提取单个人物信息</li>
-                  </ul>
-                  <div className="mt-3 pt-3 border-t border-blue-200 flex items-center justify-between">
-                    <p className="text-xs text-blue-700">
-                      Excel格式要求：必须包含姓名、公司、电话、邮箱列
-                    </p>
-                    <a
-                      href="/person-template.xlsx"
-                      download="精尚慧个人信息模板.xlsx"
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                    >
-                      <Download className="h-3 w-3" />
-                      下载模板
-                    </a>
-                  </div>
-                </div>
+                {/* 上传说明已移除 */}
 
-                <div
-                  {...getRootProps()}
-                  className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors
-                    ${isDragActive ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary'}`}
-                >
-                  <input {...getInputProps()} />
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  {uploadedFile ? (
-                    <>
-                      <p className="text-lg font-medium mb-2">已选择文件：</p>
-                      <p className="text-sm text-gray-600 flex items-center justify-center">
-                        <FileText className="mr-2 h-4 w-4" />
-                        {uploadedFile.name}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-lg font-medium mb-2">
-                        {isDragActive ? '松开以上传文件' : '拖拽文件到这里，或点击选择'}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        支持 PDF、Word、Excel 格式的文件
-                      </p>
-                    </>
-                  )}
-                </div>
+                {/* 上传容器已移除 */}
 
-                {uploadedFile && (
-                  <Button 
-                    onClick={handleFileUpload}
-                    disabled={loading}
-                    className="w-full"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        慧慧AI解析中...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="mr-2 h-4 w-4" />
-                        开始智能解析
-                      </>
-                    )}
-                  </Button>
-                )}
+                {/* 上传按钮已移除 */}
 
                 {/* 解析后的表单预览 */}
-                {formData.name && uploadedFile && !loading && (
+                {false && (
                   <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
                     <h3 className="font-medium">AI解析结果（可编辑）：</h3>
                     <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1026,7 +1038,7 @@ export default function AddPerson() {
                     </Button>
                   </div>
                 )}
-              </TabsContent>
+              {/* 上传模式结束 */}
             </Tabs>
           </CardContent>
         </Card>

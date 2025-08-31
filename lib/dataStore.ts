@@ -120,6 +120,38 @@ export const getCompanies = (): CompanyData[] => {
   }
 }
 
+// Cloud sync helpers (non-breaking): optionally load from Supabase if env is configured
+export const loadPeopleFromCloudIfAvailable = async (): Promise<PersonData[] | null> => {
+  try {
+    const { isSupabaseReady } = await import('./supabaseClient')
+    if (!isSupabaseReady) return null
+    const { listPeopleFromCloud } = await import('./cloudStore')
+    const people = await listPeopleFromCloud()
+    // also cache locally
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(PEOPLE_KEY, JSON.stringify(people))
+    }
+    return people
+  } catch (_) {
+    return null
+  }
+}
+
+export const loadCompaniesFromCloudIfAvailable = async (): Promise<CompanyData[] | null> => {
+  try {
+    const { isSupabaseReady } = await import('./supabaseClient')
+    if (!isSupabaseReady) return null
+    const { listCompaniesFromCloud } = await import('./cloudStore')
+    const companies = await listCompaniesFromCloud()
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies))
+    }
+    return companies
+  } catch (_) {
+    return null
+  }
+}
+
 // 重置为默认数据（用于调试和修复数据问题）
 export const resetToDefaultData = (): void => {
   if (typeof window === 'undefined') return
@@ -159,12 +191,33 @@ export const hasStoredData = (): boolean => {
 export const savePeople = (people: PersonData[]) => {
   if (typeof window === 'undefined') return
   localStorage.setItem(PEOPLE_KEY, JSON.stringify(people))
+  // fire-and-forget cloud upserts
+  ;(async () => {
+    try {
+      const { isSupabaseReady } = await import('./supabaseClient')
+      if (!isSupabaseReady) return
+      const { upsertPersonToCloud } = await import('./cloudStore')
+      for (const p of people) {
+        await upsertPersonToCloud(p)
+      }
+    } catch (_) {}
+  })()
 }
 
 // 保存公司数据
 export const saveCompanies = (companies: CompanyData[]) => {
   if (typeof window === 'undefined') return
   localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies))
+  ;(async () => {
+    try {
+      const { isSupabaseReady } = await import('./supabaseClient')
+      if (!isSupabaseReady) return
+      const { upsertCompanyToCloud } = await import('./cloudStore')
+      for (const c of companies) {
+        await upsertCompanyToCloud(c)
+      }
+    } catch (_) {}
+  })()
 }
 
 // 添加新人物

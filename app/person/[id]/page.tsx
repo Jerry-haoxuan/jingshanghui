@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Phone, Mail, MapPin, Building2, GraduationCap, Briefcase, User, Eye, Calendar, Shield, Users } from 'lucide-react'
 import Link from 'next/link'
-import { getPeople, getCompanies, PersonData } from '@/lib/dataStore'
+import { getPeople, getCompanies, PersonData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
 import { getPersonRelationships } from '@/lib/relationshipManager'
 import { forceAnalyzeAllRelationships } from '@/lib/relationshipManager'
@@ -229,12 +229,14 @@ export default function PersonDetail() {
     let attempts = 0
     const maxAttempts = 3
     
-    const tryLoadData = () => {
+    const tryLoadData = async () => {
       attempts++
       console.log(`第${attempts}次尝试加载数据`)
       
       try {
-        const people = getPeople()
+        // 优先云端
+        const cloudPeople = await loadPeopleFromCloudIfAvailable()
+        const people = (cloudPeople && cloudPeople.length > 0) ? cloudPeople : getPeople()
         console.log('加载的人物数据:', people.length, '个人物')
         console.log('人物数据详情:', people.map(p => ({ id: p.id, name: p.name })))
         
@@ -262,6 +264,8 @@ export default function PersonDetail() {
           setError('')
           
           // 检查是否存在关系数据
+          // 确保公司列表也尝试云端
+          await loadCompaniesFromCloudIfAvailable().catch(() => {})
           const relationships = getPersonRelationships(foundPerson.id)
           if (relationships.length === 0) {
             console.log('未找到关系数据，建议点击"分析关系"按钮')

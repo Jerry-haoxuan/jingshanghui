@@ -21,6 +21,11 @@ const CHARACTER_NAMES = [
   '山神', '千里眼', '顺风耳', '四大天王', '赤脚大仙', '南极仙翁', '福禄寿三星', '八仙', '嫦娥仙子'
 ]
 
+// 指定人物的别名覆盖（优先级最高）
+const ALIAS_OVERRIDES: Record<string, string> = {
+  '徐翔': '如来佛祖',
+}
+
 // 简单的字符串哈希函数
 function hashString(str: string): number {
   let hash = 5381
@@ -55,6 +60,10 @@ export function deterministicAliasName(realName: string): string {
   if (!shouldAliasName()) {
     return realName
   }
+  // 覆盖优先
+  if (ALIAS_OVERRIDES[realName]) {
+    return ALIAS_OVERRIDES[realName]
+  }
   
   // 基于名字生成稳定的索引
   const hash = hashString(realName)
@@ -66,6 +75,10 @@ export function deterministicAliasName(realName: string): string {
 
 // 强制获取AI别名（不受用户角色影响）
 export function forceGetAliasName(realName: string): string {
+  // 覆盖优先
+  if (ALIAS_OVERRIDES[realName]) {
+    return ALIAS_OVERRIDES[realName]
+  }
   // 基于名字生成稳定的索引
   const hash = hashString(realName)
   const index = hash % CHARACTER_NAMES.length

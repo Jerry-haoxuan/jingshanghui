@@ -7,7 +7,8 @@ import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, Messa
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, /* resetToDefaultData, clearAllData, hasStoredData */ } from '@/lib/dataStore'
+import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable /* resetToDefaultData, clearAllData, hasStoredData */ } from '@/lib/dataStore'
+import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@/lib/cloudStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole } from '@/lib/userRole'
 
@@ -32,7 +33,7 @@ export default function Dashboard() {
     // 确保在客户端环境中加载数据
     if (typeof window === 'undefined') return
 
-    const loadData = () => {
+    const loadData = async () => {
       // 检查用户是否已登录
       const userRole = getUserRole()
       if (!userRole) {
@@ -41,8 +42,13 @@ export default function Dashboard() {
         return
       }
 
-      const peopleData = getPeople()
-      const companiesData = getCompanies()
+      // 优先尝试云端
+      const [cloudPeople, cloudCompanies] = await Promise.all([
+        loadPeopleFromCloudIfAvailable(),
+        loadCompaniesFromCloudIfAvailable()
+      ])
+      const peopleData = cloudPeople && cloudPeople.length > 0 ? cloudPeople : getPeople()
+      const companiesData = cloudCompanies && cloudCompanies.length > 0 ? cloudCompanies : getCompanies()
       
       console.log('Dashboard 加载数据:', peopleData.length, '个人物,', companiesData.length, '个企业')
       
@@ -51,7 +57,7 @@ export default function Dashboard() {
     }
 
     // 延迟加载确保localStorage可用
-    const timer = setTimeout(loadData, 50)
+    const timer = setTimeout(() => { loadData() }, 50)
     
     // 处理tab查询参数
     const tab = searchParams.get('tab')
@@ -61,6 +67,26 @@ export default function Dashboard() {
 
     return () => clearTimeout(timer)
   }, [searchParams, router])
+
+  // Realtime subscribe
+  useEffect(() => {
+    const unsubscribers: Array<() => void> = []
+    try {
+      const peopleSub = subscribeCloud('people', async () => {
+        const cloud = await loadPeopleFromCloudIfAvailable()
+        if (cloud) setPeople(cloud)
+      })
+      unsubscribers.push(() => peopleSub.unsubscribe())
+      const companySub = subscribeCloud('companies', async () => {
+        const cloud = await loadCompaniesFromCloudIfAvailable()
+        if (cloud) setCompanies(cloud)
+      })
+      unsubscribers.push(() => companySub.unsubscribe())
+    } catch (_) {}
+    return () => {
+      unsubscribers.forEach(u => u())
+    }
+  }, [])
 
   // 过滤搜索结果
   const filteredPeople = people.filter(person => {
@@ -101,18 +127,24 @@ export default function Dashboard() {
     }
   }
 
-  // 删除项目
-  const deleteItem = (type: 'person' | 'company', id: string) => {
-    if (confirm('确定要删除吗？')) {
+  // 删除项目（本地 + 云端）
+  const deleteItem = async (type: 'person' | 'company', id: string) => {
+    if (!confirm('确定要删除吗？')) return
+    try {
       if (type === 'person') {
         const updatedPeople = people.filter(p => p.id !== id)
         setPeople(updatedPeople)
         savePeople(updatedPeople)
+        try { await deletePersonFromCloud(id) } catch (e) { console.error('云端删除人物失败', e) }
       } else {
         const updatedCompanies = companies.filter(c => c.id !== id)
         setCompanies(updatedCompanies)
         saveCompanies(updatedCompanies)
+        try { await deleteCompanyFromCloud(id) } catch (e) { console.error('云端删除企业失败', e) }
       }
+    } catch (err) {
+      console.error('删除失败:', err)
+      alert('删除失败，请重试')
     }
   }
 

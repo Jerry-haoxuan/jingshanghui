@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Building2, Target, Trophy, Star, Factory, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getCompanies, CompanyData } from '@/lib/dataStore'
+import { getCompanies, CompanyData, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import { SupplyChainDiagram } from '@/components/SupplyChainDiagram'
 
 export default function CompanyDetailPage() {
@@ -16,10 +16,14 @@ export default function CompanyDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const companies = getCompanies()
-    const foundCompany = companies.find(c => c.id === params.id)
-    setCompany(foundCompany || null)
-    setLoading(false)
+    const load = async () => {
+      const cloud = await loadCompaniesFromCloudIfAvailable()
+      const companies = (cloud && cloud.length > 0) ? cloud : getCompanies()
+      const foundCompany = companies.find(c => c.id === params.id)
+      setCompany(foundCompany || null)
+      setLoading(false)
+    }
+    load()
   }, [params.id])
 
   if (loading) {
