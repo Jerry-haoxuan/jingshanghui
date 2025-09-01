@@ -47,8 +47,9 @@ export default function Dashboard() {
         loadPeopleFromCloudIfAvailable(),
         loadCompaniesFromCloudIfAvailable()
       ])
-      const peopleData = cloudPeople && cloudPeople.length > 0 ? cloudPeople : getPeople()
-      const companiesData = cloudCompanies && cloudCompanies.length > 0 ? cloudCompanies : getCompanies()
+      // 如果云端可用（返回非 null），即使为空数组也以云端为准，避免每端各自使用本地数据导致分裂
+      const peopleData = cloudPeople !== null ? cloudPeople : getPeople()
+      const companiesData = cloudCompanies !== null ? cloudCompanies : getCompanies()
       
       console.log('Dashboard 加载数据:', peopleData.length, '个人物,', companiesData.length, '个企业')
       

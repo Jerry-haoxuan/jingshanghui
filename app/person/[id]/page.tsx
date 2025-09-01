@@ -234,9 +234,9 @@ export default function PersonDetail() {
       console.log(`第${attempts}次尝试加载数据`)
       
       try {
-        // 优先云端
+        // 优先云端（与dashboard保持一致的策略）
         const cloudPeople = await loadPeopleFromCloudIfAvailable()
-        const people = (cloudPeople && cloudPeople.length > 0) ? cloudPeople : getPeople()
+        const people = cloudPeople !== null ? cloudPeople : getPeople()
         console.log('加载的人物数据:', people.length, '个人物')
         console.log('人物数据详情:', people.map(p => ({ id: p.id, name: p.name })))
         
@@ -247,7 +247,7 @@ export default function PersonDetail() {
             return
           } else {
             console.error('多次尝试后仍无数据')
-            setError('没有加载到任何人物数据。请检查数据是否正确加载。')
+            setError('数据库中暂无人物数据。请先通过"信息录入"添加人物信息。')
             setIsLoading(false)
             return
           }
