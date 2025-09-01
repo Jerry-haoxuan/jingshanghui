@@ -18,7 +18,8 @@ export default function CompanyDetailPage() {
   useEffect(() => {
     const load = async () => {
       const cloud = await loadCompaniesFromCloudIfAvailable()
-      const companies = (cloud && cloud.length > 0) ? cloud : getCompanies()
+      // 与dashboard保持一致：云端可用时即使为空也不回退本地
+      const companies = cloud !== null ? cloud : getCompanies()
       const foundCompany = companies.find(c => c.id === params.id)
       setCompany(foundCompany || null)
       setLoading(false)
