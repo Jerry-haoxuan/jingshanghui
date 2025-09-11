@@ -151,10 +151,32 @@ export async function listPeopleFromCloud(): Promise<PersonData[]> {
 }
 
 export async function upsertPersonToCloud(person: PersonData): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isSupabaseReady) {
+    console.warn('[CloudStore] Supabase未配置，跳过云端同步')
+    return
+  }
+  
+  console.log('[CloudStore] 准备同步人物到云端:', person.id)
   const row = mapAppPersonToDb(person)
-  const { error } = await supabase.from('people').upsert(row)
-  if (error) throw error
+  
+  try {
+    const { data, error } = await supabase.from('people').upsert(row).select()
+    
+    if (error) {
+      console.error('[CloudStore] Supabase upsert失败:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
+      throw error
+    }
+    
+    console.log('[CloudStore] 成功同步到云端:', data)
+  } catch (err) {
+    console.error('[CloudStore] 同步异常:', err)
+    throw err
+  }
 }
 
 export async function deletePersonFromCloud(id: string): Promise<void> {

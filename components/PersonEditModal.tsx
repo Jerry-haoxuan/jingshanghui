@@ -259,7 +259,11 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
 
       // 如果云端同步失败但本地更新成功，给出警告
       if (result.cloudError) {
-        alert('个人信息已更新到本地，但云端同步失败。请检查网络连接。')
+        const errorMsg = result.errorDetails ? 
+          `个人信息已更新到本地，但云端同步失败。\n错误详情：${result.errorDetails}` :
+          '个人信息已更新到本地，但云端同步失败。请检查网络连接。'
+        alert(errorMsg)
+        console.error('云端同步失败详情:', result.errorDetails)
       } else {
         alert('个人信息已成功更新并同步到云端！')
       }
@@ -267,9 +271,10 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       // 调用回调函数
       onSave(result.data || updatedPerson)
       onOpenChange(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('保存失败:', error)
-      alert('保存失败，请重试')
+      const errorMsg = error?.message || '保存失败，请重试'
+      alert(`保存失败：${errorMsg}`)
     } finally {
       setLoading(false)
     }
