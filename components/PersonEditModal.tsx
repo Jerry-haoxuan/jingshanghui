@@ -273,7 +273,22 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       onOpenChange(false)
     } catch (error: any) {
       console.error('保存失败:', error)
-      const errorMsg = error?.message || '保存失败，请重试'
+      let errorMsg = error?.message || '保存失败，请重试'
+      
+      // 如果是网络错误，提供更友好的提示
+      if (error?.message?.includes('Failed to fetch')) {
+        errorMsg = '网络连接失败，请检查网络后重试'
+      } else if (error?.message?.includes('未找到要更新的人物')) {
+        errorMsg = '数据同步异常，正在尝试重新保存...'
+        
+        // 自动重试一次
+        setTimeout(() => {
+          console.log('自动重试保存...')
+          handleSave()
+        }, 1000)
+        return
+      }
+      
       alert(`保存失败：${errorMsg}`)
     } finally {
       setLoading(false)

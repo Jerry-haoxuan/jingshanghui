@@ -20,15 +20,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. 更新本地存储
-    const updatedPerson = updatePerson(personData.id, personData)
+    // 1. 尝试更新本地存储，如果不存在则创建
+    let updatedPerson = updatePerson(personData.id, personData)
     
     if (!updatedPerson) {
-      console.error('[Update Person API] 本地更新失败：未找到ID为', personData.id, '的人物')
-      return NextResponse.json(
-        { success: false, message: '未找到要更新的人物' },
-        { status: 404 }
-      )
+      console.log('[Update Person API] 人物不存在，尝试创建新人物:', personData.id)
+      
+      // 如果人物不存在，创建一个新人物
+      try {
+        const { addPerson } = await import('@/lib/dataStore')
+        const newPersonData = {
+          ...personData,
+          tags: [], // 将在addPerson中生成
+          location: personData.currentCity || personData.hometown || '未知'
+        }
+        
+        // 移除id字段，让addPerson生成新的ID
+        const { id, tags, location, isFollowed, ...personWithoutId } = newPersonData
+        updatedPerson = addPerson(personWithoutId)
+        
+        console.log('[Update Person API] 成功创建新人物:', updatedPerson.id)
+      } catch (createError) {
+        console.error('[Update Person API] 创建新人物失败:', createError)
+        return NextResponse.json(
+          { success: false, message: '未找到要更新的人物，且创建新人物失败' },
+          { status: 404 }
+        )
+      }
     }
     
     console.log('[Update Person API] 本地更新成功')
