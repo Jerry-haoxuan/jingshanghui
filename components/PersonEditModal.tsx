@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
-import { PersonData, savePeople, getPeople } from '@/lib/dataStore'
+import { PersonData } from '@/lib/dataStore'
 import { Plus, X, Save, Loader2 } from 'lucide-react'
 
 interface PersonEditModalProps {
@@ -242,15 +242,31 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         school: educations.length > 0 ? educations[0].school : undefined, // 主要学校（兼容性）
       }
 
-      // 保存到数据库
-      const allPeople = getPeople()
-      const updatedPeople = allPeople.map(p => p.id === person.id ? updatedPerson : p)
-      savePeople(updatedPeople)
+      // 调用API更新云端和本地数据
+      const response = await fetch('/api/update-person', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedPerson)
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || '更新失败')
+      }
+
+      // 如果云端同步失败但本地更新成功，给出警告
+      if (result.cloudError) {
+        alert('个人信息已更新到本地，但云端同步失败。请检查网络连接。')
+      } else {
+        alert('个人信息已成功更新并同步到云端！')
+      }
 
       // 调用回调函数
-      onSave(updatedPerson)
+      onSave(result.data || updatedPerson)
       onOpenChange(false)
-      alert('个人信息已成功更新！')
     } catch (error) {
       console.error('保存失败:', error)
       alert('保存失败，请重试')

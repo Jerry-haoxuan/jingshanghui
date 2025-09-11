@@ -275,6 +275,29 @@ export const addPerson = (personData: Omit<PersonData, 'id' | 'tags' | 'location
   return newPerson
 }
 
+// 更新人物信息
+export const updatePerson = (id: string, updatedData: Partial<PersonData>): PersonData | null => {
+  const people = getPeople()
+  const index = people.findIndex(p => p.id === id)
+  
+  if (index === -1) {
+    return null
+  }
+  
+  // 保留原有数据，合并更新的数据
+  const updatedPerson: PersonData = {
+    ...people[index],
+    ...updatedData,
+    id: id, // 确保ID不被覆盖
+    tags: generateTags({ ...people[index], ...updatedData }), // 重新生成标签
+    location: updatedData.currentCity || updatedData.hometown || people[index].location || '未知'
+  }
+  
+  people[index] = updatedPerson
+  savePeople(people)
+  return updatedPerson
+}
+
 // 添加新公司
 export const addCompany = (companyData: Omit<CompanyData, 'id'>) => {
   const companies = getCompanies()
