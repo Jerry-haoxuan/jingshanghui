@@ -27,7 +27,6 @@ export function middleware(request: NextRequest) {
   
   // 添加调试日志
   console.log('[Middleware] 访问路径:', pathname)
-  console.log('[Middleware] User-Agent:', request.headers.get('user-agent'))
   
   // 检查是否是公开路由
   if (publicRoutes.includes(pathname)) {
@@ -41,21 +40,18 @@ export function middleware(request: NextRequest) {
   if (isProtectedRoute) {
     // 检查用户角色Cookie
     const userRole = request.cookies.get('userRole')?.value
-    const allCookies = request.cookies.getAll()
     
     console.log('[Middleware] 受保护路由:', pathname)
     console.log('[Middleware] userRole Cookie:', userRole)
-    console.log('[Middleware] 所有Cookies:', allCookies.map(c => `${c.name}=${c.value}`))
     
     // 如果没有用户角色，重定向到首页
-    if (!userRole) {
-      console.log('[Middleware] 未找到用户角色，重定向到首页')
+    if (!userRole || (userRole !== 'member' && userRole !== 'manager')) {
+      console.log('[Middleware] 未找到有效用户角色，重定向到首页')
       const redirectUrl = new URL('/', request.url)
-      console.log('[Middleware] 重定向URL:', redirectUrl.toString())
       return NextResponse.redirect(redirectUrl)
     }
     
-    console.log('[Middleware] 用户已认证，角色:', userRole)
+    console.log('[Middleware] 用户已认证，角色:', userRole, '- 允许访问')
   } else {
     console.log('[Middleware] 非保护路由，直接放行')
   }

@@ -19,7 +19,7 @@ export const setUserRole = (role: UserRole): void => {
     const cookieOptions = [
       `userRole=${role}`,
       'path=/',
-      'max-age=2592000', // 30天有效期
+      'max-age=7776000', // 90天有效期 (90 * 24 * 60 * 60)
       'SameSite=Lax' // 允许导航时发送Cookie
     ];
     

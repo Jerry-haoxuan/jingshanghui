@@ -78,6 +78,60 @@
    - 重启开发服务器
    - 在"添加新朋友"页面上传简历测试AI功能
 
+## Supabase 云端数据库配置（重要）
+
+为了实现数据的云端同步，让所有用户使用同一个数据库，您需要配置 Supabase：
+
+### 本地开发配置
+
+1. **获取 Supabase 配置**
+   - 登录 [Supabase Dashboard](https://app.supabase.com)
+   - 选择您的项目
+   - 进入 **Settings → API**
+   - 复制 **Project URL** 和 **Anon public key**
+
+2. **配置环境变量**
+   在 `.env.local` 文件中添加：
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
+### Vercel 部署配置（必须）
+
+**⚠️ 重要：如果不配置这些环境变量，Vercel 部署的网站将无法使用云端数据！**
+
+1. **登录 Vercel Dashboard**
+   - 访问 [Vercel Dashboard](https://vercel.com/dashboard)
+   - 选择您的项目
+
+2. **添加环境变量**
+   - 进入 **Settings → Environment Variables**
+   - 添加以下两个变量：
+     - `NEXT_PUBLIC_SUPABASE_URL` = 您的 Supabase Project URL
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = 您的 Supabase Anon Key
+
+3. **重新部署**
+   - 在 **Deployments** 页面
+   - 点击最新部署旁边的三个点
+   - 选择 **Redeploy**
+
+4. **验证配置**
+   - 部署完成后访问您的网站
+   - 打开浏览器开发者工具（F12）
+   - 查看控制台是否有 Supabase 相关错误
+   - 如果看到黄色警告提示，说明环境变量未配置
+
+### 故障排查
+
+如果数据仍然使用本地存储而非云端：
+1. 确认环境变量名称完全正确（包括 `NEXT_PUBLIC_` 前缀）
+2. 确认环境变量值没有多余的空格或引号
+3. 确认重新部署了应用
+4. 清除浏览器缓存后重试
+
+详细配置说明请参考 `ENV_CONFIG.md` 文件。
+
 ## 安装与运行
 
 ### 快速启动（推荐）

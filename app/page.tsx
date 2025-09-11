@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { ArrowRight, Network, Users, Building2, Target } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
-import { UserRole, setUserRole } from '@/lib/userRole'
+import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
 
 export default function Home() {
   const [showDialog, setShowDialog] = useState(false)
@@ -20,7 +20,20 @@ export default function Home() {
   // 确保客户端渲染的标志
   useEffect(() => {
     setIsClient(true)
-  }, [])
+    
+    // 检查是否已经登录，如果是则自动跳转
+    const checkExistingLogin = () => {
+      const existingRole = getUserRole()
+      if (existingRole) {
+        console.log('[Client] 发现已有登录状态:', existingRole)
+        // 直接跳转到仪表板，无需重新输入密码
+        router.push('/dashboard')
+      }
+    }
+    
+    // 延迟检查，确保DOM已加载
+    setTimeout(checkExistingLogin, 100)
+  }, [router])
 
   const handleUserTypeSelect = (type: UserRole) => {
     setUserType(type)
@@ -180,6 +193,11 @@ export default function Home() {
                 {userType === null 
                   ? '请选择您的身份以继续' 
                   : `请输入${userType === UserRole.MEMBER ? '会员' : '管理者'}内测码`}
+                {userType !== null && (
+                  <div className="text-xs text-green-400 mt-2">
+                    💡 登录后将保持90天有效，无需重复输入密码
+                  </div>
+                )}
               </DialogDescription>
             </DialogHeader>
             

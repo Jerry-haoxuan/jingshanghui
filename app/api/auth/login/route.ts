@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       name: 'userRole',
       value: userType,
       path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30天
+      maxAge: 60 * 60 * 24 * 90, // 90天 - 延长有效期以实现持久登录
       sameSite: 'lax' as const,
       secure: isProduction, // 生产环境使用secure
       httpOnly: false // 允许客户端JavaScript访问

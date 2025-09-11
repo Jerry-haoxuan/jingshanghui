@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Phone, Mail, MapPin, Building2, GraduationCap, Briefcase, User, Eye, Calendar, Shield, Users } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, MapPin, Building2, GraduationCap, Briefcase, User, Eye, Calendar, Shield, Users, Edit } from 'lucide-react'
 import Link from 'next/link'
 import { getPeople, getCompanies, PersonData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
@@ -13,6 +13,7 @@ import { forceAnalyzeAllRelationships } from '@/lib/relationshipManager'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
 import { isMember, isManager } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import PersonEditModal from '@/components/PersonEditModal'
 
 export default function PersonDetail() {
   const params = useParams()
@@ -24,6 +25,8 @@ export default function PersonDetail() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [isClient, setIsClient] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editFormData, setEditFormData] = useState<PersonData | null>(null)
 
   // 重新分析关系的函数
   const handleAnalyzeRelationships = async () => {
@@ -397,6 +400,12 @@ export default function PersonDetail() {
     }
   }
 
+  // 处理编辑保存
+  const handleEditSave = (updatedPerson: PersonData) => {
+    setPerson(updatedPerson)
+    setGraphData(generateGraphData(updatedPerson))
+  }
+
   // 处理节点点击事件
   const handleNodeClick = (node: any) => {
     if (node.type === 'company') {
@@ -434,11 +443,23 @@ export default function PersonDetail() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             返回
           </Button>
-          <Link href="/dashboard">
-            <Button variant="outline">
-              返回控制台
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setEditFormData(person)
+                setShowEditDialog(true)
+              }}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              编辑信息
             </Button>
-          </Link>
+            <Link href="/dashboard">
+              <Button variant="outline">
+                返回控制台
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -806,6 +827,14 @@ export default function PersonDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 编辑信息弹窗 */}
+      <PersonEditModal
+        person={editFormData}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSave={handleEditSave}
+      />
     </div>
   )
 } 

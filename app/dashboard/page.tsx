@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [people, setPeople] = useState<PersonData[]>([])
   const [companies, setCompanies] = useState<CompanyData[]>([])
   const [isClient, setIsClient] = useState(false)
+  const [supabaseWarning, setSupabaseWarning] = useState<string | null>(null)
   /* const [showDataPanel, setShowDataPanel] = useState(false) */
 
   // 确保客户端渲染的标志
@@ -42,14 +43,38 @@ export default function Dashboard() {
         return
       }
 
-      // 优先尝试云端
+      // 强制使用云端数据
       const [cloudPeople, cloudCompanies] = await Promise.all([
         loadPeopleFromCloudIfAvailable(),
         loadCompaniesFromCloudIfAvailable()
       ])
-      // 如果云端可用（返回非 null），即使为空数组也以云端为准，避免每端各自使用本地数据导致分裂
-      const peopleData = cloudPeople !== null ? cloudPeople : getPeople()
-      const companiesData = cloudCompanies !== null ? cloudCompanies : getCompanies()
+      
+      // 检查 Supabase 是否配置
+      const { isSupabaseReady } = await import('@/lib/supabaseClient')
+      
+      let peopleData: PersonData[] = []
+      let companiesData: CompanyData[] = []
+      
+      if (cloudPeople !== null && cloudCompanies !== null) {
+        // 云端数据可用
+        peopleData = cloudPeople
+        companiesData = cloudCompanies
+        setSupabaseWarning(null)
+      } else if (process.env.NODE_ENV === 'production' && !isSupabaseReady) {
+        // 生产环境但 Supabase 未配置
+        console.error('⚠️ 生产环境中 Supabase 未配置！请在 Vercel 中设置环境变量')
+        setSupabaseWarning('⚠️ Supabase 未配置！请在 Vercel 中设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY。详情请查看 ENV_CONFIG.md 文件。')
+        // 不使用本地数据，保持空数组
+      } else if (process.env.NODE_ENV !== 'production') {
+        // 开发环境，允许使用本地数据
+        peopleData = cloudPeople !== null ? cloudPeople : getPeople()
+        companiesData = cloudCompanies !== null ? cloudCompanies : getCompanies()
+        if (!isSupabaseReady) {
+          setSupabaseWarning('⚠️ 开发环境: Supabase 未配置，使用本地数据。请创建 .env.local 文件并配置 Supabase 参数。')
+        } else {
+          setSupabaseWarning(null)
+        }
+      }
       
       console.log('Dashboard 加载数据:', peopleData.length, '个人物,', companiesData.length, '个企业')
       
@@ -128,24 +153,59 @@ export default function Dashboard() {
     }
   }
 
-  // 删除项目（本地 + 云端）
+  // 删除项目（云端 + 本地同步）
   const deleteItem = async (type: 'person' | 'company', id: string) => {
-    if (!confirm('确定要删除吗？')) return
+    const itemName = type === 'person' 
+      ? people.find(p => p.id === id)?.name || '未知' 
+      : companies.find(c => c.id === id)?.name || '未知'
+    
+    if (!confirm(`确定要删除 "${itemName}" 吗？\n\n此操作将从云端数据库中永久删除，不可恢复！`)) return
+    
     try {
       if (type === 'person') {
+        // 先从云端删除，确保数据一致性
+        await deletePersonFromCloud(id)
+        
+        // 云端删除成功后，更新本地状态
         const updatedPeople = people.filter(p => p.id !== id)
         setPeople(updatedPeople)
         savePeople(updatedPeople)
-        try { await deletePersonFromCloud(id) } catch (e) { console.error('云端删除人物失败', e) }
+        
+        console.log(`成功删除人物: ${itemName} (ID: ${id})`)
       } else {
+        // 先从云端删除，确保数据一致性
+        await deleteCompanyFromCloud(id)
+        
+        // 云端删除成功后，更新本地状态
         const updatedCompanies = companies.filter(c => c.id !== id)
         setCompanies(updatedCompanies)
         saveCompanies(updatedCompanies)
-        try { await deleteCompanyFromCloud(id) } catch (e) { console.error('云端删除企业失败', e) }
+        
+        console.log(`成功删除企业: ${itemName} (ID: ${id})`)
       }
+      
+      // 显示成功提示
+      const successMsg = `已成功删除 "${itemName}"`
+      // 使用临时提示替代 alert
+      const toast = document.createElement('div')
+      toast.style.cssText = `
+        position: fixed; top: 20px; right: 20px; z-index: 10000;
+        background: #10b981; color: white; padding: 12px 20px;
+        border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-size: 14px; max-width: 300px;
+      `
+      toast.textContent = successMsg
+      document.body.appendChild(toast)
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast)
+        }
+      }, 3000)
+      
     } catch (err) {
       console.error('删除失败:', err)
-      alert('删除失败，请重试')
+      const errorMsg = err instanceof Error ? err.message : '未知错误'
+      alert(`删除失败：${errorMsg}\n\n请检查网络连接或 Supabase 配置后重试。`)
     }
   }
 
@@ -242,30 +302,30 @@ export default function Dashboard() {
     wsMain['!cols'] = mainHeader.map(() => ({ wch: 20 }))
     XLSX.utils.book_append_sheet(wb, wsMain, '企业信息')
 
-    const supplierHeader = ['企业名称', '原材料名称', '原材料类别', '供应商名称']
+    const supplierHeader = ['企业名称', '原材料名称', '原材料类别', '供应商名称', '关键词', '关键人物1', '关键人物2', '关键人物3']
     const supplierRows: any[] = []
     companies.forEach(c => {
       const infos = Array.isArray(c.supplierInfos) ? c.supplierInfos : []
       if (infos.length === 0) {
         const names = Array.isArray(c.suppliers) ? c.suppliers : []
-        names.forEach(n => supplierRows.push([c.name || '', '', '', n]))
+        names.forEach(n => supplierRows.push([c.name || '', '', '', n, '', '', '', '']))
       } else {
-        infos.forEach(info => supplierRows.push([c.name || '', info.materialName || '', info.materialCategory || '', info.supplierName || '']))
+        infos.forEach(info => supplierRows.push([c.name || '', info.materialName || '', info.materialCategory || '', info.supplierName || '', info.keywords || '', info.keyPerson1 || '', info.keyPerson2 || '', info.keyPerson3 || '']))
       }
     })
     const wsSup = XLSX.utils.aoa_to_sheet([supplierHeader, ...supplierRows])
     wsSup['!cols'] = supplierHeader.map(() => ({ wch: 20 }))
     XLSX.utils.book_append_sheet(wb, wsSup, '上游供应商明细')
 
-    const customerHeader = ['企业名称', '产品名称', '产品类别', '客户名称']
+    const customerHeader = ['企业名称', '产品名称', '产品类别', '客户名称', '关键词', '关键人物1', '关键人物2', '关键人物3']
     const customerRows: any[] = []
     companies.forEach(c => {
       const infos = Array.isArray(c.customerInfos) ? c.customerInfos : []
       if (infos.length === 0) {
         const names = Array.isArray(c.customers) ? c.customers : []
-        names.forEach(n => customerRows.push([c.name || '', '', '', n]))
+        names.forEach(n => customerRows.push([c.name || '', '', '', n, '', '', '', '']))
       } else {
-        infos.forEach(info => customerRows.push([c.name || '', info.productName || '', info.productCategory || '', info.customerName || '']))
+        infos.forEach(info => customerRows.push([c.name || '', info.productName || '', info.productCategory || '', info.customerName || '', info.keywords || '', info.keyPerson1 || '', info.keyPerson2 || '', info.keyPerson3 || '']))
       }
     })
     const wsCus = XLSX.utils.aoa_to_sheet([customerHeader, ...customerRows])
@@ -372,6 +432,23 @@ export default function Dashboard() {
       {/* 右侧内容区 */}
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
+          {/* Supabase 配置警告 */}
+          {supabaseWarning && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm text-yellow-800">{supabaseWarning}</p>
+                  <a href="/ENV_CONFIG.md" target="_blank" className="text-sm text-yellow-600 hover:text-yellow-700 underline mt-1 inline-block">
+                    查看配置文档
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-800">智能关系网络</h1>
             <div className="flex items-center space-x-4">

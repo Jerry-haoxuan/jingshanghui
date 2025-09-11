@@ -43,18 +43,25 @@ export interface CompanyData {
   customers?: string[] // 下游客户
   // 下述字段来自企业录入页面的新表单项，用于更完整的导出
   demands?: string // 企业诉求
-  supplierInfos?: { materialName: string; materialCategory: string; supplierName: string }[] // 供应商明细
-  customerInfos?: { productName: string; productCategory: string; customerName: string }[] // 客户明细
+  supplierInfos?: { materialName: string; materialCategory: string; supplierName: string; keywords: string; keyPerson1: string; keyPerson2: string; keyPerson3: string }[] // 供应商明细
+  customerInfos?: { productName: string; productCategory: string; customerName: string; keywords: string; keyPerson1: string; keyPerson2: string; keyPerson3: string }[] // 客户明细
 }
 
 const PEOPLE_KEY = 'ecosystem_people'
 const COMPANIES_KEY = 'ecosystem_companies'
 
-// 获取所有人物数据
+// 获取所有人物数据 - 优先使用云端数据
 export const getPeople = (): PersonData[] => {
   if (typeof window === 'undefined') {
     console.log('服务端渲染，返回默认人物数据')
     return getDefaultPeople()
+  }
+  
+  // 在生产环境强制使用云端数据
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('生产环境应使用异步的 loadPeopleFromCloudIfAvailable() 函数')
+    // 返回空数组，强制使用云端数据
+    return []
   }
   
   try {
@@ -85,11 +92,18 @@ export const getPeople = (): PersonData[] => {
   }
 }
 
-// 获取所有公司数据
+// 获取所有公司数据 - 优先使用云端数据
 export const getCompanies = (): CompanyData[] => {
   if (typeof window === 'undefined') {
     console.log('服务端渲染，返回默认企业数据')
     return getDefaultCompanies()
+  }
+  
+  // 在生产环境强制使用云端数据
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('生产环境应使用异步的 loadCompaniesFromCloudIfAvailable() 函数')
+    // 返回空数组，强制使用云端数据
+    return []
   }
   
   try {
@@ -120,11 +134,17 @@ export const getCompanies = (): CompanyData[] => {
   }
 }
 
-// Cloud sync helpers (non-breaking): optionally load from Supabase if env is configured
+// Cloud sync helpers - 优先使用云端数据
 export const loadPeopleFromCloudIfAvailable = async (): Promise<PersonData[] | null> => {
   try {
     const { isSupabaseReady } = await import('./supabaseClient')
-    if (!isSupabaseReady) return null
+    if (!isSupabaseReady) {
+      // 在生产环境中，如果 Supabase 未配置，应该警告
+      if (process.env.NODE_ENV === 'production') {
+        console.error('⚠️ Supabase 未配置！请在 Vercel 中设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY')
+      }
+      return null
+    }
     const { listPeopleFromCloud } = await import('./cloudStore')
     const people = await listPeopleFromCloud()
     // also cache locally
@@ -132,7 +152,8 @@ export const loadPeopleFromCloudIfAvailable = async (): Promise<PersonData[] | n
       localStorage.setItem(PEOPLE_KEY, JSON.stringify(people))
     }
     return people
-  } catch (_) {
+  } catch (error) {
+    console.error('从云端加载人物数据失败:', error)
     return null
   }
 }
@@ -140,14 +161,21 @@ export const loadPeopleFromCloudIfAvailable = async (): Promise<PersonData[] | n
 export const loadCompaniesFromCloudIfAvailable = async (): Promise<CompanyData[] | null> => {
   try {
     const { isSupabaseReady } = await import('./supabaseClient')
-    if (!isSupabaseReady) return null
+    if (!isSupabaseReady) {
+      // 在生产环境中，如果 Supabase 未配置，应该警告
+      if (process.env.NODE_ENV === 'production') {
+        console.error('⚠️ Supabase 未配置！请在 Vercel 中设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY')
+      }
+      return null
+    }
     const { listCompaniesFromCloud } = await import('./cloudStore')
     const companies = await listCompaniesFromCloud()
     if (typeof window !== 'undefined') {
       localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies))
     }
     return companies
-  } catch (_) {
+  } catch (error) {
+    console.error('从云端加载企业数据失败:', error)
     return null
   }
 }

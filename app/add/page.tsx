@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -60,12 +60,20 @@ interface SupplierInfo {
   materialName: string
   materialCategory: string
   supplierName: string
+  keywords: string // 关键词（非必填）
+  keyPerson1: string // 关键人物1（非必填）
+  keyPerson2: string // 关键人物2（非必填）
+  keyPerson3: string // 关键人物3（非必填）
 }
 
 interface CustomerInfo {
   productName: string
   productCategory: string
   customerName: string
+  keywords: string // 关键词（非必填）
+  keyPerson1: string // 关键人物1（非必填）
+  keyPerson2: string // 关键人物2（非必填）
+  keyPerson3: string // 关键人物3（非必填）
 }
 
 // 党派选项
@@ -87,6 +95,10 @@ export default function AddPerson() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [aiProcessing, setAiProcessing] = useState(false)
+  
+  // 自动保存的key
+  const FORM_SAVE_KEY = 'add_person_form_draft'
+  
   const [formData, setFormData] = useState({
     name: '',
     birthDate: '', // 新增：出生年月日
@@ -109,14 +121,69 @@ export default function AddPerson() {
     companyValue: '',
     companyAchievements: '',
     companyDemands: '',
-    companySuppliers: '', // 使用“、/，/,”或换行分隔
-    companyCustomers: '' // 使用“、/，/,”或换行分隔
+    companySuppliers: '', // 使用"、/，/,"或换行分隔
+    companyCustomers: '' // 使用"、/，/,"或换行分隔
   })
   
   // 公司职位数组（支持多个）
   const [companyPositions, setCompanyPositions] = useState<CompanyPosition[]>([
     { company: '', position: '' }
   ])
+
+  // 自动保存表单数据
+  const saveFormData = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const dataToSave = {
+        formData,
+        companyPositions,
+        educations,
+        supplierInfos,
+        customerInfos,
+        timestamp: Date.now()
+      }
+      localStorage.setItem(FORM_SAVE_KEY, JSON.stringify(dataToSave))
+    }
+  }, [formData, companyPositions])
+
+  // 恢复表单数据
+  const restoreFormData = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedData = localStorage.getItem(FORM_SAVE_KEY)
+        if (savedData) {
+          const parsed = JSON.parse(savedData)
+          // 检查数据是否不为空（有实际输入内容）
+          const hasContent = parsed.formData.name || 
+                           parsed.companyPositions?.[0]?.company || 
+                           parsed.formData.phones?.[0] ||
+                           parsed.educations?.length > 0 ||
+                           Object.values(parsed.formData).some((value: any) => 
+                             value && value !== '' && 
+                             !(Array.isArray(value) && (value.length === 0 || (value.length === 1 && value[0] === '')))
+                           )
+          
+          if (hasContent) {
+            setFormData(parsed.formData || formData)
+            setCompanyPositions(parsed.companyPositions || companyPositions)
+            setEducations(parsed.educations || [])
+            setSupplierInfos(parsed.supplierInfos || [])
+            setCustomerInfos(parsed.customerInfos || [])
+            return true // 表示已恢复数据
+          }
+        }
+      } catch (error) {
+        console.error('恢复表单数据失败:', error)
+      }
+    }
+    return false // 表示没有恢复数据
+  }, [])
+
+  // 清除保存的表单数据
+  const clearSavedFormData = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(FORM_SAVE_KEY)
+    }
+  }, [])
   
   // 教育背景数组
   const [educations, setEducations] = useState<Education[]>([
@@ -129,6 +196,26 @@ export default function AddPerson() {
   const [customerInfos, setCustomerInfos] = useState<CustomerInfo[]>([])
   const [uploadingSuppliers, setUploadingSuppliers] = useState(false)
   const [uploadingCustomers, setUploadingCustomers] = useState(false)
+  
+  // 页面加载时恢复表单数据
+  useEffect(() => {
+    const restored = restoreFormData()
+    if (restored) {
+      // 如果恢复了数据，显示提示
+      setTimeout(() => {
+        alert('检测到未完成的表单，已自动恢复您之前的输入内容。')
+      }, 500)
+    }
+  }, [restoreFormData])
+
+  // 自动保存表单数据（防抖）
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      saveFormData()
+    }, 1000) // 1秒后保存
+
+    return () => clearTimeout(timeoutId)
+  }, [formData, companyPositions, educations, supplierInfos, customerInfos, saveFormData])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -355,6 +442,9 @@ export default function AddPerson() {
       
       setAiProcessing(false)
       setLoading(false)
+      
+      // 清除保存的表单数据
+      clearSavedFormData()
       
       // 成功保存后提示用户
       alert('人物信息已成功保存！AI已自动分析并更新关系网络。')
@@ -602,12 +692,12 @@ export default function AddPerson() {
                       <div className="mt-4 space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">直接输入供应商信息：</span>
-                          <Button type="button" variant="outline" size="sm" onClick={() => setSupplierInfos(prev => [...prev, { materialName: '', materialCategory: '', supplierName: '' }])} className="flex items-center gap-1">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setSupplierInfos(prev => [...prev, { materialName: '', materialCategory: '', supplierName: '', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' }])} className="flex items-center gap-1">
                             <Plus className="h-4 w-4" /> 添加供应商
                           </Button>
                         </div>
                         {supplierInfos.length === 0 && (
-                          <Button type="button" variant="outline" onClick={() => setSupplierInfos(prev => [...prev, { materialName: '', materialCategory: '', supplierName: '' }])} className="w-full h-20 border-dashed">
+                          <Button type="button" variant="outline" onClick={() => setSupplierInfos(prev => [...prev, { materialName: '', materialCategory: '', supplierName: '', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' }])} className="w-full h-20 border-dashed">
                             <Plus className="h-6 w-6 mr-2" /> 点击添加第一个供应商
                           </Button>
                         )}
@@ -621,18 +711,38 @@ export default function AddPerson() {
                                 </Button>
                               )}
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div>
-                                <Label htmlFor={`supplier-material-${index}`} className="text-xs">原材料名称</Label>
-                                <Input id={`supplier-material-${index}`} value={supplier.materialName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialName: e.target.value } : s))} placeholder="如：钢材、塑料等" className="mt-1" />
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <Label htmlFor={`supplier-material-${index}`} className="text-xs">原材料名称</Label>
+                                  <Input id={`supplier-material-${index}`} value={supplier.materialName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialName: e.target.value } : s))} placeholder="如：钢材、塑料等" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`supplier-category-${index}`} className="text-xs">原材料类别</Label>
+                                  <Input id={`supplier-category-${index}`} value={supplier.materialCategory} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialCategory: e.target.value } : s))} placeholder="如：金属材料、化工原料等" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`supplier-name-${index}`} className="text-xs">供应商名称</Label>
+                                  <Input id={`supplier-name-${index}`} value={supplier.supplierName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, supplierName: e.target.value } : s))} placeholder="供应商公司名称" className="mt-1" />
+                                </div>
                               </div>
-                              <div>
-                                <Label htmlFor={`supplier-category-${index}`} className="text-xs">原材料类别</Label>
-                                <Input id={`supplier-category-${index}`} value={supplier.materialCategory} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialCategory: e.target.value } : s))} placeholder="如：金属材料、化工原料等" className="mt-1" />
-                              </div>
-                              <div>
-                                <Label htmlFor={`supplier-name-${index}`} className="text-xs">供应商名称</Label>
-                                <Input id={`supplier-name-${index}`} value={supplier.supplierName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, supplierName: e.target.value } : s))} placeholder="供应商公司名称" className="mt-1" />
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <div>
+                                  <Label htmlFor={`supplier-keywords-${index}`} className="text-xs">关键词 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`supplier-keywords-${index}`} value={supplier.keywords} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, keywords: e.target.value } : s))} placeholder="如：优质、环保等" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`supplier-person1-${index}`} className="text-xs">关键人物1 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`supplier-person1-${index}`} value={supplier.keyPerson1} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, keyPerson1: e.target.value } : s))} placeholder="负责人姓名" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`supplier-person2-${index}`} className="text-xs">关键人物2 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`supplier-person2-${index}`} value={supplier.keyPerson2} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, keyPerson2: e.target.value } : s))} placeholder="联系人姓名" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`supplier-person3-${index}`} className="text-xs">关键人物3 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`supplier-person3-${index}`} value={supplier.keyPerson3} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, keyPerson3: e.target.value } : s))} placeholder="其他关键人" className="mt-1" />
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -651,12 +761,12 @@ export default function AddPerson() {
                       <div className="mt-4 space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">直接输入客户信息：</span>
-                          <Button type="button" variant="outline" size="sm" onClick={() => setCustomerInfos(prev => [...prev, { productName: '', productCategory: '', customerName: '' }])} className="flex items-center gap-1">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setCustomerInfos(prev => [...prev, { productName: '', productCategory: '', customerName: '', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' }])} className="flex items-center gap-1">
                             <Plus className="h-4 w-4" /> 添加客户
                           </Button>
                         </div>
                         {customerInfos.length === 0 && (
-                          <Button type="button" variant="outline" onClick={() => setCustomerInfos(prev => [...prev, { productName: '', productCategory: '', customerName: '' }])} className="w-full h-20 border-dashed">
+                          <Button type="button" variant="outline" onClick={() => setCustomerInfos(prev => [...prev, { productName: '', productCategory: '', customerName: '', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' }])} className="w-full h-20 border-dashed">
                             <Plus className="h-6 w-6 mr-2" /> 点击添加第一个客户
                           </Button>
                         )}
@@ -670,18 +780,38 @@ export default function AddPerson() {
                                 </Button>
                               )}
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div>
-                                <Label htmlFor={`customer-product-${index}`} className="text-xs">产品名称</Label>
-                                <Input id={`customer-product-${index}`} value={customer.productName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productName: e.target.value } : c))} placeholder="如：机械设备、电子产品等" className="mt-1" />
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <Label htmlFor={`customer-product-${index}`} className="text-xs">产品名称</Label>
+                                  <Input id={`customer-product-${index}`} value={customer.productName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productName: e.target.value } : c))} placeholder="如：机械设备、电子产品等" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`customer-category-${index}`} className="text-xs">产品类别</Label>
+                                  <Input id={`customer-category-${index}`} value={customer.productCategory} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productCategory: e.target.value } : c))} placeholder="如：工业设备、消费电子等" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`customer-name-${index}`} className="text-xs">客户名称</Label>
+                                  <Input id={`customer-name-${index}`} value={customer.customerName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, customerName: e.target.value } : c))} placeholder="客户公司名称" className="mt-1" />
+                                </div>
                               </div>
-                              <div>
-                                <Label htmlFor={`customer-category-${index}`} className="text-xs">产品类别</Label>
-                                <Input id={`customer-category-${index}`} value={customer.productCategory} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productCategory: e.target.value } : c))} placeholder="如：工业设备、消费电子等" className="mt-1" />
-                              </div>
-                              <div>
-                                <Label htmlFor={`customer-name-${index}`} className="text-xs">客户名称</Label>
-                                <Input id={`customer-name-${index}`} value={customer.customerName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, customerName: e.target.value } : c))} placeholder="客户公司名称" className="mt-1" />
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <div>
+                                  <Label htmlFor={`customer-keywords-${index}`} className="text-xs">关键词 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`customer-keywords-${index}`} value={customer.keywords} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, keywords: e.target.value } : c))} placeholder="如：高端、定制等" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`customer-person1-${index}`} className="text-xs">关键人物1 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`customer-person1-${index}`} value={customer.keyPerson1} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, keyPerson1: e.target.value } : c))} placeholder="负责人姓名" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`customer-person2-${index}`} className="text-xs">关键人物2 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`customer-person2-${index}`} value={customer.keyPerson2} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, keyPerson2: e.target.value } : c))} placeholder="联系人姓名" className="mt-1" />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`customer-person3-${index}`} className="text-xs">关键人物3 <span className="text-gray-400">(可选)</span></Label>
+                                  <Input id={`customer-person3-${index}`} value={customer.keyPerson3} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, keyPerson3: e.target.value } : c))} placeholder="其他关键人" className="mt-1" />
+                                </div>
                               </div>
                             </div>
                           </div>
