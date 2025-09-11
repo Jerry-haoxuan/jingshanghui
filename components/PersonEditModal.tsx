@@ -349,6 +349,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
               <div>
                 <Label htmlFor="hometown">家乡</Label>
                 <AutocompleteInput
+                  id="hometown"
                   value={formData.hometown}
                   onChange={(value) => setFormData(prev => ({ ...prev, hometown: value }))}
                   suggestions={cities}
@@ -358,6 +359,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
               <div>
                 <Label htmlFor="currentCity">现居地</Label>
                 <AutocompleteInput
+                  id="currentCity"
                   value={formData.currentCity}
                   onChange={(value) => setFormData(prev => ({ ...prev, currentCity: value }))}
                   suggestions={cities}
@@ -369,6 +371,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             <div>
               <Label htmlFor="industry">行业</Label>
               <AutocompleteInput
+                id="industry"
                 value={formData.industry}
                 onChange={(value) => setFormData(prev => ({ ...prev, industry: value }))}
                 suggestions={industries}
@@ -449,6 +452,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                     <option value="EMBA">EMBA</option>
                   </select>
                   <AutocompleteInput
+                    id={`school-${index}`}
                     value={edu.school}
                     onChange={(value) => handleEducationChange(index, 'school', value)}
                     suggestions={universities}
