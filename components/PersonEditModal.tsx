@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
-import { PersonData } from '@/lib/dataStore'
+import { PersonData, updatePerson } from '@/lib/dataStore'
 import { Plus, X, Save, Loader2 } from 'lucide-react'
 
 interface PersonEditModalProps {
@@ -218,8 +218,11 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     setLoading(true)
 
     try {
+      // 确保保留原有ID
+      console.log('[PersonEditModal] 编辑人物，原始ID:', person.id)
       const updatedPerson: PersonData = {
         ...person,
+        id: person.id, // 明确保留原有ID
         name: formData.name,
         birthDate: formData.birthDate,
         phones: formData.phones.filter(phone => phone.trim() !== ''),
@@ -268,6 +271,11 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         alert('个人信息已成功更新并同步到云端！')
       }
 
+      // 同步更新本地存储（确保刷新后仍为原记录的修改）
+      try {
+        updatePerson((result.data || updatedPerson).id, result.data || updatedPerson)
+      } catch (_) {}
+
       // 调用回调函数
       onSave(result.data || updatedPerson)
       onOpenChange(false)
@@ -278,15 +286,6 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       // 如果是网络错误，提供更友好的提示
       if (error?.message?.includes('Failed to fetch')) {
         errorMsg = '网络连接失败，请检查网络后重试'
-      } else if (error?.message?.includes('未找到要更新的人物')) {
-        errorMsg = '数据同步异常，正在尝试重新保存...'
-        
-        // 自动重试一次
-        setTimeout(() => {
-          console.log('自动重试保存...')
-          handleSave()
-        }, 1000)
-        return
       }
       
       alert(`保存失败：${errorMsg}`)

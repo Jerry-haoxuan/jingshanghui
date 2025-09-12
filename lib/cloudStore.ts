@@ -156,18 +156,31 @@ export async function upsertPersonToCloud(person: PersonData): Promise<void> {
     return
   }
   
-  console.log('[CloudStore] 准备同步人物到云端:', person.id)
+  console.log('[CloudStore] 准备同步人物到云端:', {
+    id: person.id,
+    name: person.name,
+    isUpdate: Boolean(person.id)
+  })
   const row = mapAppPersonToDb(person)
+  console.log('[CloudStore] 转换后的数据行ID:', row.id)
   
   try {
-    const { data, error } = await supabase.from('people').upsert(row).select()
+    // 使用 upsert 时，确保指定冲突处理
+    const { data, error } = await supabase
+      .from('people')
+      .upsert(row, { 
+        onConflict: 'id',  // 明确指定以 id 为冲突判断字段
+        ignoreDuplicates: false  // 确保更新而不是忽略
+      })
+      .select()
     
     if (error) {
       console.error('[CloudStore] Supabase upsert失败:', {
         code: error.code,
         message: error.message,
         details: error.details,
-        hint: error.hint
+        hint: error.hint,
+        rowId: row.id
       })
       throw error
     }

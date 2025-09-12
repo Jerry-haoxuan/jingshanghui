@@ -748,11 +748,7 @@ export default function AddPerson() {
                           </div>
                         ))}
                       </div>
-                      {/* Excel 上传 */}
-                      <div className="mt-6">
-                        <Label className="text-sm font-medium">或上传Excel文件：</Label>
-                        {/* 上传Excel入口已移除 */}
-                      </div>
+                      {/* Excel 上传功能已移除 */}
                     </div>
 
                     {/* 下游客户 */}
@@ -817,11 +813,7 @@ export default function AddPerson() {
                           </div>
                         ))}
                       </div>
-                      {/* Excel 上传 */}
-                      <div className="mt-6">
-                        <Label className="text-sm font-medium">或上传Excel文件：</Label>
-                        {/* 上传Excel入口已移除 */}
-                      </div>
+                      {/* Excel 上传功能已移除 */}
                     </div>
                   </div>
                 </div>

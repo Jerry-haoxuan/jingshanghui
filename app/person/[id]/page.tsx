@@ -401,9 +401,27 @@ export default function PersonDetail() {
   }
 
   // 处理编辑保存
-  const handleEditSave = (updatedPerson: PersonData) => {
+  const handleEditSave = async (updatedPerson: PersonData) => {
+    // 更新本地状态
     setPerson(updatedPerson)
     setGraphData(generateGraphData(updatedPerson))
+    
+    // 刷新数据以确保与云端同步
+    setTimeout(async () => {
+      try {
+        // 从云端重新加载数据
+        const cloudPeople = await loadPeopleFromCloudIfAvailable()
+        if (cloudPeople) {
+          const updatedFromCloud = cloudPeople.find(p => p.id === updatedPerson.id)
+          if (updatedFromCloud) {
+            setPerson(updatedFromCloud)
+            setGraphData(generateGraphData(updatedFromCloud))
+          }
+        }
+      } catch (error) {
+        console.error('从云端刷新数据失败:', error)
+      }
+    }, 1000) // 延迟1秒以确保云端同步完成
   }
 
   // 处理节点点击事件

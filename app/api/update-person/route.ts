@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { upsertPersonToCloud } from '@/lib/cloudStore'
-import { updatePerson } from '@/lib/dataStore'
 import type { PersonData } from '@/lib/dataStore'
 
 export async function POST(request: NextRequest) {
@@ -13,6 +12,11 @@ export async function POST(request: NextRequest) {
       hasSupabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL)
     })
     
+    // 确保ID存在且有效
+    if (!personData.id) {
+      console.error('[Update Person API] 错误：缺少ID')
+    }
+    
     if (!personData.id || !personData.name) {
       return NextResponse.json(
         { success: false, message: '缺少必要的字段（id和name）' },
@@ -20,34 +24,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. 尝试更新本地存储，如果不存在则创建
-    let updatedPerson = updatePerson(personData.id, personData)
-    
-    if (!updatedPerson) {
-      console.log('[Update Person API] 人物不存在，尝试创建新人物:', personData.id)
-      
-      // 如果人物不存在，创建一个新人物
-      try {
-        const { addPerson } = await import('@/lib/dataStore')
-        const newPersonData = {
-          ...personData,
-          tags: [], // 将在addPerson中生成
-          location: personData.currentCity || personData.hometown || '未知'
-        }
-        
-        // 移除id字段，让addPerson生成新的ID
-        const { id, tags, location, isFollowed, ...personWithoutId } = newPersonData
-        updatedPerson = addPerson(personWithoutId)
-        
-        console.log('[Update Person API] 成功创建新人物:', updatedPerson.id)
-      } catch (createError) {
-        console.error('[Update Person API] 创建新人物失败:', createError)
-        return NextResponse.json(
-          { success: false, message: '未找到要更新的人物，且创建新人物失败' },
-          { status: 404 }
-        )
-      }
-    }
+    // 1. 仅同步到云端（服务端无法访问浏览器 localStorage，不做本地更新）
+    const updatedPerson = personData
     
     console.log('[Update Person API] 本地更新成功')
 
