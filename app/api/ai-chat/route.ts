@@ -43,19 +43,35 @@ export async function POST(request: NextRequest) {
      const shouldAliasName = () => aliasMode
      const deterministicAliasName = aliasNameFn
 
-    // 如果客户端没有发送数据，返回错误提示
-    if (!people || !companies) {
+    // 如果客户端未提供数据或数据为空，尝试从云端（Supabase）加载
+    let peopleData: PersonData[] = Array.isArray(people) ? people : []
+    let companyData: CompanyData[] = Array.isArray(companies) ? companies : []
+
+    if (peopleData.length === 0 || companyData.length === 0) {
+      try {
+        const { isSupabaseReady } = await import('@/lib/supabaseClient')
+        if (isSupabaseReady) {
+          const { listPeopleFromCloud, listCompaniesFromCloud } = await import('@/lib/cloudStore')
+          if (peopleData.length === 0) peopleData = await listPeopleFromCloud()
+          if (companyData.length === 0) companyData = await listCompaniesFromCloud()
+        }
+      } catch (e) {
+        console.error('[AI Chat] 加载云端数据失败:', e)
+      }
+    }
+
+    if (peopleData.length === 0 || companyData.length === 0) {
       return NextResponse.json({
-        response: '抱歉，我无法访问数据库。请刷新页面后重试。'
+        response: '抱歉，我当前无法访问到数据库数据。请检查 Supabase 配置，或稍后重试。'
       })
     }
     
     // 分析所有人物关系
-    const allRelationships = analyzeAllRelationships(people)
+    const allRelationships = analyzeAllRelationships(peopleData)
     const relationshipSummary = allRelationships.length > 0 
       ? allRelationships.map(r => {
-          const person1 = people.find((p: any) => p.id === r.source)
-          const person2 = people.find((p: any) => p.id === r.target)
+          const person1 = peopleData.find((p: any) => p.id === r.source)
+          const person2 = peopleData.find((p: any) => p.id === r.target)
           if (person1 && person2) {
             const person1DisplayName = aliasMode 
               ? aliasNameFn(person1.name) 
@@ -122,7 +138,7 @@ ${people.map((p: PersonData) => {
 }).join('\n')}
 
 公司信息：
-${companies.map((c: CompanyData) => `
+${companyData.map((c: CompanyData) => `
 【${c.name}】
 - 行业：${c.industry}
 - 规模：${c.scale}

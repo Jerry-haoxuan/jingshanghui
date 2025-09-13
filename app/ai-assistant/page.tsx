@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ChevronLeft, ChevronRight, User, Building2, MessageSquare, Send, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getPeople, getCompanies } from '@/lib/dataStore'
+import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import { getUserRole, UserRole, isManager } from '@/lib/userRole'
 
 interface Message {
@@ -65,9 +65,17 @@ export default function AIAssistant() {
     setIsLoading(true)
 
     try {
-      // 获取本地数据
-      const people = getPeople()
-      const companies = getCompanies()
+      // 优先加载云端数据，回退到本地
+      let people = getPeople()
+      let companies = getCompanies()
+      try {
+        const [cloudPeople, cloudCompanies] = await Promise.all([
+          loadPeopleFromCloudIfAvailable(),
+          loadCompaniesFromCloudIfAvailable()
+        ])
+        if (Array.isArray(cloudPeople) && cloudPeople.length > 0) people = cloudPeople
+        if (Array.isArray(cloudCompanies) && cloudCompanies.length > 0) companies = cloudCompanies
+      } catch (_) {}
 
       // 根据用户角色决定是否AI化名字
       // 注意：发送原始数据，让后端统一处理AI化
