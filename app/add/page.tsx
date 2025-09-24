@@ -106,6 +106,8 @@ export default function AddPerson() {
     email: '',
     hometown: '',
     currentCity: '',
+    homeAddress: '', // 新增：家庭详细位置
+    companyAddress: '', // 新增：公司住址
     industry: '',
     politicalParty: '', // 新增：党派
     socialOrganizations: [''], // 新增：社会组织身份（支持多个）
@@ -382,6 +384,8 @@ export default function AddPerson() {
         email: formData.email,
         hometown: formData.hometown,
         currentCity: formData.currentCity,
+        homeAddress: formData.homeAddress, // 家庭详细位置
+        companyAddress: formData.companyAddress, // 公司住址
         industry: formData.companyIndustry || formData.industry,
         politicalParty: formData.politicalParty,
         socialOrganizations: formData.socialOrganizations.filter(org => org.trim() !== ''),
@@ -921,6 +925,30 @@ export default function AddPerson() {
                       onChange={(value) => handleAutocompleteChange('hometown', value)}
                       placeholder="请输入家乡"
                       suggestions={cities}
+                    />
+                  </div>
+                </div>
+
+                {/* 详细地址信息 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="homeAddress">家庭详细位置 <span className="text-gray-400 text-sm">(可选)</span></Label>
+                    <Input
+                      id="homeAddress"
+                      name="homeAddress"
+                      value={formData.homeAddress}
+                      onChange={handleInputChange}
+                      placeholder="请输入家庭详细地址"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="companyAddress">公司住址 <span className="text-gray-400 text-sm">(可选)</span></Label>
+                    <Input
+                      id="companyAddress"
+                      name="companyAddress"
+                      value={formData.companyAddress}
+                      onChange={handleInputChange}
+                      placeholder="请输入公司详细地址"
                     />
                   </div>
                 </div>

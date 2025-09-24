@@ -55,6 +55,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     email: '',
     hometown: '',
     currentCity: '',
+    homeAddress: '', // 家庭详细位置
+    companyAddress: '', // 公司住址
     industry: '',
     politicalParty: '',
     socialOrganizations: [''],
@@ -78,6 +80,10 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
 
   const [educations, setEducations] = useState<Education[]>([])
 
+  // 供应商和客户信息状态
+  const [suppliers, setSuppliers] = useState<string[]>([''])
+  const [customers, setCustomers] = useState<string[]>([''])
+
   // 当person变化时更新表单数据
   useEffect(() => {
     if (person) {
@@ -88,6 +94,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         email: person.email || '',
         hometown: person.hometown || '',
         currentCity: person.currentCity || '',
+        homeAddress: person.homeAddress || '', // 家庭详细位置
+        companyAddress: person.companyAddress || '', // 公司住址
         industry: person.industry || '',
         politicalParty: person.politicalParty || '',
         socialOrganizations: person.socialOrganizations && person.socialOrganizations.length > 0 ? person.socialOrganizations : [''],
@@ -126,6 +134,29 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         setEducations([{ level: '本科', school: person.school, major: '', year: '' }])
       } else {
         setEducations([])
+      }
+
+      // 初始化供应商和客户数据 - 从企业信息中获取
+      try {
+        const { getCompanies } = require('@/lib/dataStore')
+        const companies = getCompanies()
+        const mainCompany = person.allCompanies?.[0]?.company || person.company
+        if (mainCompany) {
+          const companyData = companies.find((c: any) => c.name === mainCompany)
+          if (companyData) {
+            setSuppliers(companyData.suppliers && companyData.suppliers.length > 0 ? companyData.suppliers : [''])
+            setCustomers(companyData.customers && companyData.customers.length > 0 ? companyData.customers : [''])
+          } else {
+            setSuppliers([''])
+            setCustomers([''])
+          }
+        } else {
+          setSuppliers([''])
+          setCustomers([''])
+        }
+      } catch (e) {
+        setSuppliers([''])
+        setCustomers([''])
       }
     }
   }, [person])
@@ -220,6 +251,40 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     setEducations(educations.filter((_, i) => i !== index))
   }
 
+  // 供应商处理函数
+  const handleSupplierChange = (index: number, value: string) => {
+    const newSuppliers = [...suppliers]
+    newSuppliers[index] = value
+    setSuppliers(newSuppliers)
+  }
+
+  const addSupplier = () => {
+    setSuppliers([...suppliers, ''])
+  }
+
+  const removeSupplier = (index: number) => {
+    if (suppliers.length > 1) {
+      setSuppliers(suppliers.filter((_, i) => i !== index))
+    }
+  }
+
+  // 客户处理函数
+  const handleCustomerChange = (index: number, value: string) => {
+    const newCustomers = [...customers]
+    newCustomers[index] = value
+    setCustomers(newCustomers)
+  }
+
+  const addCustomer = () => {
+    setCustomers([...customers, ''])
+  }
+
+  const removeCustomer = (index: number) => {
+    if (customers.length > 1) {
+      setCustomers(customers.filter((_, i) => i !== index))
+    }
+  }
+
   const handleSave = async () => {
     if (!person) return
 
@@ -244,6 +309,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         email: formData.email,
         hometown: formData.hometown,
         currentCity: formData.currentCity,
+        homeAddress: formData.homeAddress,
+        companyAddress: formData.companyAddress,
         industry: formData.industry,
         politicalParty: formData.politicalParty,
         socialOrganizations: formData.socialOrganizations.filter(org => org.trim() !== ''),
@@ -296,6 +363,26 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       try {
         updatePerson((result.data || updatedPerson).id, result.data || updatedPerson)
       } catch (_) {}
+
+      // 同步更新企业的供应商和客户信息
+      try {
+        const { getCompanies, saveCompanies } = await import('@/lib/dataStore')
+        const companies = getCompanies()
+        const mainCompany = companyPositions[0]?.company?.trim()
+        if (mainCompany) {
+          const companyIndex = companies.findIndex(c => c.name === mainCompany)
+          if (companyIndex >= 0) {
+            companies[companyIndex] = {
+              ...companies[companyIndex],
+              suppliers: suppliers.filter(s => s.trim() !== ''),
+              customers: customers.filter(c => c.trim() !== '')
+            }
+            saveCompanies(companies)
+          }
+        }
+      } catch (e) {
+        console.warn('更新企业上下游信息失败（不影响人物信息保存）:', e)
+      }
 
       // 调用回调函数
       onSave(result.data || updatedPerson)
@@ -420,6 +507,29 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                   onChange={(value) => setFormData(prev => ({ ...prev, currentCity: value }))}
                   suggestions={cities}
                   placeholder="选择或输入现居地"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="homeAddress">家庭详细位置</Label>
+                <Input
+                  id="homeAddress"
+                  name="homeAddress"
+                  value={formData.homeAddress}
+                  onChange={handleInputChange}
+                  placeholder="详细家庭地址（可选）"
+                />
+              </div>
+              <div>
+                <Label htmlFor="companyAddress">公司住址</Label>
+                <Input
+                  id="companyAddress"
+                  name="companyAddress"
+                  value={formData.companyAddress}
+                  onChange={handleInputChange}
+                  placeholder="详细公司地址（可选）"
                 />
               </div>
             </div>
@@ -558,6 +668,81 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                     rows={3}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* 企业上下游关系 */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="text-base font-semibold">企业上下游关系</h4>
+              
+              {/* 上游供应商 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>上游供应商</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSupplier}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    添加供应商
+                  </Button>
+                </div>
+                {suppliers.map((supplier, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      value={supplier}
+                      onChange={(e) => handleSupplierChange(index, e.target.value)}
+                      placeholder={`供应商 ${index + 1}`}
+                    />
+                    {suppliers.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeSupplier(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* 下游客户 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>下游客户</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomer}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    添加客户
+                  </Button>
+                </div>
+                {customers.map((customer, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      value={customer}
+                      onChange={(e) => handleCustomerChange(index, e.target.value)}
+                      placeholder={`客户 ${index + 1}`}
+                    />
+                    {customers.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeCustomer(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 

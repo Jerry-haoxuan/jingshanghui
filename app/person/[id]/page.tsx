@@ -623,7 +623,7 @@ export default function PersonDetail() {
               ) : null}
 
               {/* 基本信息 */}
-              {(person.industry || person.currentCity || person.hometown) && (
+              {(person.industry || person.currentCity || person.hometown || person.homeAddress || person.companyAddress) && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-gray-600" />
@@ -649,8 +649,24 @@ export default function PersonDetail() {
                     {/* 家乡 */}
                     {person.hometown && person.hometown !== person.currentCity && (
                       <div className="flex items-start gap-3">
-                        <p className="text-xs text-gray-500 min-w-[60px]">家乡</p>
+                        <p className="text-xs text-gray-500 min-w-[60px]">老家</p>
                         <p className="text-sm font-medium text-gray-900">{person.hometown}</p>
+                      </div>
+                    )}
+
+                    {/* 家庭详细位置 */}
+                    {person.homeAddress && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">家庭地址</p>
+                        <p className="text-sm font-medium text-gray-900">{person.homeAddress}</p>
+                      </div>
+                    )}
+
+                    {/* 公司住址 */}
+                    {person.companyAddress && (
+                      <div className="flex items-start gap-3">
+                        <p className="text-xs text-gray-500 min-w-[60px]">公司地址</p>
+                        <p className="text-sm font-medium text-gray-900">{person.companyAddress}</p>
                       </div>
                     )}
                   </div>

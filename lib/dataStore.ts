@@ -20,6 +20,8 @@ export interface PersonData {
   location: string // 保留以兼容旧数据
   currentCity?: string // 现居地
   hometown?: string // 家乡
+  homeAddress?: string // 家庭详细位置
+  companyAddress?: string // 公司住址
   industry?: string // 行业
   isFollowed?: boolean
   workHistory?: string
