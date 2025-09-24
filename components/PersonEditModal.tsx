@@ -62,7 +62,14 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     skills: '',
     expectations: '',
     workHistory: '',
-    additionalInfo: ''
+    additionalInfo: '',
+    // 企业相关字段
+    companyIndustry: '',
+    companyScale: '',
+    companyPositioning: '',
+    companyValue: '',
+    companyAchievements: '',
+    companyDemands: ''
   })
 
   const [companyPositions, setCompanyPositions] = useState<CompanyPosition[]>([
@@ -88,7 +95,14 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         skills: person.skills || '',
         expectations: person.expectations || '',
         workHistory: person.workHistory || '',
-        additionalInfo: person.additionalInfo || ''
+        additionalInfo: person.additionalInfo || '',
+        // 企业相关字段
+        companyIndustry: (person as any).companyIndustry || '',
+        companyScale: (person as any).companyScale || '',
+        companyPositioning: (person as any).companyPositioning || '',
+        companyValue: (person as any).companyValue || '',
+        companyAchievements: (person as any).companyAchievements || '',
+        companyDemands: (person as any).companyDemands || ''
       })
 
       // 设置公司职位
@@ -243,7 +257,14 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         position: companyPositions[0].position, // 主要职位
         educations: educations.filter(edu => edu.school.trim() !== ''),
         school: educations.length > 0 ? educations[0].school : undefined, // 主要学校（兼容性）
-      }
+        // 企业相关字段
+        companyIndustry: formData.companyIndustry,
+        companyScale: formData.companyScale,
+        companyPositioning: formData.companyPositioning,
+        companyValue: formData.companyValue,
+        companyAchievements: formData.companyAchievements,
+        companyDemands: formData.companyDemands
+      } as any
 
       // 调用API更新云端和本地数据
       const response = await fetch('/api/update-person', {
@@ -421,12 +442,17 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
               <Label>公司职位信息 *</Label>
               {companyPositions.map((cp, index) => (
                 <div key={index} className="grid grid-cols-2 gap-2 mb-2">
-                  <Input
-                    value={cp.company}
-                    onChange={(e) => handleCompanyChange(index, 'company', e.target.value)}
-                    placeholder={`公司 ${index + 1}`}
-                    required={index === 0}
-                  />
+                  <div>
+                    <Input
+                      value={cp.company}
+                      onChange={(e) => handleCompanyChange(index, 'company', e.target.value)}
+                      placeholder={`公司 ${index + 1}`}
+                      required={index === 0}
+                    />
+                    {index === 0 && (
+                      <span className="text-xs text-gray-500 mt-1">为防止企业多名重名，请按照企查查报备的公司名进行填写</span>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <Input
                       value={cp.position}
@@ -455,6 +481,84 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                 <Plus className="mr-2 h-4 w-4" />
                 添加公司
               </Button>
+            </div>
+
+            {/* 企业信息 */}
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="text-base font-semibold">企业信息</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="companyIndustry">所属行业</Label>
+                  <AutocompleteInput
+                    id="companyIndustry"
+                    value={formData.companyIndustry}
+                    onChange={(value) => setFormData(prev => ({ ...prev, companyIndustry: value }))}
+                    placeholder="请选择或输入企业所属行业"
+                    suggestions={industries}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="companyScale">企业规模</Label>
+                  <Input
+                    id="companyScale"
+                    name="companyScale"
+                    value={formData.companyScale}
+                    onChange={handleInputChange}
+                    placeholder="如：0-50人 / 50-100人 等"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="companyPositioning">企业定位（我们是做什么的）</Label>
+                  <Textarea
+                    id="companyPositioning"
+                    name="companyPositioning"
+                    value={formData.companyPositioning}
+                    onChange={handleInputChange}
+                    placeholder="简要描述企业定位，可用 '、' 分隔主要产品/服务"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="companyValue">企业价值（为什么选择我们）</Label>
+                  <Textarea
+                    id="companyValue"
+                    name="companyValue"
+                    value={formData.companyValue}
+                    onChange={handleInputChange}
+                    placeholder="企业核心价值/差异化优势"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="companyAchievements">关键成就（证明实力）</Label>
+                  <Textarea
+                    id="companyAchievements"
+                    name="companyAchievements"
+                    value={formData.companyAchievements}
+                    onChange={handleInputChange}
+                    placeholder="里程碑、奖项、典型客户等"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="companyDemands">企业诉求</Label>
+                  <Textarea
+                    id="companyDemands"
+                    name="companyDemands"
+                    value={formData.companyDemands}
+                    onChange={handleInputChange}
+                    placeholder="当前最需要的资源/合作/资金等"
+                    rows={3}
+                  />
+                </div>
+              </div>
             </div>
 
             <div>

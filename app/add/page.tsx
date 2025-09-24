@@ -360,13 +360,9 @@ export default function AddPerson() {
       !formData.name ||
       companyPositions[0].company === '' ||
       formData.phones[0] === '' ||
-      !formData.companyIndustry ||
-      !formData.companyPositioning ||
-      !formData.companyValue ||
-      !formData.companyAchievements ||
-      !formData.companyDemands
+      !formData.companyIndustry
     ) {
-      alert('请填写所有必填字段（姓名、公司、电话、所属行业、企业定位、企业价值、关键成就、企业诉求）')
+      alert('请填写所有必填字段（姓名、公司、电话、所属行业）')
       return
     }
     
@@ -400,6 +396,10 @@ export default function AddPerson() {
       
       // 1. 保存人物数据到 dataStore
       const newPerson = addPerson(personData)
+      try {
+        const { markPersonAsMyCard } = await import('@/lib/dataStore')
+        markPersonAsMyCard(newPerson.id)
+      } catch (_) {}
 
       // 1.1 如果填写了企业信息，则创建/更新企业数据
       try {
@@ -560,7 +560,12 @@ export default function AddPerson() {
                   {companyPositions.map((cp, index) => (
                     <div key={index} className="flex gap-2 items-end">
                       <div className="flex-1 space-y-2">
-                        <Label htmlFor={`company-${index}`}>公司 {index === 0 ? '*' : ''}</Label>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor={`company-${index}`}>公司 {index === 0 ? '*' : ''}</Label>
+                          {index === 0 && (
+                            <span className="text-xs text-gray-500">为防止企业多名重名，请按照企查查报备的公司名进行填写</span>
+                          )}
+                        </div>
                         <Input
                           id={`company-${index}`}
                           value={cp.company}
@@ -614,7 +619,7 @@ export default function AddPerson() {
 
                 {/* 企业信息（融合） */}
                 <div className="space-y-4">
-                  <Label>企业信息（必填）</Label>
+                  <Label>企业信息</Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="companyIndustry">所属行业</Label>
@@ -646,7 +651,7 @@ export default function AddPerson() {
                         value={formData.companyPositioning}
                         onChange={(e) => setFormData(prev => ({ ...prev, companyPositioning: e.target.value }))}
                         placeholder="简要描述企业定位，可用 '、' 分隔主要产品/服务"
-                        required
+                        
                       />
                     </div>
                     <div className="space-y-2">
@@ -656,7 +661,7 @@ export default function AddPerson() {
                         value={formData.companyValue}
                         onChange={(e) => setFormData(prev => ({ ...prev, companyValue: e.target.value }))}
                         placeholder="企业核心价值/差异化优势"
-                        required
+                        
                       />
                     </div>
                   </div>
@@ -669,7 +674,7 @@ export default function AddPerson() {
                         value={formData.companyAchievements}
                         onChange={(e) => setFormData(prev => ({ ...prev, companyAchievements: e.target.value }))}
                         placeholder="里程碑、奖项、典型客户等"
-                        required
+                        
                       />
                     </div>
                     <div className="space-y-2">
@@ -679,7 +684,7 @@ export default function AddPerson() {
                         value={formData.companyDemands}
                         onChange={(e) => setFormData(prev => ({ ...prev, companyDemands: e.target.value }))}
                         placeholder="当前最需要的资源/合作/资金等"
-                        required
+                        
                       />
                     </div>
                   </div>

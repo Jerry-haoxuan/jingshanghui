@@ -49,6 +49,7 @@ export interface CompanyData {
 
 const PEOPLE_KEY = 'ecosystem_people'
 const COMPANIES_KEY = 'ecosystem_companies'
+const MY_CARDS_KEY = 'ecosystem_my_card_ids'
 
 // 获取所有人物数据 - 优先使用云端数据
 export const getPeople = (): PersonData[] => {
@@ -230,6 +231,39 @@ export const savePeople = (people: PersonData[]) => {
       }
     } catch (_) {}
   })()
+}
+
+// ---- 我的卡片（本地库）----
+export const getMyCardIds = (): string[] => {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(MY_CARDS_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch (_) {
+    return []
+  }
+}
+
+export const setMyCardIds = (ids: string[]) => {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(MY_CARDS_KEY, JSON.stringify(Array.from(new Set(ids))))
+  } catch (_) {}
+}
+
+export const markPersonAsMyCard = (id: string) => {
+  const ids = getMyCardIds()
+  if (!ids.includes(id)) {
+    ids.push(id)
+    setMyCardIds(ids)
+  }
+}
+
+export const getMyCards = (): PersonData[] => {
+  const ids = new Set(getMyCardIds())
+  if (ids.size === 0) return []
+  const people = getPeople()
+  return people.filter(p => ids.has(p.id))
 }
 
 // 保存公司数据

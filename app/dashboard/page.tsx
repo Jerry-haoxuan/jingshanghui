@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable /* resetToDefaultData, clearAllData, hasStoredData */ } from '@/lib/dataStore'
+import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getMyCards /* resetToDefaultData, clearAllData, hasStoredData */ } from '@/lib/dataStore'
+import PersonEditModal from '@/components/PersonEditModal'
 import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@/lib/cloudStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole } from '@/lib/userRole'
@@ -22,6 +23,9 @@ export default function Dashboard() {
   const [companies, setCompanies] = useState<CompanyData[]>([])
   const [isClient, setIsClient] = useState(false)
   const [supabaseWarning, setSupabaseWarning] = useState<string | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
+  const [myCards, setMyCards] = useState<PersonData[]>([])
   /* const [showDataPanel, setShowDataPanel] = useState(false) */
 
   // 确保客户端渲染的标志
@@ -80,6 +84,13 @@ export default function Dashboard() {
       
       setPeople(peopleData)
       setCompanies(companiesData)
+
+      // 加载“我的卡片”（只显示本地标记的）
+      try {
+        setMyCards(getMyCards())
+      } catch (_) {
+        setMyCards([])
+      }
     }
 
     // 延迟加载确保localStorage可用
@@ -151,6 +162,14 @@ export default function Dashboard() {
       setCompanies(updatedCompanies)
       saveCompanies(updatedCompanies)
     }
+  }
+
+  // 编辑保存后，更新本地people并刷新“我的卡片”
+  const handleEditSave = (updated: PersonData) => {
+    const next = people.map(p => p.id === updated.id ? updated : p)
+    setPeople(next)
+    savePeople(next)
+    try { setMyCards(getMyCards()) } catch (_) {}
   }
 
   // 删除项目（云端 + 本地同步）
@@ -381,6 +400,38 @@ export default function Dashboard() {
               <Building2 className="h-5 w-5" />
               {!isSidebarCollapsed && <span>信息录入</span>}
             </Link>
+            {/* 再次编辑自己的卡片信息（一级菜单，显示在信息录入和你想找谁之间） */}
+            <div>
+              <button
+                onClick={() => {
+                  if (myCards.length > 0) {
+                    setEditingPerson(myCards[0])
+                    setShowEditDialog(true)
+                  } else {
+                    alert('您还没有输入自己的卡片，请前往信息录入')
+                    router.push('/data-input')
+                  }
+                }}
+                className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg text-left"
+              >
+                <Edit className="h-5 w-5" />
+                {!isSidebarCollapsed && <span>再次编辑自己的卡片信息</span>}
+              </button>
+              {/* 仅显示自己录入的卡片 */}
+              {!isSidebarCollapsed && myCards.length > 0 && (
+                <div className="mt-2 space-y-1 ml-8">
+                  {myCards.map(card => (
+                    <button
+                      key={card.id}
+                      onClick={() => { setEditingPerson(card); setShowEditDialog(true) }}
+                      className="w-full text-left px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded"
+                    >
+                      {card.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Link
               href="/ai-assistant"
               className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
@@ -627,6 +678,14 @@ export default function Dashboard() {
           </Tabs>
         </div>
       </div>
+
+      {/* 编辑信息弹窗 */}
+      <PersonEditModal
+        person={editingPerson}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSave={handleEditSave}
+      />
 
     </div>
   )

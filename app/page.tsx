@@ -111,10 +111,13 @@ export default function Home() {
       <div className="relative z-10 min-h-screen">
         {/* 导航栏 */}
         <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/20 backdrop-blur-lg">
-          <div className="container flex h-16 items-center">
+          <div className="container flex h-16 items-center justify-between">
             <div className="flex items-center space-x-2">
               <Network className="h-6 w-6 text-white" />
               <span className="font-bold text-xl text-white">精尚慧</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <a href="/updates" className="text-sm text-gray-300 hover:text-white">更新内容</a>
             </div>
           </div>
         </nav>

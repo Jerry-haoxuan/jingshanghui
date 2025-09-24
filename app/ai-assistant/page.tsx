@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, User, Building2, MessageSquare, Send, Bot } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight, User, Building2, MessageSquare, Send, Bot, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
+import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
 import { getUserRole, UserRole, isManager } from '@/lib/userRole'
+import PersonEditModal from '@/components/PersonEditModal'
 
 interface Message {
   id: string
@@ -16,12 +18,16 @@ interface Message {
 }
 
 export default function AIAssistant() {
+  const router = useRouter()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
+  const [myCards, setMyCards] = useState<PersonData[]>([])
 
   // 获取当前用户角色并设置欢迎消息
   useEffect(() => {
@@ -38,6 +44,9 @@ export default function AIAssistant() {
       content: welcomeMessage,
       timestamp: new Date()
     }])
+    
+    // 加载用户自己创建的卡片
+    loadMyCards()
   }, [])
 
   // 自动滚动到最新消息
@@ -130,6 +139,34 @@ export default function AIAssistant() {
     }
   }
 
+  // 加载用户创建的卡片
+  const loadMyCards = async () => {
+    try {
+      // 优先加载云端人物到本地缓存，然后仅取本地标记为“我的卡片”的人物
+      await loadPeopleFromCloudIfAvailable().catch(() => {})
+      setMyCards(getMyCards())
+    } catch (error) {
+      console.error('加载卡片失败:', error)
+      setMyCards([])
+    }
+  }
+
+  // 处理编辑保存
+  const handleEditSave = async (updatedPerson: PersonData) => {
+    try {
+      const people = getPeople()
+      const index = people.findIndex(p => p.id === updatedPerson.id)
+      if (index !== -1) {
+        people[index] = updatedPerson
+        savePeople(people)
+        // 重新加载卡片
+        loadMyCards()
+      }
+    } catch (error) {
+      console.error('保存失败:', error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* 左侧导航栏 */}
@@ -164,6 +201,42 @@ export default function AIAssistant() {
               <Building2 className="h-5 w-5" />
               {!isSidebarCollapsed && <span>信息录入</span>}
             </Link>
+            {/* 再次编辑自己的卡片信息（顶级项，位于信息录入与“你想找谁”之间） */}
+            <div>
+              <button
+                onClick={() => {
+                  if (myCards.length > 0) {
+                    setEditingPerson(myCards[0])
+                    setShowEditDialog(true)
+                  } else {
+                    alert('您还没有输入自己的卡片，请前往信息录入')
+                    router.push('/data-input')
+                  }
+                }}
+                className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg text-left"
+              >
+                <Edit className="h-5 w-5" />
+                {!isSidebarCollapsed && <span>再次编辑自己的卡片信息</span>}
+              </button>
+              
+              {/* 已创建的卡片列表 */}
+              {!isSidebarCollapsed && myCards.length > 0 && (
+                <div className="mt-2 space-y-1 ml-8">
+                  {myCards.map((card) => (
+                    <button
+                      key={card.id}
+                      onClick={() => {
+                        setEditingPerson(card)
+                        setShowEditDialog(true)
+                      }}
+                      className="w-full text-left px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded"
+                    >
+                      {card.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Link
               href="/ai-assistant"
               className="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg"
@@ -255,6 +328,14 @@ export default function AIAssistant() {
           </div>
         </div>
       </div>
+      
+      {/* 编辑信息弹窗 */}
+      <PersonEditModal
+        person={editingPerson}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSave={handleEditSave}
+      />
     </div>
   )
 } 

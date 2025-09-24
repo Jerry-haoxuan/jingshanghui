@@ -472,11 +472,6 @@ export default function PersonDetail() {
               <Edit className="mr-2 h-4 w-4" />
               编辑信息
             </Button>
-            <Link href="/dashboard">
-              <Button variant="outline">
-                返回控制台
-              </Button>
-            </Link>
           </div>
         </div>
       </div>
