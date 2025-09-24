@@ -335,16 +335,63 @@ export const updatePerson = (id: string, updatedData: Partial<PersonData>): Pers
 }
 
 // 添加新公司
-export const addCompany = (companyData: Omit<CompanyData, 'id'>) => {
+// 公司名称标准化函数
+const normalizeCompanyName = (name: string): string => {
+  return name.trim()
+    .replace(/\s+/g, ' ') // 多个空格替换为单个空格
+    .replace(/[（(].*?[）)]/g, '') // 移除括号内容，避免"XX有限公司(总部)"和"XX有限公司"被认为是不同公司
+    .trim()
+}
+
+// 智能添加或更新公司
+export const addOrUpdateCompany = (companyData: Omit<CompanyData, 'id'>) => {
   const companies = getCompanies()
-  const newCompany: CompanyData = {
-    ...companyData,
-    id: Date.now().toString(),
-    isFollowed: false
+  const normalizedName = normalizeCompanyName(companyData.name)
+  
+  // 查找是否已存在相同公司（标准化后比较）
+  const existingIndex = companies.findIndex(c => 
+    normalizeCompanyName(c.name) === normalizedName
+  )
+  
+  if (existingIndex >= 0) {
+    // 存在则智能合并更新
+    const existing = companies[existingIndex]
+    companies[existingIndex] = {
+      ...existing,
+      // 智能合并：保留已有数据，只更新新提供的非空字段
+      name: companyData.name.trim(), // 使用最新的完整名称
+      industry: companyData.industry || existing.industry,
+      scale: companyData.scale || existing.scale,
+      products: [...(existing.products || []), ...(companyData.products || [])].filter((v, i, arr) => arr.indexOf(v) === i), // 去重合并
+      positioning: companyData.positioning || existing.positioning,
+      value: companyData.value || existing.value,
+      achievements: companyData.achievements || existing.achievements,
+      demands: companyData.demands || existing.demands,
+      suppliers: [...(existing.suppliers || []), ...(companyData.suppliers || [])].filter((v, i, arr) => arr.indexOf(v) === i), // 去重合并
+      customers: [...(existing.customers || []), ...(companyData.customers || [])].filter((v, i, arr) => arr.indexOf(v) === i), // 去重合并
+      supplierInfos: companyData.supplierInfos || existing.supplierInfos,
+      customerInfos: companyData.customerInfos || existing.customerInfos,
+      additionalInfo: companyData.additionalInfo || existing.additionalInfo,
+    }
+    saveCompanies(companies)
+    return companies[existingIndex]
+  } else {
+    // 不存在则创建新公司
+    const newCompany: CompanyData = {
+      ...companyData,
+      id: Date.now().toString(),
+      isFollowed: false
+    }
+    companies.push(newCompany)
+    saveCompanies(companies)
+    return newCompany
   }
-  companies.push(newCompany)
-  saveCompanies(companies)
-  return newCompany
+}
+
+// 保持向后兼容
+export const addCompany = (companyData: Omit<CompanyData, 'id'>) => {
+  console.warn('[dataStore] addCompany已过时，推荐使用addOrUpdateCompany避免重复')
+  return addOrUpdateCompany(companyData)
 }
 
 // 生成标签

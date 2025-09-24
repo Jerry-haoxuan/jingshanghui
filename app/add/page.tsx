@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { DEEPSEEK_CONFIG } from '@/lib/config'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
-import { addPerson, getCompanies, saveCompanies, addCompany } from '@/lib/dataStore'
+import { addPerson, getCompanies, saveCompanies, addOrUpdateCompany } from '@/lib/dataStore'
 import { updateRelationshipNetwork } from '@/lib/relationshipManager'
 
 interface BatchData {
@@ -427,15 +427,8 @@ export default function AddPerson() {
             customers,
             additionalInfo: ''
           }
-          if (idx >= 0) {
-            companies[idx] = {
-              ...companies[idx],
-              ...base,
-            }
-            saveCompanies(companies)
-          } else {
-            addCompany(base as any)
-          }
+          // 使用智能添加或更新企业功能，避免重复创建
+          addOrUpdateCompany(base as any)
         }
       } catch (e) {
         console.warn('同步企业信息失败（跳过，不阻塞人物保存）', e)
