@@ -394,6 +394,55 @@ export const addCompany = (companyData: Omit<CompanyData, 'id'>) => {
   return addOrUpdateCompany(companyData)
 }
 
+// 企业去重清理函数 - 处理已存在的重复企业
+export const deduplicateCompanies = () => {
+  const companies = getCompanies()
+  const deduplicatedMap = new Map<string, CompanyData>()
+  
+  console.log('[dataStore] 开始企业去重，原有企业数量:', companies.length)
+  
+  companies.forEach(company => {
+    const normalizedName = normalizeCompanyName(company.name)
+    
+    if (deduplicatedMap.has(normalizedName)) {
+      // 如果已存在，智能合并信息
+      const existing = deduplicatedMap.get(normalizedName)!
+      const merged: CompanyData = {
+        ...existing,
+        // 使用更完整的名称
+        name: company.name.length > existing.name.length ? company.name : existing.name,
+        industry: company.industry || existing.industry,
+        scale: company.scale || existing.scale,
+        products: [...(existing.products || []), ...(company.products || [])].filter((v, i, arr) => arr.indexOf(v) === i),
+        positioning: company.positioning || existing.positioning,
+        value: company.value || existing.value,
+        achievements: company.achievements || existing.achievements,
+        demands: company.demands || existing.demands,
+        suppliers: [...(existing.suppliers || []), ...(company.suppliers || [])].filter((v, i, arr) => arr.indexOf(v) === i),
+        customers: [...(existing.customers || []), ...(company.customers || [])].filter((v, i, arr) => arr.indexOf(v) === i),
+        supplierInfos: company.supplierInfos || existing.supplierInfos,
+        customerInfos: company.customerInfos || existing.customerInfos,
+        additionalInfo: company.additionalInfo || existing.additionalInfo,
+        isFollowed: existing.isFollowed || company.isFollowed,
+      }
+      deduplicatedMap.set(normalizedName, merged)
+      console.log('[dataStore] 合并重复企业:', existing.name, '+', company.name, '→', merged.name)
+    } else {
+      deduplicatedMap.set(normalizedName, company)
+    }
+  })
+  
+  const deduplicatedCompanies = Array.from(deduplicatedMap.values())
+  console.log('[dataStore] 去重完成，企业数量:', companies.length, '→', deduplicatedCompanies.length)
+  
+  saveCompanies(deduplicatedCompanies)
+  return {
+    original: companies.length,
+    deduplicated: deduplicatedCompanies.length,
+    removed: companies.length - deduplicatedCompanies.length
+  }
+}
+
 // 生成标签
 const generateTags = (person: any): string[] => {
   const tags: string[] = []

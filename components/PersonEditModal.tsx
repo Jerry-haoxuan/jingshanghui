@@ -142,11 +142,29 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         const companies = getCompanies()
         const mainCompany = person.allCompanies?.[0]?.company || person.company
         if (mainCompany) {
-          const companyData = companies.find((c: any) => c.name === mainCompany)
+          // 使用标准化名称进行查找，确保找到正确的企业
+          const normalizeCompanyName = (name: string): string => {
+            return name.trim()
+              .replace(/\s+/g, ' ') // 多个空格替换为单个空格
+              .replace(/[（(].*?[）)]/g, '') // 移除括号内容
+              .trim()
+          }
+          
+          const normalizedMainCompany = normalizeCompanyName(mainCompany)
+          const companyData = companies.find((c: any) => 
+            normalizeCompanyName(c.name) === normalizedMainCompany
+          )
+          
           if (companyData) {
+            console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.suppliers?.length || 0, '客户:', companyData.customers?.length || 0)
             setSuppliers(companyData.suppliers && companyData.suppliers.length > 0 ? companyData.suppliers : [''])
             setCustomers(companyData.customers && companyData.customers.length > 0 ? companyData.customers : [''])
           } else {
+            console.warn('[PersonEditModal] 未找到匹配企业:', mainCompany, '标准化后:', normalizedMainCompany)
+            console.log('[PersonEditModal] 可用企业列表:', companies.map((c: any) => ({
+              name: c.name,
+              normalized: normalizeCompanyName(c.name)
+            })))
             setSuppliers([''])
             setCustomers([''])
           }
@@ -155,6 +173,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
           setCustomers([''])
         }
       } catch (e) {
+        console.error('[PersonEditModal] 初始化企业信息失败:', e)
         setSuppliers([''])
         setCustomers([''])
       }
