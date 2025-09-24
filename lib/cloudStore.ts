@@ -221,10 +221,73 @@ export async function listCompaniesFromCloud(): Promise<CompanyData[]> {
 }
 
 export async function upsertCompanyToCloud(company: CompanyData): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isSupabaseReady) {
+    console.warn('[CloudStore] Supabase未配置，跳过企业云端同步')
+    return
+  }
+  
+  console.log('[CloudStore] 准备同步企业到云端:', {
+    id: company.id,
+    name: company.name,
+    isUpdate: Boolean(company.id)
+  })
+  
   const row = mapAppCompanyToDb(company)
-  const { error } = await supabase.from('companies').upsert(row)
-  if (error) throw error
+  console.log('[CloudStore] 转换后的企业数据行ID:', row.id, '名称:', row.name)
+  
+  try {
+    // 先尝试查找是否已存在同名企业（使用名称作为唯一标识）
+    const { data: existingCompanies, error: searchError } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('name', company.name)
+      .limit(1)
+    
+    if (searchError) {
+      console.error('[CloudStore] 查找现有企业失败:', searchError)
+      throw searchError
+    }
+    
+    if (existingCompanies && existingCompanies.length > 0) {
+      // 如果存在同名企业，更新它（保留原有ID）
+      const existingCompany = existingCompanies[0]
+      console.log('[CloudStore] 找到现有企业，更新而非创建:', existingCompany.id, existingCompany.name)
+      
+      const { data, error: updateError } = await supabase
+        .from('companies')
+        .update({
+          ...row,
+          id: existingCompany.id // 保持原有ID
+        })
+        .eq('id', existingCompany.id)
+        .select()
+      
+      if (updateError) {
+        console.error('[CloudStore] 更新企业失败:', updateError)
+        throw updateError
+      }
+      
+      console.log('[CloudStore] 成功更新企业到云端:', data)
+    } else {
+      // 如果不存在，创建新企业
+      console.log('[CloudStore] 未找到现有企业，创建新企业:', company.name)
+      
+      const { data, error: insertError } = await supabase
+        .from('companies')
+        .insert(row)
+        .select()
+      
+      if (insertError) {
+        console.error('[CloudStore] 创建企业失败:', insertError)
+        throw insertError
+      }
+      
+      console.log('[CloudStore] 成功创建新企业到云端:', data)
+    }
+  } catch (err) {
+    console.error('[CloudStore] 企业同步异常:', err)
+    throw err
+  }
 }
 
 export async function deleteCompanyFromCloud(id: string): Promise<void> {
