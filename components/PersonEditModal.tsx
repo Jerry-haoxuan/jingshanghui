@@ -367,17 +367,58 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       // 同步更新企业的供应商和客户信息
       try {
         const { getCompanies, saveCompanies } = await import('@/lib/dataStore')
+        const { upsertCompanyToCloud } = await import('@/lib/cloudStore')
         const companies = getCompanies()
         const mainCompany = companyPositions[0]?.company?.trim()
         if (mainCompany) {
           const companyIndex = companies.findIndex(c => c.name === mainCompany)
           if (companyIndex >= 0) {
+            // 更新企业信息，包括所有相关字段
             companies[companyIndex] = {
               ...companies[companyIndex],
               suppliers: suppliers.filter(s => s.trim() !== ''),
-              customers: customers.filter(c => c.trim() !== '')
+              customers: customers.filter(c => c.trim() !== ''),
+              // 同时更新从人员信息表单获取的企业信息
+              industry: formData.companyIndustry || companies[companyIndex].industry,
+              scale: formData.companyScale || companies[companyIndex].scale,
+              positioning: formData.companyPositioning || companies[companyIndex].positioning,
+              value: formData.companyValue || companies[companyIndex].value,
+              achievements: formData.companyAchievements || companies[companyIndex].achievements,
+              demands: formData.companyDemands || companies[companyIndex].demands,
             }
+            // 保存到本地
             saveCompanies(companies)
+            // 同步到云端
+            try {
+              await upsertCompanyToCloud(companies[companyIndex])
+              console.log('企业信息已同步到云端:', companies[companyIndex].name)
+            } catch (cloudError) {
+              console.warn('企业信息云端同步失败:', cloudError)
+            }
+          } else {
+            // 如果企业不存在，创建新企业
+            const { addCompany } = await import('@/lib/dataStore')
+            const newCompany = {
+              name: mainCompany,
+              industry: formData.companyIndustry || '',
+              scale: formData.companyScale || '',
+              products: (formData.companyPositioning || '').split(/[\n、,，]/).map(s => s.trim()).filter(Boolean),
+              positioning: formData.companyPositioning,
+              value: formData.companyValue,
+              achievements: formData.companyAchievements,
+              demands: formData.companyDemands,
+              suppliers: suppliers.filter(s => s.trim() !== ''),
+              customers: customers.filter(c => c.trim() !== ''),
+              additionalInfo: ''
+            }
+            const createdCompany = addCompany(newCompany as any)
+            // 同步到云端
+            try {
+              await upsertCompanyToCloud(createdCompany)
+              console.log('新企业已创建并同步到云端:', createdCompany.name)
+            } catch (cloudError) {
+              console.warn('新企业云端同步失败:', cloudError)
+            }
           }
         }
       } catch (e) {

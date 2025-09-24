@@ -10,6 +10,8 @@ type DbPerson = {
   tags: string[] | null
   current_city: string | null
   hometown: string | null
+  home_address: string | null
+  company_address: string | null
   industry: string | null
   is_followed: boolean | null
   phone: string | null
@@ -70,6 +72,8 @@ const mapDbPersonToApp = (row: DbPerson): PersonData => ({
   location: row.current_city || row.hometown || '未知',
   currentCity: row.current_city ?? undefined,
   hometown: row.hometown ?? undefined,
+  homeAddress: row.home_address ?? undefined,
+  companyAddress: row.company_address ?? undefined,
   industry: row.industry ?? undefined,
   isFollowed: Boolean(row.is_followed),
   workHistory: row.work_history ?? undefined,
@@ -85,6 +89,8 @@ const mapAppPersonToDb = (p: PersonData): DbPerson => ({
   tags: p.tags ?? [],
   current_city: p.currentCity ?? null,
   hometown: p.hometown ?? null,
+  home_address: p.homeAddress ?? null,
+  company_address: p.companyAddress ?? null,
   industry: p.industry ?? null,
   is_followed: Boolean(p.isFollowed),
   phone: p.phone ?? null,
