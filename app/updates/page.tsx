@@ -1,6 +1,6 @@
 import React from 'react'
 
-// 读取 GitHub README 原文（raw），并提取“更新内容”段落
+// 读取 GitHub README 原文（raw），并提取"更新内容"段落
 async function fetchUpdatesMarkdown(): Promise<string> {
   const githubRawUrl = 'https://raw.githubusercontent.com/Jerry-haoxuan/jingshanghui/main/README.md'
   try {
@@ -11,17 +11,23 @@ async function fetchUpdatesMarkdown(): Promise<string> {
     if (section) return section
     return fallbackExtract(md)
   } catch (e) {
-    // 回退读取本地 README
-    try {
-      const local = await import('../../README.md?raw')
-      const md = (local as any).default as string
-      const section = extractUpdatesSection(md)
-      if (section) return section
-      return fallbackExtract(md)
-    } catch {
-      return '暂无更新内容。'
-    }
+    // 回退：使用硬编码的本地更新内容
+    return getFallbackUpdates()
   }
+}
+
+// 本地回退更新内容
+function getFallbackUpdates(): string {
+  return `## 更新内容
+
+### 2024年最新更新
+1. **品牌更名**：从"产业生态圈基石人"更名为"精尚慧"
+2. **星空背景**：首页添加优美的旋转星空动画背景（速度已优化）
+3. **关系图谱优化**：点击卡片即可查看详情和关系网络，无需单独页面
+4. **AI集成**：集成DeepSeek API，提供智能文档解析和关系生成
+5. **用户体验**：添加"慧慧AI处理中"动画界面，提升交互体验
+6. **权限管理**：添加删除人物和企业的功能
+7. **更新同步**：新增更新内容页面，可从GitHub自动同步最新更新说明`
 }
 
 function extractUpdatesSection(md: string): string | null {
