@@ -27,20 +27,36 @@ export default function PersonDetail() {
   const [isClient, setIsClient] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editFormData, setEditFormData] = useState<PersonData | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // 重新分析关系的函数
   const handleAnalyzeRelationships = async () => {
+    setIsAnalyzing(true)
     try {
+      console.log('[PersonDetail] 开始分析关系...')
       await forceAnalyzeAllRelationships()
-      // 刷新页面数据
-      const people = getPeople()
+      
+      // 重新从云端加载数据
+      const cloudPeople = await loadPeopleFromCloudIfAvailable()
+      const people = cloudPeople !== null ? cloudPeople : getPeople()
+      
+      // 重新加载关系数据
+      const { loadRelationshipsFromCloud } = await import('@/lib/relationshipManager')
+      await loadRelationshipsFromCloud()
+      
       const foundPerson = people.find(p => p.id === params.id)
       if (foundPerson) {
         setPerson(foundPerson)
         setGraphData(generateGraphData(foundPerson))
+        console.log('[PersonDetail] 关系分析完成，图谱已更新')
+        alert('✅ 关系分析完成！已生成并保存到云端。')
       }
     } catch (error) {
-      console.error('关系分析失败:', error)
+      console.error('[PersonDetail] 关系分析失败:', error)
+      alert('❌ 关系分析失败: ' + (error as Error).message)
+    } finally {
+      setIsAnalyzing(false)
     }
   }
 
@@ -390,21 +406,32 @@ export default function PersonDetail() {
 
   // 刷新关系图谱数据
   const refreshGraphData = async () => {
+    setIsRefreshing(true)
     try {
-      // 刷新时重新分析关系
-      await forceAnalyzeAllRelationships()
+      console.log('[PersonDetail] 开始刷新关系数据...')
       
-      // 重新加载人员数据
-      const people = getPeople()
+      // 从云端重新加载数据
+      const cloudPeople = await loadPeopleFromCloudIfAvailable()
+      const people = cloudPeople !== null ? cloudPeople : getPeople()
+      
+      // 重新加载关系数据
+      const { loadRelationshipsFromCloud } = await import('@/lib/relationshipManager')
+      const cloudRelationships = await loadRelationshipsFromCloud()
+      console.log('[PersonDetail] 从云端加载了', cloudRelationships?.length || 0, '条关系')
+      
       const foundPerson = people.find(p => p.id === params.id)
       if (foundPerson) {
         setPerson(foundPerson)
         setGraphData(generateGraphData(foundPerson))
+        console.log('[PersonDetail] 关系数据已刷新')
       }
-    } catch (error) {
-      console.error('刷新失败:', error)
-      // 即使分析失败，也要更新基本数据
       setRefreshKey(prev => prev + 1)
+    } catch (error) {
+      console.error('[PersonDetail] 刷新失败:', error)
+      alert('❌ 刷新失败: ' + (error as Error).message)
+      setRefreshKey(prev => prev + 1)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -819,23 +846,48 @@ export default function PersonDetail() {
                   variant="outline"
                   size="sm"
                   onClick={refreshGraphData}
+                  disabled={isRefreshing || isAnalyzing}
                   className="flex items-center gap-2"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  刷新关系
+                  {isRefreshing ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      刷新中...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      刷新关系
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="default"
                   size="sm"
                   onClick={handleAnalyzeRelationships}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                  disabled={isRefreshing || isAnalyzing}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  分析关系
+                  {isAnalyzing ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      分析关系
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
