@@ -1,13 +1,14 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { X, Building2, MapPin, Phone, Mail, Briefcase, GraduationCap, Users } from 'lucide-react'
 import StaticRelationshipGraph from './StaticRelationshipGraph'
 import { useRouter } from 'next/navigation'
-import { getCompanies } from '@/lib/dataStore'
+import { getCompanies, getPeople, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
+import { loadRelationshipsFromCloud, getPersonRelationships } from '@/lib/relationshipManager'
 
 interface DetailModalProps {
   isOpen: boolean
@@ -18,6 +19,7 @@ interface DetailModalProps {
 
 export default function DetailModal({ isOpen, onClose, type, data }: DetailModalProps) {
   const router = useRouter()
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] })
 
   if (!data) return null
 
@@ -46,33 +48,120 @@ export default function DetailModal({ isOpen, onClose, type, data }: DetailModal
     // 如果是当前人物节点，不做任何处理
   }
 
-  // 模拟关系图谱数据
-  const graphData = {
-    nodes: [
-      { id: data.id, name: type === 'person' ? deterministicAliasName(data.name) : data.name, type: type as 'person' | 'company', group: 1 },
-      ...(type === 'person' ? [
-        { id: 'c1', name: data.company, type: 'company' as const, group: 2 },
-        { id: 'p2', name: '同事A', type: 'person' as const, group: 1 },
-        { id: 'p3', name: '同事B', type: 'person' as const, group: 1 },
-      ] : [
-        { id: 'p1', name: '员工A', type: 'person' as const, group: 2 },
-        { id: 'p2', name: '员工B', type: 'person' as const, group: 2 },
-        { id: 'p3', name: '员工C', type: 'person' as const, group: 2 },
-        { id: 'c2', name: '合作企业', type: 'company' as const, group: 1 },
-      ])
-    ],
-    links: type === 'person' ? [
-      { source: data.id, target: 'c1', relationship: '就职于', strength: 1 },
-      { source: data.id, target: 'p2', relationship: '同事', strength: 0.8 },
-      { source: data.id, target: 'p3', relationship: '同事', strength: 0.8 },
-      { source: 'p2', target: 'p3', relationship: '同事', strength: 0.8 },
-    ] : [
-      { source: 'p1', target: data.id, relationship: '就职于', strength: 1 },
-      { source: 'p2', target: data.id, relationship: '就职于', strength: 1 },
-      { source: 'p3', target: data.id, relationship: '就职于', strength: 1 },
-      { source: data.id, target: 'c2', relationship: '合作关系', strength: 0.9 },
-    ]
-  }
+  // 加载真实的关系数据
+  useEffect(() => {
+    const loadGraphData = async () => {
+      if (!data || !isOpen) return
+
+      if (type === 'person') {
+        // 加载云端数据
+        const cloudPeople = await loadPeopleFromCloudIfAvailable()
+        const cloudCompanies = await loadCompaniesFromCloudIfAvailable()
+        const cloudRelationships = await loadRelationshipsFromCloud()
+        
+        const allPeople = cloudPeople || getPeople()
+        const allCompanies = cloudCompanies || getCompanies()
+        
+        // 获取当前人物的关系
+        const relationships = cloudRelationships
+          ? cloudRelationships.filter(rel => 
+              rel.personId === data.id || rel.relatedPersonId === data.id
+            )
+          : getPersonRelationships(data.id)
+        
+        const nodes: any[] = []
+        const links: any[] = []
+        
+        // 添加中心人物节点
+        nodes.push({
+          id: data.id,
+          name: data.name,
+          type: 'person',
+          group: 1
+        })
+        
+        // 添加公司节点
+        if (data.company) {
+          const companyId = `company_${data.company}`
+          nodes.push({
+            id: companyId,
+            name: data.company,
+            type: 'company',
+            group: 2
+          })
+          links.push({
+            source: data.id,
+            target: companyId,
+            relationship: data.position || '就职于',
+            strength: 1
+          })
+        }
+        
+        // 添加关系网络中的人物
+        relationships.forEach(rel => {
+          const relatedPersonId = rel.personId === data.id ? rel.relatedPersonId : rel.personId
+          if (relatedPersonId) {
+            const relatedPerson = allPeople.find(p => p.id === relatedPersonId)
+            if (relatedPerson && !nodes.find(n => n.id === relatedPerson.id)) {
+              nodes.push({
+                id: relatedPerson.id,
+                name: relatedPerson.name,
+                type: 'person',
+                group: 1
+              })
+              
+              let relationshipText = rel.description || '关联'
+              if (rel.relationshipType === 'colleague') {
+                relationshipText = '同事'
+              } else if (rel.relationshipType === 'schoolmate') {
+                relationshipText = '校友'
+              } else if (rel.relationshipType === 'industry_partner') {
+                relationshipText = '行业伙伴'
+              }
+              
+              links.push({
+                source: data.id,
+                target: relatedPerson.id,
+                relationship: relationshipText,
+                strength: rel.strength
+              })
+            }
+          }
+        })
+        
+        setGraphData({ nodes, links })
+      } else {
+        // 企业的关系图（简化版）
+        const nodes = [
+          { id: data.id, name: data.name, type: 'company' as const, group: 1 }
+        ]
+        const links: any[] = []
+        
+        // 可以添加相关人员
+        const people = getPeople()
+        const employees = people.filter(p => p.company === data.name).slice(0, 5)
+        
+        employees.forEach(person => {
+          nodes.push({
+            id: person.id,
+            name: person.name,
+            type: 'person' as const,
+            group: 2
+          })
+          links.push({
+            source: person.id,
+            target: data.id,
+            relationship: person.position || '就职于',
+            strength: 1
+          })
+        })
+        
+        setGraphData({ nodes, links })
+      }
+    }
+    
+    loadGraphData()
+  }, [data, type, isOpen])
 
 
 
