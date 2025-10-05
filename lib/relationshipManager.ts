@@ -1,5 +1,5 @@
 // 关系网络管理器 - 用于AI自动梳理关系
-import { PersonData, CompanyData, getPeople, getCompanies } from './dataStore'
+import { PersonData, CompanyData } from './dataStore'
 import { DEEPSEEK_CONFIG } from './config'
 
 export interface RelationshipData {
@@ -71,8 +71,14 @@ export const saveRelationships = (relationships: RelationshipData[]) => {
 
 // 调用DeepSeek API分析关系
 export const analyzeRelationships = async (newPerson: PersonData): Promise<RelationshipData[]> => {
-  const allPeople = getPeople()
-  const allCompanies = getCompanies()
+  // 优先从云端加载数据
+  const { loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getPeople, getCompanies } = await import('./dataStore')
+  
+  const cloudPeople = await loadPeopleFromCloudIfAvailable()
+  const cloudCompanies = await loadCompaniesFromCloudIfAvailable()
+  
+  const allPeople = cloudPeople !== null ? cloudPeople : getPeople()
+  const allCompanies = cloudCompanies !== null ? cloudCompanies : getCompanies()
   
   // 如果没有配置API密钥，返回基本关系分析
   if (!DEEPSEEK_CONFIG.apiKey) {
@@ -287,8 +293,23 @@ export const analyzeAllRelationships = async (): Promise<void> => {
   try {
     console.log('开始批量分析所有人员关系...')
     
-    const allPeople = getPeople()
-    const allCompanies = getCompanies()
+    // 优先从云端加载数据
+    const { loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getPeople, getCompanies } = await import('./dataStore')
+    
+    // 尝试从云端加载
+    const cloudPeople = await loadPeopleFromCloudIfAvailable()
+    const cloudCompanies = await loadCompaniesFromCloudIfAvailable()
+    
+    // 使用云端数据或本地数据
+    const allPeople = cloudPeople !== null ? cloudPeople : getPeople()
+    const allCompanies = cloudCompanies !== null ? cloudCompanies : getCompanies()
+    
+    if (allPeople.length === 0) {
+      console.warn('[RelationshipManager] 没有找到人员数据，无法分析关系')
+      return
+    }
+    
+    console.log(`[RelationshipManager] 准备分析 ${allPeople.length} 个人员的关系`)
     let allRelationships: RelationshipData[] = []
     
     // 为每个人分析关系
