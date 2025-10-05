@@ -214,14 +214,31 @@ const generateBasicRelationships = (
   allPeople.forEach(person => {
     if (person.id === newPerson.id) return
 
-    // 同公司关系 - 检查任意公司匹配
-    const commonCompanies = (newPerson.allCompanies || [{company: newPerson.company, position: newPerson.position}]).filter(nc =>
-      (person.allCompanies || [{company: person.company, position: person.position}]).some(pc => pc.company === nc.company)
-    )
+    // 标准化公司名称的函数
+    const normalizeCompany = (name: string) => {
+      if (!name) return ''
+      return name.trim().toLowerCase().replace(/\s+/g, '').replace(/[（）()]/g, '')
+    }
+
+    // 同公司关系 - 检查任意公司匹配（忽略大小写和空格）
+    const newPersonCompanies = newPerson.allCompanies || [{company: newPerson.company, position: newPerson.position}]
+    const personCompanies = person.allCompanies || [{company: person.company, position: person.position}]
+    
+    const commonCompanies = newPersonCompanies.filter(nc => {
+      if (!nc.company) return false
+      const normalizedNew = normalizeCompany(nc.company)
+      return personCompanies.some(pc => {
+        if (!pc.company) return false
+        return normalizeCompany(pc.company) === normalizedNew
+      })
+    })
     if (commonCompanies.length > 0) {
       commonCompanies.forEach(common => {
         const newPersonLevel = getPositionLevel(common.position)
-        const personCompany = (person.allCompanies || []).find(pc => pc.company === common.company) || {position: person.position}
+        const normalizedCommon = normalizeCompany(common.company)
+        const personCompany = (person.allCompanies || []).find(pc => 
+          normalizeCompany(pc.company) === normalizedCommon
+        ) || {position: person.position}
         const personLevel = getPositionLevel(personCompany.position)
         
         let relType: 'colleague' | 'superior' | 'subordinate' = 'colleague'
@@ -251,10 +268,23 @@ const generateBasicRelationships = (
       })
     }
 
-    // 校友关系 - 检查任意学校匹配
+    // 标准化学校名称的函数
+    const normalizeSchool = (name: string) => {
+      if (!name) return ''
+      return name.trim().toLowerCase().replace(/\s+/g, '').replace(/[（）()]/g, '')
+    }
+
+    // 校友关系 - 检查任意学校匹配（忽略大小写和空格）
     const newEducations = newPerson.educations || (newPerson.school ? [{school: newPerson.school}] : [])
     const personEducations = person.educations || (person.school ? [{school: person.school}] : [])
-    const commonSchools = newEducations.filter(ne => personEducations.some(pe => pe.school === ne.school))
+    const commonSchools = newEducations.filter(ne => {
+      if (!ne.school) return false
+      const normalizedNew = normalizeSchool(ne.school)
+      return personEducations.some(pe => {
+        if (!pe.school) return false
+        return normalizeSchool(pe.school) === normalizedNew
+      })
+    })
     if (commonSchools.length > 0) {
       commonSchools.forEach(common => {
         relationships.push({
@@ -318,11 +348,12 @@ export const analyzeAllRelationships = async (): Promise<void> => {
       allRelationships = [...allRelationships, ...personRelationships]
     }
     
-    // 去重 - 避免双向重复关系
+    // 去重 - 避免完全相同的关系，但保留不同类型的关系
     const uniqueRelationships = allRelationships.filter((rel, index, arr) => {
       return arr.findIndex(r => 
-        (r.personId === rel.personId && r.relatedPersonId === rel.relatedPersonId) ||
-        (r.personId === rel.relatedPersonId && r.relatedPersonId === rel.personId)
+        r.personId === rel.personId && 
+        r.relatedPersonId === rel.relatedPersonId &&
+        r.relationshipType === rel.relationshipType
       ) === index
     })
     
