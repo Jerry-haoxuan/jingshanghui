@@ -19,7 +19,7 @@ interface DetailModalProps {
 
 export default function DetailModal({ isOpen, onClose, type, data }: DetailModalProps) {
   const router = useRouter()
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] })
+  const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] })
 
   if (!data) return null
 
