@@ -132,7 +132,7 @@ export default function DetailModal({ isOpen, onClose, type, data }: DetailModal
         setGraphData({ nodes, links })
       } else {
         // 企业的关系图（简化版）
-        const nodes = [
+        const nodes: any[] = [
           { id: data.id, name: data.name, type: 'company' as const, group: 1 }
         ]
         const links: any[] = []
