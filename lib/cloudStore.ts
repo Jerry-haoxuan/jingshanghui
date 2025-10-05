@@ -317,4 +317,149 @@ export function subscribeCloud(table: 'people' | 'companies', onChange: () => vo
   }
 }
 
+// ==================== 关系数据云端同步 ====================
+
+import type { RelationshipData } from './relationshipManager'
+
+type DbRelationship = {
+  id: string
+  person_id: string
+  related_person_id: string | null
+  related_company_id: string | null
+  relationship_type: string
+  strength: number | null
+  description: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+const mapDbRelationshipToApp = (row: DbRelationship): RelationshipData => ({
+  id: row.id,
+  personId: row.person_id,
+  relatedPersonId: row.related_person_id ?? undefined,
+  relatedCompanyId: row.related_company_id ?? undefined,
+  relationshipType: row.relationship_type as 'colleague' | 'schoolmate' | 'industry_partner' | 'business_contact' | 'supplier' | 'customer' | 'superior' | 'subordinate',
+  strength: row.strength ?? 0.5,
+  description: row.description ?? '',
+  createdAt: new Date(row.created_at ?? Date.now()),
+  updatedAt: new Date(row.updated_at ?? Date.now()),
+})
+
+const mapAppRelationshipToDb = (rel: RelationshipData): DbRelationship => ({
+  id: rel.id,
+  person_id: rel.personId,
+  related_person_id: rel.relatedPersonId ?? null,
+  related_company_id: rel.relatedCompanyId ?? null,
+  relationship_type: rel.relationshipType,
+  strength: rel.strength,
+  description: rel.description,
+})
+
+// 从云端加载所有关系数据
+export async function listRelationshipsFromCloud(): Promise<RelationshipData[]> {
+  if (!isSupabaseReady) return []
+  const { data, error } = await supabase
+    .from('relationships')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('[CloudStore] 加载关系数据失败:', error)
+    throw error
+  }
+  return (data as DbRelationship[]).map(mapDbRelationshipToApp)
+}
+
+// 上传单个关系到云端
+export async function upsertRelationshipToCloud(relationship: RelationshipData): Promise<void> {
+  if (!isSupabaseReady) {
+    console.warn('[CloudStore] Supabase未配置，跳过关系数据云端同步')
+    return
+  }
+  
+  console.log('[CloudStore] 准备同步关系到云端:', {
+    id: relationship.id,
+    personId: relationship.personId,
+    relatedPersonId: relationship.relatedPersonId,
+    type: relationship.relationshipType
+  })
+  
+  const row = mapAppRelationshipToDb(relationship)
+  
+  try {
+    const { data, error } = await supabase
+      .from('relationships')
+      .upsert(row, { 
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select()
+    
+    if (error) {
+      console.error('[CloudStore] Supabase关系数据upsert失败:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        rowId: row.id
+      })
+      throw error
+    }
+    
+    console.log('[CloudStore] 成功同步关系到云端:', data)
+  } catch (err) {
+    console.error('[CloudStore] 关系数据同步异常:', err)
+    throw err
+  }
+}
+
+// 批量上传关系数据到云端
+export async function batchUpsertRelationshipsToCloud(relationships: RelationshipData[]): Promise<void> {
+  if (!isSupabaseReady) {
+    console.warn('[CloudStore] Supabase未配置，跳过批量关系数据同步')
+    return
+  }
+  
+  if (relationships.length === 0) {
+    console.log('[CloudStore] 没有关系数据需要同步')
+    return
+  }
+  
+  console.log('[CloudStore] 批量同步关系数据到云端:', relationships.length, '条')
+  
+  const rows = relationships.map(mapAppRelationshipToDb)
+  
+  try {
+    // 分批上传，每次50条
+    const batchSize = 50
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize)
+      const { error } = await supabase
+        .from('relationships')
+        .upsert(batch, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        })
+      
+      if (error) {
+        console.error('[CloudStore] 批量同步失败 (batch', Math.floor(i / batchSize) + 1, '):', error)
+        throw error
+      }
+      
+      console.log('[CloudStore] 成功同步批次', Math.floor(i / batchSize) + 1, '/', Math.ceil(rows.length / batchSize))
+    }
+    
+    console.log('[CloudStore] 所有关系数据同步完成')
+  } catch (err) {
+    console.error('[CloudStore] 批量关系数据同步异常:', err)
+    throw err
+  }
+}
+
+// 删除云端关系数据
+export async function deleteRelationshipFromCloud(id: string): Promise<void> {
+  if (!isSupabaseReady) return
+  const { error } = await supabase.from('relationships').delete().eq('id', id)
+  if (error) throw error
+}
+
 

@@ -16,17 +16,57 @@ export interface RelationshipData {
 
 const RELATIONSHIPS_KEY = 'ecosystem_relationships'
 
-// 获取所有关系数据
+// 从云端加载关系数据（如果可用）
+export const loadRelationshipsFromCloud = async (): Promise<RelationshipData[] | null> => {
+  try {
+    const { isSupabaseReady } = await import('./supabaseClient')
+    if (!isSupabaseReady) {
+      console.log('[RelationshipManager] Supabase未配置，使用本地数据')
+      return null
+    }
+    const { listRelationshipsFromCloud } = await import('./cloudStore')
+    const relationships = await listRelationshipsFromCloud()
+    console.log('[RelationshipManager] 从云端加载关系数据:', relationships.length, '条')
+    // 同时缓存到本地
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(RELATIONSHIPS_KEY, JSON.stringify(relationships))
+    }
+    return relationships
+  } catch (error) {
+    console.error('[RelationshipManager] 从云端加载关系数据失败:', error)
+    return null
+  }
+}
+
+// 获取所有关系数据（同步版本，优先使用本地缓存）
 export const getRelationships = (): RelationshipData[] => {
   if (typeof window === 'undefined') return []
   const data = localStorage.getItem(RELATIONSHIPS_KEY)
   return data ? JSON.parse(data) : []
 }
 
-// 保存关系数据
+// 保存关系数据（同步到本地和云端）
 export const saveRelationships = (relationships: RelationshipData[]) => {
   if (typeof window === 'undefined') return
+  
+  // 保存到本地
   localStorage.setItem(RELATIONSHIPS_KEY, JSON.stringify(relationships))
+  
+  // 异步同步到云端
+  ;(async () => {
+    try {
+      const { isSupabaseReady } = await import('./supabaseClient')
+      if (!isSupabaseReady) {
+        console.log('[RelationshipManager] Supabase未配置，仅保存到本地')
+        return
+      }
+      const { batchUpsertRelationshipsToCloud } = await import('./cloudStore')
+      await batchUpsertRelationshipsToCloud(relationships)
+      console.log('[RelationshipManager] 关系数据已同步到云端')
+    } catch (error) {
+      console.error('[RelationshipManager] 关系数据云端同步失败:', error)
+    }
+  })()
 }
 
 // 调用DeepSeek API分析关系

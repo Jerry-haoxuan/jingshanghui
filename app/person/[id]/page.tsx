@@ -266,12 +266,20 @@ export default function PersonDetail() {
           setPerson(foundPerson)
           setError('')
           
-          // 检查是否存在关系数据
           // 确保公司列表也尝试云端
           await loadCompaniesFromCloudIfAvailable().catch(() => {})
+          
+          // 从云端加载关系数据
+          const { loadRelationshipsFromCloud } = await import('@/lib/relationshipManager')
+          const cloudRelationships = await loadRelationshipsFromCloud()
+          console.log('[PersonDetail] 云端关系数据:', cloudRelationships?.length || 0, '条')
+          
+          // 检查是否存在关系数据
           const relationships = getPersonRelationships(foundPerson.id)
           if (relationships.length === 0) {
             console.log('未找到关系数据，建议点击"分析关系"按钮')
+          } else {
+            console.log('[PersonDetail] 找到', relationships.length, '条关系')
           }
           setGraphData(generateGraphData(foundPerson))
           setIsLoading(false)
