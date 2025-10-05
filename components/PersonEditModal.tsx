@@ -136,47 +136,57 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         setEducations([])
       }
 
-      // 初始化供应商和客户数据 - 从企业信息中获取
-      try {
-        const { getCompanies } = require('@/lib/dataStore')
-        const companies = getCompanies()
-        const mainCompany = person.allCompanies?.[0]?.company || person.company
-        if (mainCompany) {
-          // 使用标准化名称进行查找，确保找到正确的企业
-          const normalizeCompanyName = (name: string): string => {
-            return name.trim()
-              .replace(/\s+/g, ' ') // 多个空格替换为单个空格
-              .replace(/[（(].*?[）)]/g, '') // 移除括号内容
-              .trim()
-          }
+      // 初始化供应商和客户数据 - 从企业信息中获取（异步加载云端数据）
+      const loadCompanyData = async () => {
+        try {
+          const { loadCompaniesFromCloudIfAvailable, getCompanies } = await import('@/lib/dataStore')
           
-          const normalizedMainCompany = normalizeCompanyName(mainCompany)
-          const companyData = companies.find((c: any) => 
-            normalizeCompanyName(c.name) === normalizedMainCompany
-          )
+          // 优先从云端加载，如果失败则使用本地数据
+          const cloudCompanies = await loadCompaniesFromCloudIfAvailable()
+          const companies = cloudCompanies !== null ? cloudCompanies : getCompanies()
           
-          if (companyData) {
-            console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.suppliers?.length || 0, '客户:', companyData.customers?.length || 0)
-            setSuppliers(companyData.suppliers && companyData.suppliers.length > 0 ? companyData.suppliers : [''])
-            setCustomers(companyData.customers && companyData.customers.length > 0 ? companyData.customers : [''])
+          console.log('[PersonEditModal] 加载企业数据:', companies.length, '个企业')
+          
+          const mainCompany = person.allCompanies?.[0]?.company || person.company
+          if (mainCompany) {
+            // 使用标准化名称进行查找，确保找到正确的企业
+            const normalizeCompanyName = (name: string): string => {
+              return name.trim()
+                .replace(/\s+/g, ' ') // 多个空格替换为单个空格
+                .replace(/[（(].*?[）)]/g, '') // 移除括号内容
+                .trim()
+            }
+            
+            const normalizedMainCompany = normalizeCompanyName(mainCompany)
+            const companyData = companies.find((c: any) => 
+              normalizeCompanyName(c.name) === normalizedMainCompany
+            )
+            
+            if (companyData) {
+              console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.suppliers?.length || 0, '客户:', companyData.customers?.length || 0)
+              setSuppliers(companyData.suppliers && companyData.suppliers.length > 0 ? companyData.suppliers : [''])
+              setCustomers(companyData.customers && companyData.customers.length > 0 ? companyData.customers : [''])
+            } else {
+              console.warn('[PersonEditModal] 未找到匹配企业:', mainCompany, '标准化后:', normalizedMainCompany)
+              console.log('[PersonEditModal] 可用企业列表:', companies.map((c: any) => ({
+                name: c.name,
+                normalized: normalizeCompanyName(c.name)
+              })))
+              setSuppliers([''])
+              setCustomers([''])
+            }
           } else {
-            console.warn('[PersonEditModal] 未找到匹配企业:', mainCompany, '标准化后:', normalizedMainCompany)
-            console.log('[PersonEditModal] 可用企业列表:', companies.map((c: any) => ({
-              name: c.name,
-              normalized: normalizeCompanyName(c.name)
-            })))
             setSuppliers([''])
             setCustomers([''])
           }
-        } else {
+        } catch (e) {
+          console.error('[PersonEditModal] 初始化企业信息失败:', e)
           setSuppliers([''])
           setCustomers([''])
         }
-      } catch (e) {
-        console.error('[PersonEditModal] 初始化企业信息失败:', e)
-        setSuppliers([''])
-        setCustomers([''])
       }
+      
+      loadCompanyData()
     }
   }, [person])
 
