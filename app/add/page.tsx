@@ -631,12 +631,19 @@ export default function AddPerson() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="companyScale">企业规模</Label>
-                      <Input
+                      <select
                         id="companyScale"
                         value={formData.companyScale}
                         onChange={(e) => setFormData(prev => ({ ...prev, companyScale: e.target.value }))}
-                        placeholder="如：0-50人 / 50-100人 / 100-500人 等"
-                      />
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">请选择企业规模</option>
+                        <option value="0-50人">0-50人</option>
+                        <option value="50-100人">50-100人</option>
+                        <option value="100-500人">100-500人</option>
+                        <option value="500-1000人">500-1000人</option>
+                        <option value="1000人以上">1000人以上</option>
+                      </select>
                     </div>
                   </div>
 
@@ -714,14 +721,10 @@ export default function AddPerson() {
                               )}
                             </div>
                             <div className="space-y-3">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                  <Label htmlFor={`supplier-material-${index}`} className="text-xs">原材料名称</Label>
-                                  <Input id={`supplier-material-${index}`} value={supplier.materialName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialName: e.target.value } : s))} placeholder="如：钢材、塑料等" className="mt-1" />
-                                </div>
-                                <div>
-                                  <Label htmlFor={`supplier-category-${index}`} className="text-xs">原材料类别</Label>
-                                  <Input id={`supplier-category-${index}`} value={supplier.materialCategory} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialCategory: e.target.value } : s))} placeholder="如：金属材料、化工原料等" className="mt-1" />
+                                  <Label htmlFor={`supplier-material-${index}`} className="text-xs">采购类别</Label>
+                                  <Input id={`supplier-material-${index}`} value={supplier.materialName} onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => i === index ? { ...s, materialName: e.target.value } : s))} placeholder="如：钢材、塑料、金属材料等" className="mt-1" />
                                 </div>
                                 <div>
                                   <Label htmlFor={`supplier-name-${index}`} className="text-xs">供应商名称</Label>
@@ -779,14 +782,10 @@ export default function AddPerson() {
                               )}
                             </div>
                             <div className="space-y-3">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                  <Label htmlFor={`customer-product-${index}`} className="text-xs">产品名称</Label>
+                                  <Label htmlFor={`customer-product-${index}`} className="text-xs">采购类别</Label>
                                   <Input id={`customer-product-${index}`} value={customer.productName} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productName: e.target.value } : c))} placeholder="如：机械设备、电子产品等" className="mt-1" />
-                                </div>
-                                <div>
-                                  <Label htmlFor={`customer-category-${index}`} className="text-xs">产品类别</Label>
-                                  <Input id={`customer-category-${index}`} value={customer.productCategory} onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => i === index ? { ...c, productCategory: e.target.value } : c))} placeholder="如：工业设备、消费电子等" className="mt-1" />
                                 </div>
                                 <div>
                                   <Label htmlFor={`customer-name-${index}`} className="text-xs">客户名称</Label>

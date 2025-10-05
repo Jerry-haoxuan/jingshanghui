@@ -645,13 +645,20 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                 </div>
                 <div>
                   <Label htmlFor="companyScale">企业规模</Label>
-                  <Input
+                  <select
                     id="companyScale"
                     name="companyScale"
                     value={formData.companyScale}
                     onChange={handleInputChange}
-                    placeholder="如：0-50人 / 50-100人 等"
-                  />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">请选择企业规模</option>
+                    <option value="0-50人">0-50人</option>
+                    <option value="50-100人">50-100人</option>
+                    <option value="100-500人">100-500人</option>
+                    <option value="500-1000人">500-1000人</option>
+                    <option value="1000人以上">1000人以上</option>
+                  </select>
                 </div>
               </div>
 
