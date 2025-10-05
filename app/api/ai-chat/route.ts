@@ -146,8 +146,8 @@ ${companyData.map((c: CompanyData) => `
 ${c.positioning ? `- 企业定位：${c.positioning}` : ''}
 ${c.value ? `- 企业价值：${c.value}` : ''}
 ${c.achievements ? `- 关键成就：${c.achievements}` : ''}
-${c.suppliers && c.suppliers.length > 0 ? `- 上游供应商：${c.suppliers.slice(0, 3).join('、')}${c.suppliers.length > 3 ? `等${c.suppliers.length}个` : ''}` : ''}
-${c.customers && c.customers.length > 0 ? `- 下游客户：${c.customers.slice(0, 3).join('、')}${c.customers.length > 3 ? `等${c.customers.length}个` : ''}` : ''}
+${c.suppliers && c.suppliers.length > 0 ? `- 上游供应商（共${c.suppliers.length}个）：${c.suppliers.join('、')}` : ''}
+${c.customers && c.customers.length > 0 ? `- 下游客户（共${c.customers.length}个）：${c.customers.join('、')}` : ''}
 - 简介：${c.additionalInfo || '暂无'}
 `).join('\n')}
 
