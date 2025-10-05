@@ -70,12 +70,27 @@ export default function PersonDetail() {
     // 优先使用云端数据，否则使用本地数据
     const allPeople = cloudPeople || getPeople()
     const allCompanies = cloudCompanies || getCompanies()
+    
+    console.log('[generateGraphData] 输入参数:')
+    console.log('  - currentPerson:', currentPerson.name, currentPerson.id)
+    console.log('  - cloudRelationships:', cloudRelationships?.length || 0, '条')
+    console.log('  - allPeople:', allPeople.length, '人')
+    
     // 优先使用传入的云端关系数据，否则尝试从本地获取
     const relationships = cloudRelationships 
       ? cloudRelationships.filter(rel => 
           rel.personId === currentPerson.id || rel.relatedPersonId === currentPerson.id
         )
       : getPersonRelationships(currentPerson.id)
+    
+    console.log('[generateGraphData] 过滤后的关系数据:', relationships.length, '条')
+    if (relationships.length > 0) {
+      console.log('[generateGraphData] 关系详情:', relationships.map(r => ({
+        personId: r.personId,
+        relatedPersonId: r.relatedPersonId,
+        type: r.relationshipType
+      })))
+    }
     
     const nodes: any[] = []
     const links: any[] = []
@@ -133,10 +148,21 @@ export default function PersonDetail() {
     // })
     
     // 添加关系网络中的人物节点
-    relationships.forEach(rel => {
+    console.log('[generateGraphData] 开始处理', relationships.length, '个关系')
+    relationships.forEach((rel, index) => {
       const relatedPersonId = rel.personId === currentPerson.id ? rel.relatedPersonId : rel.personId
+      console.log(`[generateGraphData] 关系${index + 1}:`, {
+        relatedPersonId,
+        relPersonId: rel.personId,
+        relRelatedPersonId: rel.relatedPersonId,
+        currentPersonId: currentPerson.id
+      })
+      
       if (relatedPersonId) {
         const relatedPerson = allPeople.find(p => p.id === relatedPersonId)
+        console.log(`[generateGraphData] 查找人物 ${relatedPersonId}:`, relatedPerson ? `找到 ${relatedPerson.name}` : '未找到')
+        console.log(`[generateGraphData] allPeople的ID列表:`, allPeople.map(p => p.id))
+        
         if (relatedPerson && !nodes.find(n => n.id === relatedPerson.id)) {
           nodes.push({
             id: relatedPerson.id,
