@@ -293,7 +293,16 @@ export default function PersonDetail() {
           // 检查是否存在关系数据
           const relationships = getPersonRelationships(foundPerson.id)
           if (relationships.length === 0) {
-            console.log('未找到关系数据，建议点击"分析关系"按钮')
+            console.log('未找到关系数据，正在自动分析生成...')
+            // 自动分析并生成关系数据
+            try {
+              await forceAnalyzeAllRelationships()
+              // 重新加载关系数据
+              const newCloudRelationships = await loadRelationshipsFromCloud()
+              console.log('[PersonDetail] 自动生成关系数据:', newCloudRelationships?.length || 0, '条')
+            } catch (error) {
+              console.error('[PersonDetail] 自动分析关系失败:', error)
+            }
           } else {
             console.log('[PersonDetail] 找到', relationships.length, '条关系')
           }
