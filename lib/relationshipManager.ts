@@ -210,6 +210,11 @@ const generateBasicRelationships = (
   allCompanies: CompanyData[]
 ): RelationshipData[] => {
   const relationships: RelationshipData[] = []
+  
+  console.log(`[generateBasicRelationships] 分析 ${newPerson.name} 的关系`)
+  console.log(`  - 公司: ${newPerson.company}`)
+  console.log(`  - 所有公司: ${JSON.stringify(newPerson.allCompanies)}`)
+  console.log(`  - 与其他 ${allPeople.length - 1} 人对比`)
 
   allPeople.forEach(person => {
     if (person.id === newPerson.id) return
@@ -224,14 +229,28 @@ const generateBasicRelationships = (
     const newPersonCompanies = newPerson.allCompanies || [{company: newPerson.company, position: newPerson.position}]
     const personCompanies = person.allCompanies || [{company: person.company, position: person.position}]
     
+    console.log(`  对比 ${person.name}: 公司=${person.company}`)
+    
     const commonCompanies = newPersonCompanies.filter(nc => {
-      if (!nc.company) return false
+      if (!nc.company) {
+        console.log(`    ${newPerson.name} 的公司为空`)
+        return false
+      }
       const normalizedNew = normalizeCompany(nc.company)
-      return personCompanies.some(pc => {
+      console.log(`    标准化后: ${normalizedNew}`)
+      const found = personCompanies.some(pc => {
         if (!pc.company) return false
-        return normalizeCompany(pc.company) === normalizedNew
+        const normalizedPc = normalizeCompany(pc.company)
+        const match = normalizedPc === normalizedNew
+        if (match) {
+          console.log(`    ✅ 找到匹配: ${nc.company} === ${pc.company}`)
+        }
+        return match
       })
+      return found
     })
+    
+    console.log(`  共同公司数: ${commonCompanies.length}`)
     if (commonCompanies.length > 0) {
       commonCompanies.forEach(common => {
         const newPersonLevel = getPositionLevel(common.position)
