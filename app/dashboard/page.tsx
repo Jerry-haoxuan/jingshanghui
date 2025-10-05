@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit, Network } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
   const [myCards, setMyCards] = useState<PersonData[]>([])
+  const [isAnalyzingRelationships, setIsAnalyzingRelationships] = useState(false)
   /* const [showDataPanel, setShowDataPanel] = useState(false) */
 
   // 确保客户端渲染的标志
@@ -137,6 +138,31 @@ export default function Dashboard() {
     company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     company.industry.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // 批量分析所有关系
+  const handleAnalyzeAllRelationships = async () => {
+    if (!isManager()) {
+      alert('只有管理员才能执行批量分析关系操作')
+      return
+    }
+
+    if (!confirm(`确定要批量分析所有人员（${people.length}人）的关系吗？\n\n这将重新生成所有关系数据并同步到Supabase。`)) {
+      return
+    }
+
+    setIsAnalyzingRelationships(true)
+    try {
+      const { forceAnalyzeAllRelationships } = await import('@/lib/relationshipManager')
+      await forceAnalyzeAllRelationships()
+      
+      alert(`✅ 批量关系分析完成！\n\n已为 ${people.length} 人生成关系数据并同步到Supabase。\n现在可以在人物详情页查看关系网络图。`)
+    } catch (error) {
+      console.error('批量分析关系失败:', error)
+      alert('❌ 批量分析关系失败: ' + (error as Error).message)
+    } finally {
+      setIsAnalyzingRelationships(false)
+    }
+  }
 
   // 数据管理功能（已移除）
   /* const handleResetData = () => { }
@@ -515,6 +541,15 @@ export default function Dashboard() {
               </div>
               {isManager() && (
                 <div className="flex items-center gap-2">
+                  <Button 
+                    variant="default" 
+                    onClick={handleAnalyzeAllRelationships}
+                    disabled={isAnalyzingRelationships || people.length === 0}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Network className="h-4 w-4 mr-1" /> 
+                    {isAnalyzingRelationships ? '分析中...' : '批量分析关系'}
+                  </Button>
                   <Button variant="outline" onClick={handleExportPeople}>
                     <Download className="h-4 w-4 mr-1" /> 导出人物
                   </Button>
