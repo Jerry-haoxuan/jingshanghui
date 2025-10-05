@@ -187,10 +187,9 @@ export default function PersonDetail() {
             relationshipText = '行业伙伴'
           } else if (rel.relationshipType === 'business_contact') {
             relationshipText = '业务联系'
-          } else if (rel.relationshipType === 'superior') {
-            relationshipText = '上级'
-          } else if (rel.relationshipType === 'subordinate') {
-            relationshipText = '下属'
+          } else if (rel.relationshipType === 'superior' || rel.relationshipType === 'subordinate') {
+            // 上级和下属关系统一显示为"同事"
+            relationshipText = '同事'
           }
           
           links.push({

@@ -100,19 +100,13 @@ export const analyzeRelationships = async (newPerson: PersonData): Promise<Relat
        2. 校友关系（相同学校的人）
        3. 行业伙伴关系（相同行业的人）
        4. 业务关系（可能的供应商、客户等）
-       5. 上下级关系（同公司不同职位级别的人）
-       
-       分析时要特别注意：
-       - CEO、总经理、董事长等高级管理职位是其他人的上级
-       - 经理、主管等中级管理职位可能是某些人的上级
-       - 助理、专员等初级职位通常是下级
        
        返回格式：
        {
          "relationships": [
            {
              "relatedPersonId": "person_id",
-             "relationshipType": "colleague|schoolmate|industry_partner|business_contact|superior|subordinate",
+             "relationshipType": "colleague|schoolmate|industry_partner|business_contact",
              "strength": 0.8,
              "description": "关系描述"
            }
@@ -174,35 +168,6 @@ export const analyzeRelationships = async (newPerson: PersonData): Promise<Relat
   }
 }
 
-// 判断职位级别
-const getPositionLevel = (position: string): number => {
-  const lowerPosition = position.toLowerCase()
-  
-  // 高级管理层 (级别 3)
-  if (lowerPosition.includes('ceo') || lowerPosition.includes('总经理') || 
-      lowerPosition.includes('董事长') || lowerPosition.includes('总裁') ||
-      lowerPosition.includes('创始人') || lowerPosition.includes('president')) {
-    return 3
-  }
-  
-  // 中级管理层 (级别 2)
-  if (lowerPosition.includes('经理') || lowerPosition.includes('主管') ||
-      lowerPosition.includes('总监') || lowerPosition.includes('部长') ||
-      lowerPosition.includes('manager') || lowerPosition.includes('director')) {
-    return 2
-  }
-  
-  // 初级员工 (级别 1)
-  if (lowerPosition.includes('助理') || lowerPosition.includes('专员') ||
-      lowerPosition.includes('实习') || lowerPosition.includes('intern') ||
-      lowerPosition.includes('assistant') || lowerPosition.includes('specialist')) {
-    return 1
-  }
-  
-  // 其他普通员工 (级别 1.5)
-  return 1.5
-}
-
 // 基本关系分析（不使用AI）
 const generateBasicRelationships = (
   newPerson: PersonData, 
@@ -253,33 +218,16 @@ const generateBasicRelationships = (
     console.log(`  共同公司数: ${commonCompanies.length}`)
     if (commonCompanies.length > 0) {
       commonCompanies.forEach(common => {
-        const newPersonLevel = getPositionLevel(common.position)
-        const normalizedCommon = normalizeCompany(common.company)
-        const personCompany = (person.allCompanies || []).find(pc => 
-          normalizeCompany(pc.company) === normalizedCommon
-        ) || {position: person.position}
-        const personLevel = getPositionLevel(personCompany.position)
-        
-        let relType: 'colleague' | 'superior' | 'subordinate' = 'colleague'
-        let description = `同在${common.company}工作`
-        if (Math.abs(newPersonLevel - personLevel) > 0.5) {
-          if (newPersonLevel > personLevel) {
-            relType = 'subordinate'
-            description = `${person.name}是${newPerson.name}的下属 (${common.company})`
-          } else {
-            relType = 'superior'
-            description = `${person.name}是${newPerson.name}的上级 (${common.company})`
-          }
-        } else {
-          description = `同在${common.company}工作`
-        }
+        // 统一为同事关系，不再区分上下级
+        const relType = 'colleague'
+        const description = `同在${common.company}工作`
         
         relationships.push({
           id: `${newPerson.id}_${person.id}_${relType}_${common.company}`,
           personId: newPerson.id,
           relatedPersonId: person.id,
           relationshipType: relType,
-          strength: relType === 'colleague' ? 0.8 : 0.9,
+          strength: 0.8,
           description,
           createdAt: new Date(),
           updatedAt: new Date()
