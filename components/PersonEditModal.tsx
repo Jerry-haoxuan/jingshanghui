@@ -166,6 +166,17 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
               console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.suppliers?.length || 0, '客户:', companyData.customers?.length || 0)
               setSuppliers(companyData.suppliers && companyData.suppliers.length > 0 ? companyData.suppliers : [''])
               setCustomers(companyData.customers && companyData.customers.length > 0 ? companyData.customers : [''])
+              
+              // 填充企业信息字段到表单
+              setFormData(prev => ({
+                ...prev,
+                companyIndustry: companyData.industry || prev.companyIndustry || '',
+                companyScale: companyData.scale || prev.companyScale || '',
+                companyPositioning: companyData.positioning || prev.companyPositioning || '',
+                companyValue: companyData.value || prev.companyValue || '',
+                companyAchievements: companyData.achievements || prev.companyAchievements || '',
+                companyDemands: companyData.demands || prev.companyDemands || ''
+              }))
             } else {
               console.warn('[PersonEditModal] 未找到匹配企业:', mainCompany, '标准化后:', normalizedMainCompany)
               console.log('[PersonEditModal] 可用企业列表:', companies.map((c: any) => ({

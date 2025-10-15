@@ -457,7 +457,7 @@ export default function AddPerson() {
                   
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label>公司及职位 *</Label>
+                      <Label>公司职位信息 *</Label>
                       <Button type="button" variant="outline" size="sm" onClick={addCompanyPosition}>
                         <Plus className="h-4 w-4 mr-1" />
                         添加公司
@@ -491,54 +491,98 @@ export default function AddPerson() {
                       </div>
                     ))}
                   </div>
-                </div>
 
-                {/* 企业信息 */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">企业信息</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="companyIndustry">所属行业 *</Label>
-                      <AutocompleteInput
-                        id="companyIndustry"
-                        value={formData.companyIndustry}
-                        onChange={(value) => handleAutocompleteChange('companyIndustry', value)}
-                        placeholder="请输入所属行业"
-                        suggestions={industries}
-                        required
-                      />
+                  {/* 企业信息 */}
+                  <div className="space-y-4 mt-6">
+                    <h4 className="text-md font-medium text-gray-700">企业信息</h4>
+                    <p className="text-sm text-gray-500">为防止企业多名重名，请按照企查查报告的公司名进行填写</p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="companyIndustry">所属行业 *</Label>
+                        <AutocompleteInput
+                          id="companyIndustry"
+                          value={formData.companyIndustry}
+                          onChange={(value) => handleAutocompleteChange('companyIndustry', value)}
+                          placeholder="请选择或输入企业所属行业"
+                          suggestions={industries}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="companyScale">企业规模</Label>
+                        <select
+                          id="companyScale"
+                          name="companyScale"
+                          value={formData.companyScale}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="">请选择企业规模</option>
+                          <option value="1-10人">1-10人</option>
+                          <option value="11-50人">11-50人</option>
+                          <option value="51-100人">51-100人</option>
+                          <option value="101-500人">101-500人</option>
+                          <option value="501-1000人">501-1000人</option>
+                          <option value="1000人以上">1000人以上</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="companyScale">企业规模</Label>
-                      <Input
-                        id="companyScale"
-                        name="companyScale"
-                        value={formData.companyScale}
-                        onChange={handleInputChange}
-                        placeholder="如：100-500人"
-                      />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="companyPositioning">企业定位（我们是做什么的）</Label>
+                        <Textarea
+                          id="companyPositioning"
+                          name="companyPositioning"
+                          value={formData.companyPositioning}
+                          onChange={handleInputChange}
+                          placeholder="简要描述企业定位，可用'、'分隔主要产品/服务"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="companyValue">企业价值（为什么选择我们）</Label>
+                        <Textarea
+                          id="companyValue"
+                          name="companyValue"
+                          value={formData.companyValue}
+                          onChange={handleInputChange}
+                          placeholder="企业核心价值/差异化优势"
+                          rows={3}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="companyPositioning">企业定位</Label>
-                    <Textarea
-                      id="companyPositioning"
-                      name="companyPositioning"
-                      value={formData.companyPositioning}
-                      onChange={handleInputChange}
-                      placeholder="请描述企业定位"
-                      rows={3}
-                    />
-                  </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="companyAchievements">关键成就（证明实力）</Label>
+                        <Textarea
+                          id="companyAchievements"
+                          name="companyAchievements"
+                          value={formData.companyAchievements}
+                          onChange={handleInputChange}
+                          placeholder="里程碑、奖项、典型客户等"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="companyDemands">企业诉求</Label>
+                        <Textarea
+                          id="companyDemands"
+                          name="companyDemands"
+                          value={formData.companyDemands}
+                          onChange={handleInputChange}
+                          placeholder="当前最需要的资源/合作/资金等"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
 
-                  {/* 供应商信息 */}
-                  <div>
-                    <Label className="text-lg font-semibold">上游供应商</Label>
-                    <div className="mt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">供应商信息：</span>
+                    {/* 供应商信息 */}
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label className="text-md font-medium">上游供应商</Label>
                         <Button 
                           type="button" 
                           variant="outline" 
@@ -559,7 +603,7 @@ export default function AddPerson() {
                       </div>
                       
                       {supplierInfos.map((supplier, index) => (
-                        <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                        <div key={index} className="p-4 border rounded-lg bg-gray-50 mb-3">
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-sm font-medium">供应商 {index + 1}</span>
                             <Button 
@@ -590,14 +634,11 @@ export default function AddPerson() {
                         </div>
                       ))}
                     </div>
-                  </div>
 
-                  {/* 客户信息 */}
-                  <div>
-                    <Label className="text-lg font-semibold">下游客户</Label>
-                    <div className="mt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">客户信息：</span>
+                    {/* 客户信息 */}
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label className="text-md font-medium">下游客户</Label>
                         <Button 
                           type="button" 
                           variant="outline" 
@@ -618,7 +659,7 @@ export default function AddPerson() {
                       </div>
                       
                       {customerInfos.map((customer, index) => (
-                        <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                        <div key={index} className="p-4 border rounded-lg bg-gray-50 mb-3">
                           <div className="flex justify-between items-center mb-3">
                             <span className="text-sm font-medium">客户 {index + 1}</span>
                             <Button 
@@ -651,6 +692,7 @@ export default function AddPerson() {
                     </div>
                   </div>
                 </div>
+
 
                 {/* 联系方式 */}
                 <div className="space-y-4">
