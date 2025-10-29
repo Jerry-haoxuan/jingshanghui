@@ -8,6 +8,7 @@ import { ArrowRight, Network, Users, Building2, Target } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
 import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
+import { saveMemberAccount } from '@/lib/memberKeys'
 
 export default function Home() {
   const [showDialog, setShowDialog] = useState(false)
@@ -63,6 +64,12 @@ export default function Home() {
         
         // 在客户端也设置localStorage
         setUserRole(userType as UserRole)
+        
+        // 如果是会员登录，保存会员信息
+        if (data.memberAccount) {
+          saveMemberAccount(data.memberAccount)
+          console.log('[Client] 会员信息已保存:', data.memberAccount)
+        }
         
         // 检查Cookie是否被设置
         console.log('[Client] 当前所有Cookies:', document.cookie)
@@ -221,15 +228,15 @@ export default function Home() {
           <DialogContent className="sm:max-w-[425px] bg-black/90 backdrop-blur-xl border border-white/20">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {userType === null ? '选择用户类型' : '输入内测码'}
+                {userType === null ? '选择用户类型' : userType === UserRole.MEMBER ? '输入会员密钥' : '输入内测码'}
               </DialogTitle>
               <DialogDescription className="text-gray-400">
                 {userType === null 
                   ? '请选择您的身份以继续' 
-                  : `请输入${userType === UserRole.MEMBER ? '会员' : '管理者'}内测码`}
+                  : `请输入${userType === UserRole.MEMBER ? '会员密钥' : '管理者'}内测码`}
                 {userType !== null && (
                   <div className="text-xs text-green-400 mt-2">
-                    💡 登录后将保持90天有效，无需重复输入密码
+                    💡 登录后将保持90天有效，无需重复输入{userType === UserRole.MEMBER ? '密钥' : '密码'}
                   </div>
                 )}
               </DialogDescription>
@@ -258,7 +265,7 @@ export default function Home() {
               // 内测码输入界面
               <div className="space-y-4 py-4">
                 <Input
-                  placeholder={`请输入${userType === UserRole.MEMBER ? '会员' : '管理者'}内测码`}
+                  placeholder={`请输入${userType === UserRole.MEMBER ? '会员密钥（格式：JSH-XXX-XXXXXXXX）' : '管理者内测码'}`}
                   value={betaCode}
                   onChange={(e) => {
                     setBetaCode(e.target.value)

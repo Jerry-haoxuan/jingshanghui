@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { UserRole } from '@/lib/userRole'
+import { validateMemberKey, MemberAccount } from '@/lib/memberKeys'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,26 +9,39 @@ export async function POST(request: NextRequest) {
 
     console.log('[Login API] 收到登录请求:', { userType, betaCode })
 
-    // 验证内测码
+    // 验证内测码或密钥
     let isValid = false
+    let memberAccount: MemberAccount | null = null
+    
     if (userType === UserRole.MANAGER && betaCode === 'ECOSYSTEM2024') {
       isValid = true
-    } else if (userType === UserRole.MEMBER && betaCode === 'MEMBER2024') {
-      isValid = true
+    } else if (userType === UserRole.MEMBER) {
+      // 会员使用密钥登录
+      memberAccount = validateMemberKey(betaCode)
+      if (memberAccount) {
+        isValid = true
+        console.log('[Login API] 会员密钥验证成功:', memberAccount.aliasName)
+      }
     }
 
     if (!isValid) {
-      console.log('[Login API] 无效的内测码')
+      console.log('[Login API] 无效的内测码或密钥')
       return NextResponse.json(
-        { success: false, message: '无效的内测码' },
+        { 
+          success: false, 
+          message: userType === UserRole.MEMBER ? '无效的会员密钥' : '无效的内测码' 
+        },
         { status: 401 }
       )
     }
 
-    console.log('[Login API] 内测码验证成功，用户类型:', userType)
+    console.log('[Login API] 验证成功，用户类型:', userType)
 
-    // 创建响应
-    const response = NextResponse.json({ success: true })
+    // 创建响应，如果是会员登录，返回会员信息
+    const response = NextResponse.json({ 
+      success: true,
+      memberAccount: memberAccount || undefined
+    })
 
     // 在服务器端设置Cookie
     const isProduction = process.env.NODE_ENV === 'production'

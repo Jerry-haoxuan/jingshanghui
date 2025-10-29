@@ -14,6 +14,7 @@ import { deterministicAliasName } from '@/lib/deterministicNameAlias'
 import { isMember, isManager } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import PersonEditModal from '@/components/PersonEditModal'
+import { isViewingOwnCard } from '@/lib/memberKeys'
 
 export default function PersonDetail() {
   const params = useParams()
@@ -29,6 +30,15 @@ export default function PersonDetail() {
   const [editFormData, setEditFormData] = useState<PersonData | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [viewingOwnCard, setViewingOwnCard] = useState(false)
+  
+  // 获取显示名称（如果是查看自己的卡片，显示真实信息）
+  const getDisplayName = (realName: string) => {
+    if (viewingOwnCard || isManager()) {
+      return realName
+    }
+    return deterministicAliasName(realName)
+  }
 
   // 重新分析关系的函数
   const handleAnalyzeRelationships = async () => {
@@ -318,6 +328,11 @@ export default function PersonDetail() {
           setPerson(foundPerson)
           setError('')
           
+          // 检查是否是查看自己的卡片
+          const isOwnCard = isViewingOwnCard(foundPerson.id)
+          setViewingOwnCard(isOwnCard)
+          console.log('[PersonDetail] 查看自己的卡片:', isOwnCard)
+          
           // 确保公司列表也尝试云端
           await loadCompaniesFromCloudIfAvailable().catch(() => {})
           
@@ -354,6 +369,11 @@ export default function PersonDetail() {
             console.log('通过字符串匹配找到人物:', foundPersonStr.name)
             setPerson(foundPersonStr)
             setError('')
+            
+            // 检查是否是查看自己的卡片
+            const isOwnCard = isViewingOwnCard(foundPersonStr.id)
+            setViewingOwnCard(isOwnCard)
+            console.log('[PersonDetail] 查看自己的卡片:', isOwnCard)
             // 尝试使用之前加载的云端关系数据
             const { loadRelationshipsFromCloud: reloadForStr } = await import('@/lib/relationshipManager')
             const strRelationships = await reloadForStr()
@@ -580,13 +600,13 @@ export default function PersonDetail() {
             <CardHeader className="pb-4 flex-shrink-0">
               <div className="flex items-center space-x-4">
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
-                  {deterministicAliasName(person.name).charAt(0)}
+                  {getDisplayName(person.name).charAt(0)}
                 </div>
                 <div>
                   <CardTitle className="text-2xl">
-                    {isManager() 
+                    {(isManager() && !viewingOwnCard)
                       ? `${person.name}（${deterministicAliasName(person.name)}）` 
-                      : deterministicAliasName(person.name)}
+                      : getDisplayName(person.name)}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Briefcase className="h-4 w-4" />
@@ -670,7 +690,7 @@ export default function PersonDetail() {
                           <div key={index} className="flex items-center gap-3">
                             <div className="flex-1">
                               <p className="text-xs text-gray-500">电话 {index + 1} {index === 0 && person.phones && person.phones.length > 1 && '(主)'}</p>
-                              {isMember() ? (
+                              {(isMember() && !viewingOwnCard) ? (
                                 <Button variant="link" className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowContactDialog(true)}>
                                   <Eye className="h-3 w-3 mr-1" />
                                   查看联系方式
@@ -685,7 +705,7 @@ export default function PersonDetail() {
                     ) : person?.phone && (
                       <div>
                         <p className="text-xs text-gray-500">电话</p>
-                        {isMember() ? (
+                        {(isMember() && !viewingOwnCard) ? (
                           <Button variant="link" className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowContactDialog(true)}>
                             <Eye className="h-3 w-3 mr-1" />
                             查看联系方式
@@ -700,7 +720,7 @@ export default function PersonDetail() {
                     {person.email && (
                       <div>
                         <p className="text-xs text-gray-500">邮箱</p>
-                        {isMember() ? (
+                        {(isMember() && !viewingOwnCard) ? (
                           <Button
                             variant="link"
                             className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800"
@@ -930,7 +950,7 @@ export default function PersonDetail() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogTitle>获取联系方式</DialogTitle>
           <DialogDescription className="text-gray-600 mt-4">
-            若想了解 {deterministicAliasName(person.name)} 的具体信息，可以联系精尚慧管理者徐翔，王丽平，李莉，覃浩轩。
+            若想了解 {getDisplayName(person.name)} 的具体信息，可以联系精尚慧管理者徐翔，王丽平，李莉，覃浩轩。
           </DialogDescription>
           <div className="flex justify-end mt-4">
             <Button onClick={() => setShowContactDialog(false)}>

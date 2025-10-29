@@ -201,13 +201,13 @@ export default function AIAssistant() {
               <Building2 className="h-5 w-5" />
               {!isSidebarCollapsed && <span>信息录入</span>}
             </Link>
-            {/* 再次编辑自己的卡片信息（顶级项，位于信息录入与“你想找谁”之间） */}
+            {/* 我的 - 查看自己的卡片（显示真实信息） */}
             <div>
               <button
                 onClick={() => {
                   if (myCards.length > 0) {
-                    setEditingPerson(myCards[0])
-                    setShowEditDialog(true)
+                    // 跳转到自己的人物详情页
+                    router.push(`/person/${myCards[0].id}`)
                   } else {
                     alert('您还没有输入自己的卡片，请前往信息录入')
                     router.push('/data-input')
@@ -216,7 +216,7 @@ export default function AIAssistant() {
                 className="w-full flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg text-left"
               >
                 <Edit className="h-5 w-5" />
-                {!isSidebarCollapsed && <span>再次编辑自己的卡片信息</span>}
+                {!isSidebarCollapsed && <span>我的</span>}
               </button>
               
               {/* 已创建的卡片列表 */}
@@ -226,8 +226,8 @@ export default function AIAssistant() {
                     <button
                       key={card.id}
                       onClick={() => {
-                        setEditingPerson(card)
-                        setShowEditDialog(true)
+                        // 跳转到人物详情页
+                        router.push(`/person/${card.id}`)
                       }}
                       className="w-full text-left px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded"
                     >
