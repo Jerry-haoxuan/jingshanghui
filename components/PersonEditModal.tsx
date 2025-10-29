@@ -379,17 +379,17 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                 name: c.name,
                 normalized: normalizeCompanyName(c.name)
               })))
-              setSuppliers([''])
-              setCustomers([''])
+              setSupplierInfos([])
+              setCustomerInfos([])
             }
           } else {
-            setSuppliers([''])
-            setCustomers([''])
+            setSupplierInfos([])
+            setCustomerInfos([])
           }
         } catch (e) {
           console.error('[PersonEditModal] 初始化企业信息失败:', e)
-          setSuppliers([''])
-          setCustomers([''])
+          setSupplierInfos([])
+          setCustomerInfos([])
         }
       }
       
