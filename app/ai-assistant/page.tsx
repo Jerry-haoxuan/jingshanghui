@@ -7,8 +7,9 @@ import { ChevronLeft, ChevronRight, User, Building2, MessageSquare, Send, Bot, E
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
-import { getUserRole, UserRole, isManager } from '@/lib/userRole'
+import { getUserRole, UserRole, isManager, isMember } from '@/lib/userRole'
 import PersonEditModal from '@/components/PersonEditModal'
+import { findPersonByMemberAccount } from '@/lib/memberKeys'
 
 interface Message {
   id: string
@@ -142,9 +143,24 @@ export default function AIAssistant() {
   // 加载用户创建的卡片
   const loadMyCards = async () => {
     try {
-      // 优先加载云端人物到本地缓存，然后仅取本地标记为“我的卡片”的人物
+      // 优先加载云端人物到本地缓存
       await loadPeopleFromCloudIfAvailable().catch(() => {})
-      setMyCards(getMyCards())
+      
+      // 如果是会员，根据会员账号查找对应的人物
+      if (isMember()) {
+        const people = getPeople()
+        const myPerson = findPersonByMemberAccount(people)
+        if (myPerson) {
+          setMyCards([myPerson])
+          console.log('[AI Assistant] 会员卡片已加载:', myPerson.name)
+        } else {
+          console.log('[AI Assistant] 未找到会员对应的人物卡片')
+          setMyCards([])
+        }
+      } else {
+        // 管理员使用原有逻辑
+        setMyCards(getMyCards())
+      }
     } catch (error) {
       console.error('加载卡片失败:', error)
       setMyCards([])

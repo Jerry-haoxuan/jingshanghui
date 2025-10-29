@@ -11,7 +11,8 @@ import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, Company
 import PersonEditModal from '@/components/PersonEditModal'
 import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@/lib/cloudStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
-import { isManager, getUserRole } from '@/lib/userRole'
+import { isManager, getUserRole, isMember } from '@/lib/userRole'
+import { findPersonByMemberAccount } from '@/lib/memberKeys'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -86,9 +87,22 @@ export default function Dashboard() {
       setPeople(peopleData)
       setCompanies(companiesData)
 
-      // 加载“我的卡片”（只显示本地标记的）
+      // 加载"我的卡片"
       try {
-        setMyCards(getMyCards())
+        if (isMember()) {
+          // 如果是会员，根据会员账号查找对应的人物
+          const myPerson = findPersonByMemberAccount(peopleData)
+          if (myPerson) {
+            setMyCards([myPerson])
+            console.log('[Dashboard] 会员卡片已加载:', myPerson.name)
+          } else {
+            console.log('[Dashboard] 未找到会员对应的人物卡片')
+            setMyCards([])
+          }
+        } else {
+          // 管理员使用原有逻辑
+          setMyCards(getMyCards())
+        }
       } catch (_) {
         setMyCards([])
       }
@@ -190,12 +204,23 @@ export default function Dashboard() {
     }
   }
 
-  // 编辑保存后，更新本地people并刷新“我的卡片”
+  // 编辑保存后，更新本地people并刷新"我的卡片"
   const handleEditSave = (updated: PersonData) => {
     const next = people.map(p => p.id === updated.id ? updated : p)
     setPeople(next)
     savePeople(next)
-    try { setMyCards(getMyCards()) } catch (_) {}
+    try { 
+      if (isMember()) {
+        const myPerson = findPersonByMemberAccount(next)
+        if (myPerson) {
+          setMyCards([myPerson])
+        } else {
+          setMyCards([])
+        }
+      } else {
+        setMyCards(getMyCards())
+      }
+    } catch (_) {}
   }
 
   // 删除项目（云端 + 本地同步）

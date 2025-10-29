@@ -14,24 +14,24 @@ export interface MemberAccount {
 export const ASSIGNED_MEMBERS: MemberAccount[] = [
   {
     key: 'JSH-RXW-8K2M9P4Q',
-    personId: undefined,  // 需要管理员在数据库中找到对应的person id
-    personName: '阮小五对应的真实姓名',  // 需要替换为真实姓名
+    personId: undefined,  // 运行时从数据库查找
+    personName: '李莉',
     aliasName: '阮小五',
     createdAt: new Date().toISOString(),
     isUsed: true
   },
   {
     key: 'JSH-QLY-3N7X6H8W',
-    personId: undefined,
-    personName: '千里眼对应的真实姓名',
+    personId: undefined,  // 运行时从数据库查找
+    personName: '王丽平',
     aliasName: '千里眼',
     createdAt: new Date().toISOString(),
     isUsed: true
   },
   {
     key: 'JSH-RLFS-5Y9T2K4M',
-    personId: undefined,
-    personName: '徐翔',  // 如来佛祖
+    personId: undefined,  // 运行时从数据库查找
+    personName: '徐翔',
     aliasName: '如来佛祖',
     createdAt: new Date().toISOString(),
     isUsed: true
@@ -156,5 +156,15 @@ export function isViewingOwnCard(personId: string): boolean {
 export function clearMemberAccount(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem('memberAccount')
+}
+
+// 根据会员账号查找对应的人物（从people数组中查找）
+export function findPersonByMemberAccount(people: any[]): any | null {
+  const memberAccount = getCurrentMemberAccount()
+  if (!memberAccount || !memberAccount.personName) return null
+  
+  // 根据真实姓名查找人物
+  const person = people.find(p => p.name === memberAccount.personName)
+  return person || null
 }
 
