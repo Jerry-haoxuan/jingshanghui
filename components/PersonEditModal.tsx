@@ -31,6 +31,30 @@ interface Education {
   year?: string
 }
 
+interface SupplierInfo {
+  materialName: string
+  materialCategory: string
+  supplierName: string
+  industryCategory: string
+  subTitle: string
+  keywords: string
+  keyPerson1: string
+  keyPerson2: string
+  keyPerson3: string
+}
+
+interface CustomerInfo {
+  productName: string
+  productCategory: string
+  customerName: string
+  industryCategory: string
+  subTitle: string
+  keywords: string
+  keyPerson1: string
+  keyPerson2: string
+  keyPerson3: string
+}
+
 // 党派选项
 const politicalParties = [
   '中国共产党',
@@ -44,6 +68,30 @@ const politicalParties = [
   '台湾民主自治同盟',
   '无党派人士',
   '群众'
+]
+
+// 行业大类选项
+const industryCategories = [
+  '半导体',
+  '芯片',
+  '人工智能',
+  '新能源',
+  '生物医药',
+  '智能制造',
+  '新材料',
+  '航空航天',
+  '信息技术',
+  '互联网',
+  '金融科技',
+  '电子商务',
+  '物联网',
+  '云计算',
+  '大数据',
+  '区块链',
+  '新能源汽车',
+  '智能硬件',
+  '工业互联网',
+  '其他'
 ]
 
 export default function PersonEditModal({ person, open, onOpenChange, onSave }: PersonEditModalProps) {
@@ -81,8 +129,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
   const [educations, setEducations] = useState<Education[]>([])
 
   // 供应商和客户信息状态
-  const [suppliers, setSuppliers] = useState<string[]>([''])
-  const [customers, setCustomers] = useState<string[]>([''])
+  const [supplierInfos, setSupplierInfos] = useState<SupplierInfo[]>([])
+  const [customerInfos, setCustomerInfos] = useState<CustomerInfo[]>([])
 
   // 当person变化时更新表单数据
   useEffect(() => {
@@ -164,8 +212,156 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             
             if (companyData) {
               console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.suppliers?.length || 0, '客户:', companyData.customers?.length || 0)
-              setSuppliers(companyData.suppliers && companyData.suppliers.length > 0 ? companyData.suppliers : [''])
-              setCustomers(companyData.customers && companyData.customers.length > 0 ? companyData.customers : [''])
+              
+              // 转换供应商数据：支持旧格式（字符串数组）和新格式（对象数组）
+              if (companyData.suppliers && companyData.suppliers.length > 0) {
+                console.log('[PersonEditModal] 原始供应商数据:', companyData.suppliers)
+                const convertedSuppliers = companyData.suppliers.map((s: any, idx: number) => {
+                  console.log(`[PersonEditModal] 供应商 ${idx + 1} 类型:`, typeof s, '值:', s)
+                  
+                  // 如果是JSON字符串，先解析
+                  if (typeof s === 'string') {
+                    try {
+                      const parsed = JSON.parse(s)
+                      if (typeof parsed === 'object' && parsed.supplierName) {
+                        // 是JSON字符串，解析后使用
+                        return {
+                          materialName: parsed.materialName || '',
+                          materialCategory: parsed.materialCategory || '',
+                          supplierName: parsed.supplierName || '',
+                          industryCategory: parsed.industryCategory || '',
+                          subTitle: parsed.subTitle || '',
+                          keywords: parsed.keywords || '',
+                          keyPerson1: parsed.keyPerson1 || '',
+                          keyPerson2: parsed.keyPerson2 || '',
+                          keyPerson3: parsed.keyPerson3 || ''
+                        }
+                      }
+                    } catch (e) {
+                      // 不是JSON，当作普通字符串（供应商名称）
+                      console.log(`[PersonEditModal] 供应商 ${idx + 1} 是普通字符串`)
+                    }
+                    // 旧格式：字符串（供应商名称）
+                    return {
+                      materialName: '',
+                      materialCategory: '',
+                      supplierName: s,
+                      industryCategory: '',
+                      subTitle: '',
+                      keywords: '',
+                      keyPerson1: '',
+                      keyPerson2: '',
+                      keyPerson3: ''
+                    }
+                  } else if (typeof s === 'object' && s !== null) {
+                    // 新格式：对象（确保所有字段都存在）
+                    return {
+                      materialName: s.materialName || '',
+                      materialCategory: s.materialCategory || '',
+                      supplierName: s.supplierName || '',
+                      industryCategory: s.industryCategory || '',
+                      subTitle: s.subTitle || '',
+                      keywords: s.keywords || '',
+                      keyPerson1: s.keyPerson1 || '',
+                      keyPerson2: s.keyPerson2 || '',
+                      keyPerson3: s.keyPerson3 || ''
+                    }
+                  } else {
+                    // 未知格式，返回空对象
+                    console.warn(`[PersonEditModal] 未知的供应商数据格式:`, s)
+                    return {
+                      materialName: '',
+                      materialCategory: '',
+                      supplierName: '',
+                      industryCategory: '',
+                      subTitle: '',
+                      keywords: '',
+                      keyPerson1: '',
+                      keyPerson2: '',
+                      keyPerson3: ''
+                    }
+                  }
+                })
+                console.log('[PersonEditModal] 转换后的供应商数据:', convertedSuppliers)
+                setSupplierInfos(convertedSuppliers)
+              } else {
+                setSupplierInfos([])
+              }
+              
+              // 转换客户数据：支持旧格式（字符串数组）和新格式（对象数组）
+              if (companyData.customers && companyData.customers.length > 0) {
+                console.log('[PersonEditModal] 原始客户数据:', companyData.customers)
+                const convertedCustomers = companyData.customers.map((c: any, idx: number) => {
+                  console.log(`[PersonEditModal] 客户 ${idx + 1} 类型:`, typeof c, '值:', c)
+                  
+                  // 如果是JSON字符串，先解析
+                  if (typeof c === 'string') {
+                    try {
+                      const parsed = JSON.parse(c)
+                      if (typeof parsed === 'object' && parsed.customerName) {
+                        // 是JSON字符串，解析后使用
+                        return {
+                          productName: parsed.productName || '',
+                          productCategory: parsed.productCategory || '',
+                          customerName: parsed.customerName || '',
+                          industryCategory: parsed.industryCategory || '',
+                          subTitle: parsed.subTitle || '',
+                          keywords: parsed.keywords || '',
+                          keyPerson1: parsed.keyPerson1 || '',
+                          keyPerson2: parsed.keyPerson2 || '',
+                          keyPerson3: parsed.keyPerson3 || ''
+                        }
+                      }
+                    } catch (e) {
+                      // 不是JSON，当作普通字符串（客户名称）
+                      console.log(`[PersonEditModal] 客户 ${idx + 1} 是普通字符串`)
+                    }
+                    // 旧格式：字符串（客户名称）
+                    return {
+                      productName: '',
+                      productCategory: '',
+                      customerName: c,
+                      industryCategory: '',
+                      subTitle: '',
+                      keywords: '',
+                      keyPerson1: '',
+                      keyPerson2: '',
+                      keyPerson3: ''
+                    }
+                  } else if (typeof c === 'object' && c !== null) {
+                    // 新格式：对象（确保所有字段都存在）
+                    return {
+                      productName: c.productName || '',
+                      productCategory: c.productCategory || '',
+                      customerName: c.customerName || '',
+                      industryCategory: c.industryCategory || '',
+                      subTitle: c.subTitle || '',
+                      keywords: c.keywords || '',
+                      keyPerson1: c.keyPerson1 || '',
+                      keyPerson2: c.keyPerson2 || '',
+                      keyPerson3: c.keyPerson3 || ''
+                    }
+                  } else {
+                    // 未知格式，返回空对象
+                    console.warn(`[PersonEditModal] 未知的客户数据格式:`, c)
+                    return {
+                      productName: '',
+                      productCategory: '',
+                      customerName: '',
+                      industryCategory: '',
+                      subTitle: '',
+                      keywords: '',
+                      keyPerson1: '',
+                      keyPerson2: '',
+                      keyPerson3: ''
+                    }
+                  }
+                })
+                console.log('[PersonEditModal] 转换后的客户数据:', convertedCustomers)
+                setCustomerInfos(convertedCustomers)
+              } else {
+                setCustomerInfos([])
+              }
               
               // 填充企业信息字段到表单
               setFormData(prev => ({
@@ -292,37 +488,41 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
   }
 
   // 供应商处理函数
-  const handleSupplierChange = (index: number, value: string) => {
-    const newSuppliers = [...suppliers]
-    newSuppliers[index] = value
-    setSuppliers(newSuppliers)
-  }
-
   const addSupplier = () => {
-    setSuppliers([...suppliers, ''])
+    setSupplierInfos([...supplierInfos, {
+      materialName: '',
+      materialCategory: '',
+      supplierName: '',
+      industryCategory: '',
+      subTitle: '',
+      keywords: '',
+      keyPerson1: '',
+      keyPerson2: '',
+      keyPerson3: ''
+    }])
   }
 
   const removeSupplier = (index: number) => {
-    if (suppliers.length > 1) {
-      setSuppliers(suppliers.filter((_, i) => i !== index))
-    }
+    setSupplierInfos(supplierInfos.filter((_, i) => i !== index))
   }
 
   // 客户处理函数
-  const handleCustomerChange = (index: number, value: string) => {
-    const newCustomers = [...customers]
-    newCustomers[index] = value
-    setCustomers(newCustomers)
-  }
-
   const addCustomer = () => {
-    setCustomers([...customers, ''])
+    setCustomerInfos([...customerInfos, {
+      productName: '',
+      productCategory: '',
+      customerName: '',
+      industryCategory: '',
+      subTitle: '',
+      keywords: '',
+      keyPerson1: '',
+      keyPerson2: '',
+      keyPerson3: ''
+    }])
   }
 
   const removeCustomer = (index: number) => {
-    if (customers.length > 1) {
-      setCustomers(customers.filter((_, i) => i !== index))
-    }
+    setCustomerInfos(customerInfos.filter((_, i) => i !== index))
   }
 
   const handleSave = async () => {
@@ -410,6 +610,10 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         const { upsertCompanyToCloud } = await import('@/lib/cloudStore')
         const mainCompany = companyPositions[0]?.company?.trim()
         if (mainCompany) {
+          // 过滤掉空的供应商和客户
+          const validSuppliers = supplierInfos.filter(s => s.supplierName.trim() !== '')
+          const validCustomers = customerInfos.filter(c => c.customerName.trim() !== '')
+          
           // 构建企业更新数据
           const companyUpdateData = {
             name: mainCompany,
@@ -420,8 +624,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             value: formData.companyValue,
             achievements: formData.companyAchievements,
             demands: formData.companyDemands,
-            suppliers: suppliers.filter(s => s.trim() !== ''),
-            customers: customers.filter(c => c.trim() !== ''),
+            suppliers: validSuppliers,
+            customers: validCustomers,
             additionalInfo: ''
           }
           
@@ -752,23 +956,57 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                     添加供应商
                   </Button>
                 </div>
-                {suppliers.map((supplier, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <Input
-                      value={supplier}
-                      onChange={(e) => handleSupplierChange(index, e.target.value)}
-                      placeholder={`供应商 ${index + 1}`}
-                    />
-                    {suppliers.length > 1 && (
+                {supplierInfos.map((supplier, index) => (
+                  <div key={index} className="p-3 border rounded-lg bg-gray-50 mb-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-medium text-gray-600">供应商 {index + 1}</span>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => removeSupplier(index)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
-                    )}
+                    </div>
+                    <div className="mb-2">
+                      <Input
+                        value={supplier.supplierName}
+                        onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                          i === index ? { ...s, supplierName: e.target.value } : s
+                        ))}
+                        placeholder="供应商名称"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-gray-600 mb-1 block">行业大类</Label>
+                        <select
+                          value={supplier.industryCategory}
+                          onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                            i === index ? { ...s, industryCategory: e.target.value } : s
+                          ))}
+                          className="w-full h-9 px-2 rounded-md border border-gray-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">请选择行业大类</option>
+                          {industryCategories.map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                        <Input
+                          value={supplier.subTitle}
+                          onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                            i === index ? { ...s, subTitle: e.target.value } : s
+                          ))}
+                          placeholder="自定义小标题"
+                          className="text-sm h-9"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -787,23 +1025,57 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                     添加客户
                   </Button>
                 </div>
-                {customers.map((customer, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <Input
-                      value={customer}
-                      onChange={(e) => handleCustomerChange(index, e.target.value)}
-                      placeholder={`客户 ${index + 1}`}
-                    />
-                    {customers.length > 1 && (
+                {customerInfos.map((customer, index) => (
+                  <div key={index} className="p-3 border rounded-lg bg-gray-50 mb-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-medium text-gray-600">客户 {index + 1}</span>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => removeCustomer(index)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
-                    )}
+                    </div>
+                    <div className="mb-2">
+                      <Input
+                        value={customer.customerName}
+                        onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                          i === index ? { ...c, customerName: e.target.value } : c
+                        ))}
+                        placeholder="客户名称"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-gray-600 mb-1 block">行业大类</Label>
+                        <select
+                          value={customer.industryCategory}
+                          onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                            i === index ? { ...c, industryCategory: e.target.value } : c
+                          ))}
+                          className="w-full h-9 px-2 rounded-md border border-gray-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">请选择行业大类</option>
+                          {industryCategories.map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                        <Input
+                          value={customer.subTitle}
+                          onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                            i === index ? { ...c, subTitle: e.target.value } : c
+                          ))}
+                          placeholder="自定义小标题"
+                          className="text-sm h-9"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -32,6 +32,8 @@ interface SupplierInfo {
   materialName: string
   materialCategory: string
   supplierName: string
+  industryCategory: string  // 行业大类（下拉选择）
+  subTitle: string          // 小标题（用户输入）
   keywords: string
   keyPerson1: string
   keyPerson2: string
@@ -42,6 +44,8 @@ interface CustomerInfo {
   productName: string
   productCategory: string
   customerName: string
+  industryCategory: string  // 行业大类（下拉选择）
+  subTitle: string          // 小标题（用户输入）
   keywords: string
   keyPerson1: string
   keyPerson2: string
@@ -61,6 +65,30 @@ const politicalParties = [
   '台湾民主自治同盟',
   '无党派人士',
   '群众'
+]
+
+// 行业大类选项
+const industryCategories = [
+  '半导体',
+  '芯片',
+  '人工智能',
+  '新能源',
+  '生物医药',
+  '智能制造',
+  '新材料',
+  '航空航天',
+  '信息技术',
+  '互联网',
+  '金融科技',
+  '电子商务',
+  '物联网',
+  '云计算',
+  '大数据',
+  '区块链',
+  '新能源汽车',
+  '智能硬件',
+  '工业互联网',
+  '其他'
 ]
 
 export default function AddPerson() {
@@ -591,6 +619,8 @@ export default function AddPerson() {
                             materialName: '', 
                             materialCategory: '', 
                             supplierName: '', 
+                            industryCategory: '',
+                            subTitle: '',
                             keywords: '', 
                             keyPerson1: '', 
                             keyPerson2: '', 
@@ -631,6 +661,33 @@ export default function AddPerson() {
                               placeholder="供应商名称"
                             />
                           </div>
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <Label className="text-xs text-gray-600 mb-1 block">行业大类</Label>
+                              <select
+                                value={supplier.industryCategory}
+                                onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                                  i === index ? { ...s, industryCategory: e.target.value } : s
+                                ))}
+                                className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">请选择行业大类</option>
+                                {industryCategories.map((category) => (
+                                  <option key={category} value={category}>{category}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                              <Input
+                                value={supplier.subTitle}
+                                onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                                  i === index ? { ...s, subTitle: e.target.value } : s
+                                ))}
+                                placeholder="自定义小标题"
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -647,6 +704,8 @@ export default function AddPerson() {
                             productName: '', 
                             productCategory: '', 
                             customerName: '', 
+                            industryCategory: '',
+                            subTitle: '',
                             keywords: '', 
                             keyPerson1: '', 
                             keyPerson2: '', 
@@ -686,6 +745,33 @@ export default function AddPerson() {
                               ))}
                               placeholder="客户名称"
                             />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <Label className="text-xs text-gray-600 mb-1 block">行业大类</Label>
+                              <select
+                                value={customer.industryCategory}
+                                onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                                  i === index ? { ...c, industryCategory: e.target.value } : c
+                                ))}
+                                className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">请选择行业大类</option>
+                                {industryCategories.map((category) => (
+                                  <option key={category} value={category}>{category}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                              <Input
+                                value={customer.subTitle}
+                                onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                                  i === index ? { ...c, subTitle: e.target.value } : c
+                                ))}
+                                placeholder="自定义小标题"
+                              />
+                            </div>
                           </div>
                         </div>
                       ))}

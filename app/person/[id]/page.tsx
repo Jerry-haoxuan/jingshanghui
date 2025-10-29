@@ -395,9 +395,6 @@ export default function PersonDetail() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-500">正在加载人物信息...</p>
-          <p className="text-sm text-gray-400 mt-2">
-            {typeof window !== 'undefined' ? '客户端加载中' : '服务端渲染中'}
-          </p>
         </div>
       </div>
     )
@@ -425,7 +422,6 @@ export default function PersonDetail() {
           <div className="mt-4 p-3 bg-gray-100 rounded-md text-sm text-left">
             <p className="font-medium mb-1">调试信息：</p>
             <p>URL参数ID: {params.id}</p>
-            <p>当前环境: {typeof window !== 'undefined' ? '客户端' : '服务端'}</p>
           </div>
         </div>
       </div>
@@ -435,9 +431,10 @@ export default function PersonDetail() {
   // 在渲染前确保客户端已准备好
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-gray-500">加载中...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">正在加载...</p>
         </div>
       </div>
     )

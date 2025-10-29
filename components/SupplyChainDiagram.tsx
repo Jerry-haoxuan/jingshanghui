@@ -4,16 +4,66 @@ import React from 'react'
 import { CompanyData } from '@/lib/dataStore'
 import { ArrowDown, ArrowUp, Building2 } from 'lucide-react'
 
-interface SupplyChainDiagramProps {
-  company: CompanyData
-  suppliers: string[]
-  customers: string[]
+interface SupplierInfo {
+  materialName?: string
+  materialCategory?: string
+  supplierName: string
+  industryCategory?: string
+  subTitle?: string
+  keywords?: string
+  keyPerson1?: string
+  keyPerson2?: string
+  keyPerson3?: string
 }
 
-export function SupplyChainDiagram({ company, suppliers, customers }: SupplyChainDiagramProps) {
+interface CustomerInfo {
+  productName?: string
+  productCategory?: string
+  customerName: string
+  industryCategory?: string
+  subTitle?: string
+  keywords?: string
+  keyPerson1?: string
+  keyPerson2?: string
+  keyPerson3?: string
+}
+
+interface SupplyChainDiagramProps {
+  company: CompanyData
+  suppliers?: string[] | SupplierInfo[]  // 兼容旧格式和新格式
+  customers?: string[] | CustomerInfo[]  // 兼容旧格式和新格式
+}
+
+export function SupplyChainDiagram({ company, suppliers = [], customers = [] }: SupplyChainDiagramProps) {
+  // 将数据标准化为对象数组格式
+  const normalizeSuppliers = (data: string[] | SupplierInfo[]): SupplierInfo[] => {
+    if (!data || data.length === 0) return []
+    if (typeof data[0] === 'string') {
+      return (data as string[]).map(name => ({ supplierName: name }))
+    }
+    return data as SupplierInfo[]
+  }
+
+  const normalizeCustomers = (data: string[] | CustomerInfo[]): CustomerInfo[] => {
+    if (!data || data.length === 0) return []
+    if (typeof data[0] === 'string') {
+      return (data as string[]).map(name => ({ customerName: name }))
+    }
+    return data as CustomerInfo[]
+  }
+
+  // 使用新的 supplierInfos 和 customerInfos 如果存在，否则使用旧的 suppliers 和 customers
+  const supplierData = company.supplierInfos && company.supplierInfos.length > 0 
+    ? company.supplierInfos 
+    : normalizeSuppliers(suppliers)
+  
+  const customerData = company.customerInfos && company.customerInfos.length > 0 
+    ? company.customerInfos 
+    : normalizeCustomers(customers)
+  
   // 限制显示数量，保持图谱简洁
-  const displaySuppliers = suppliers.slice(0, 6)
-  const displayCustomers = customers.slice(0, 6)
+  const displaySuppliers = supplierData.slice(0, 6)
+  const displayCustomers = customerData.slice(0, 6)
   
   return (
     <div className="w-full h-full flex flex-col items-center justify-center p-8">
@@ -25,15 +75,33 @@ export function SupplyChainDiagram({ company, suppliers, customers }: SupplyChai
             {displaySuppliers.map((supplier, index) => (
               <div
                 key={index}
-                className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-2"
+                className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-100 transition-colors"
               >
-                <Building2 className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">{supplier}</span>
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <span className="text-sm font-medium text-blue-900">{supplier.supplierName}</span>
+                </div>
+                {(supplier.industryCategory || supplier.subTitle) && (
+                  <div className="mt-1 pl-6 space-y-0.5">
+                    {supplier.industryCategory && (
+                      <div className="text-xs text-blue-700">
+                        <span className="bg-blue-200 px-2 py-0.5 rounded">
+                          {supplier.industryCategory}
+                        </span>
+                      </div>
+                    )}
+                    {supplier.subTitle && (
+                      <div className="text-xs text-blue-600">
+                        {supplier.subTitle}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
-            {suppliers.length > 6 && (
+            {supplierData.length > 6 && (
               <div className="text-sm text-gray-500 flex items-center">
-                ...还有 {suppliers.length - 6} 个供应商
+                ...还有 {supplierData.length - 6} 个供应商
               </div>
             )}
           </div>
@@ -80,15 +148,33 @@ export function SupplyChainDiagram({ company, suppliers, customers }: SupplyChai
             {displayCustomers.map((customer, index) => (
               <div
                 key={index}
-                className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 flex items-center gap-2"
+                className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 hover:bg-orange-100 transition-colors"
               >
-                <Building2 className="w-4 h-4 text-orange-600" />
-                <span className="text-sm font-medium text-orange-800">{customer}</span>
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                  <span className="text-sm font-medium text-orange-900">{customer.customerName}</span>
+                </div>
+                {(customer.industryCategory || customer.subTitle) && (
+                  <div className="mt-1 pl-6 space-y-0.5">
+                    {customer.industryCategory && (
+                      <div className="text-xs text-orange-700">
+                        <span className="bg-orange-200 px-2 py-0.5 rounded">
+                          {customer.industryCategory}
+                        </span>
+                      </div>
+                    )}
+                    {customer.subTitle && (
+                      <div className="text-xs text-orange-600">
+                        {customer.subTitle}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
-            {customers.length > 6 && (
+            {customerData.length > 6 && (
               <div className="text-sm text-gray-500 flex items-center">
-                ...还有 {customers.length - 6} 个客户
+                ...还有 {customerData.length - 6} 个客户
               </div>
             )}
           </div>
@@ -102,9 +188,9 @@ export function SupplyChainDiagram({ company, suppliers, customers }: SupplyChai
         <p className="text-xs text-gray-500">
           该图谱展示了 {company.name} 的供应链上下游关系
         </p>
-        {(suppliers.length === 0 && customers.length === 0) && (
+        {(supplierData.length === 0 && customerData.length === 0) && (
           <p className="text-xs text-gray-400 mt-2">
-            提示：可通过上传Excel文件导入供应商和客户数据
+            提示：可通过编辑人员信息添加供应商和客户数据
           </p>
         )}
       </div>

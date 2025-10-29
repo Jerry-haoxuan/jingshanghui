@@ -45,8 +45,28 @@ export interface CompanyData {
   customers?: string[] // 下游客户
   // 下述字段来自企业录入页面的新表单项，用于更完整的导出
   demands?: string // 企业诉求
-  supplierInfos?: { materialName: string; materialCategory: string; supplierName: string; keywords: string; keyPerson1: string; keyPerson2: string; keyPerson3: string }[] // 供应商明细
-  customerInfos?: { productName: string; productCategory: string; customerName: string; keywords: string; keyPerson1: string; keyPerson2: string; keyPerson3: string }[] // 客户明细
+  supplierInfos?: { 
+    materialName: string; 
+    materialCategory: string; 
+    supplierName: string; 
+    industryCategory: string;  // 行业大类
+    subTitle: string;          // 小标题
+    keywords: string; 
+    keyPerson1: string; 
+    keyPerson2: string; 
+    keyPerson3: string 
+  }[] // 供应商明细
+  customerInfos?: { 
+    productName: string; 
+    productCategory: string; 
+    customerName: string; 
+    industryCategory: string;  // 行业大类
+    subTitle: string;          // 小标题
+    keywords: string; 
+    keyPerson1: string; 
+    keyPerson2: string; 
+    keyPerson3: string 
+  }[] // 客户明细
 }
 
 const PEOPLE_KEY = 'ecosystem_people'

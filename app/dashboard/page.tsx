@@ -399,7 +399,10 @@ export default function Dashboard() {
         <div className="p-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <Link href="/" className="text-2xl font-bold text-blue-600">
+              <Link 
+                href="/" 
+                className="text-2xl font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+              >
                 精尚慧
               </Link>
             )}

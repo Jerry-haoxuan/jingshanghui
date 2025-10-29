@@ -15,24 +15,19 @@ export default function Home() {
   const [betaCode, setBetaCode] = useState('')
   const [error, setError] = useState('')
   const [isClient, setIsClient] = useState(false)
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null)
   const router = useRouter()
 
   // 确保客户端渲染的标志
   useEffect(() => {
     setIsClient(true)
     
-    // 检查是否已经登录，如果是则自动跳转
-    const checkExistingLogin = () => {
-      const existingRole = getUserRole()
-      if (existingRole) {
-        console.log('[Client] 发现已有登录状态:', existingRole)
-        // 直接跳转到仪表板，无需重新输入密码
-        router.push('/dashboard')
-      }
+    // 检查当前登录状态，但不自动跳转
+    const existingRole = getUserRole()
+    if (existingRole) {
+      console.log('[Client] 发现已有登录状态:', existingRole)
+      setCurrentUserRole(existingRole)
     }
-    
-    // 延迟检查，确保DOM已加载
-    setTimeout(checkExistingLogin, 100)
   }, [router])
 
   const handleUserTypeSelect = (type: UserRole) => {
@@ -134,14 +129,50 @@ export default function Home() {
             </p>
           </div>
 
-          <Button 
-            size="lg" 
-            className="h-12 px-8 text-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0"
-            onClick={() => setShowDialog(true)}
-          >
-            开始内测
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          {/* 显示当前登录状态 */}
+          {currentUserRole && (
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 max-w-md">
+              <p className="text-white mb-3">
+                您当前已登录为 <span className="font-semibold">{currentUserRole === 'member' ? '会员' : '管理者'}</span>
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
+                  onClick={() => router.push('/dashboard')}
+                >
+                  欢迎登入
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      localStorage.removeItem('userRole')
+                    }
+                    setCurrentUserRole(null)
+                    setShowDialog(true)
+                  }}
+                >
+                  切换账号
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 开始内测按钮 */}
+          {!currentUserRole && (
+            <Button 
+              size="lg" 
+              className="h-12 px-8 text-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0"
+              onClick={() => setShowDialog(true)}
+            >
+              开始内测
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          )}
         </section>
 
         {/* Features Section */}
