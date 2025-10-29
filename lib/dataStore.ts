@@ -50,7 +50,7 @@ export interface CompanyData {
     materialCategory: string; 
     supplierName: string; 
     industryCategory: string;  // 行业大类
-    subTitle: string;          // 小标题
+    subTitle: string;          // 核心业务类别
     keywords: string; 
     keyPerson1: string; 
     keyPerson2: string; 
@@ -61,7 +61,7 @@ export interface CompanyData {
     productCategory: string; 
     customerName: string; 
     industryCategory: string;  // 行业大类
-    subTitle: string;          // 小标题
+    subTitle: string;          // 核心业务类别
     keywords: string; 
     keyPerson1: string; 
     keyPerson2: string; 

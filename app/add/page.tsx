@@ -33,7 +33,7 @@ interface SupplierInfo {
   materialCategory: string
   supplierName: string
   industryCategory: string  // 行业大类（下拉选择）
-  subTitle: string          // 小标题（用户输入）
+  subTitle: string          // 核心业务类别（用户输入）
   keywords: string
   keyPerson1: string
   keyPerson2: string
@@ -45,7 +45,7 @@ interface CustomerInfo {
   productCategory: string
   customerName: string
   industryCategory: string  // 行业大类（下拉选择）
-  subTitle: string          // 小标题（用户输入）
+  subTitle: string          // 核心业务类别（用户输入）
   keywords: string
   keyPerson1: string
   keyPerson2: string
@@ -678,13 +678,13 @@ export default function AddPerson() {
                               </select>
                             </div>
                             <div>
-                              <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                              <Label className="text-xs text-gray-600 mb-1 block">核心业务类别</Label>
                               <Input
                                 value={supplier.subTitle}
-                                onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                                onChange={(e) => setSupplierInfos(prev => prev.map((s, i) =>
                                   i === index ? { ...s, subTitle: e.target.value } : s
                                 ))}
-                                placeholder="自定义小标题"
+                                placeholder="例如：芯片封装、AI算法、云计算"
                               />
                             </div>
                           </div>
@@ -763,13 +763,13 @@ export default function AddPerson() {
                               </select>
                             </div>
                             <div>
-                              <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                              <Label className="text-xs text-gray-600 mb-1 block">核心业务类别</Label>
                               <Input
                                 value={customer.subTitle}
-                                onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                                onChange={(e) => setCustomerInfos(prev => prev.map((c, i) =>
                                   i === index ? { ...c, subTitle: e.target.value } : c
                                 ))}
-                                placeholder="自定义小标题"
+                                placeholder="例如：芯片封装、AI算法、云计算"
                               />
                             </div>
                           </div>

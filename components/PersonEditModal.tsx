@@ -996,13 +996,13 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                         </select>
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                        <Label className="text-xs text-gray-600 mb-1 block">核心业务类别</Label>
                         <Input
                           value={supplier.subTitle}
-                          onChange={(e) => setSupplierInfos(prev => prev.map((s, i) => 
+                          onChange={(e) => setSupplierInfos(prev => prev.map((s, i) =>
                             i === index ? { ...s, subTitle: e.target.value } : s
                           ))}
-                          placeholder="自定义小标题"
+                          placeholder="例如：芯片封装、AI算法、云计算"
                           className="text-sm h-9"
                         />
                       </div>
@@ -1065,13 +1065,13 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                         </select>
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-600 mb-1 block">小标题</Label>
+                        <Label className="text-xs text-gray-600 mb-1 block">核心业务类别</Label>
                         <Input
                           value={customer.subTitle}
-                          onChange={(e) => setCustomerInfos(prev => prev.map((c, i) => 
+                          onChange={(e) => setCustomerInfos(prev => prev.map((c, i) =>
                             i === index ? { ...c, subTitle: e.target.value } : c
                           ))}
-                          placeholder="自定义小标题"
+                          placeholder="例如：芯片封装、AI算法、云计算"
                           className="text-sm h-9"
                         />
                       </div>
