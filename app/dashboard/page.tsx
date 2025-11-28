@@ -494,7 +494,7 @@ export default function Dashboard() {
               className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
             >
               <MessageSquare className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>你想找谁</span>}
+              {!isSidebarCollapsed && <span>您的慧慧Ai助理</span>}
             </Link>
           </nav>
 

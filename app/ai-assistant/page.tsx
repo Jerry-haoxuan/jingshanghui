@@ -258,7 +258,7 @@ export default function AIAssistant() {
               className="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg"
             >
               <MessageSquare className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>你想找谁</span>}
+              {!isSidebarCollapsed && <span>您的慧慧Ai助理</span>}
             </Link>
           </nav>
         </div>
