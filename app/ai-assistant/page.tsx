@@ -18,6 +18,76 @@ interface Message {
   timestamp: Date
 }
 
+// 简单的 Markdown 渲染函数
+function renderMarkdown(text: string): React.ReactNode {
+  if (!text) return text
+  
+  // 将文本按行分割处理
+  const lines = text.split('\n')
+  
+  return lines.map((line, lineIndex) => {
+    // 处理每一行的 Markdown 格式
+    const parts: React.ReactNode[] = []
+    let remaining = line
+    let partIndex = 0
+    
+    // 处理 **加粗** 格式
+    while (remaining.includes('**')) {
+      const startIdx = remaining.indexOf('**')
+      const endIdx = remaining.indexOf('**', startIdx + 2)
+      
+      if (endIdx === -1) break
+      
+      // 添加加粗前的普通文本
+      if (startIdx > 0) {
+        parts.push(<span key={`${lineIndex}-${partIndex++}`}>{remaining.slice(0, startIdx)}</span>)
+      }
+      
+      // 添加加粗文本
+      const boldText = remaining.slice(startIdx + 2, endIdx)
+      parts.push(<strong key={`${lineIndex}-${partIndex++}`} className="font-semibold">{boldText}</strong>)
+      
+      remaining = remaining.slice(endIdx + 2)
+    }
+    
+    // 处理 *斜体* 格式（单个星号）
+    while (remaining.includes('*')) {
+      const startIdx = remaining.indexOf('*')
+      const endIdx = remaining.indexOf('*', startIdx + 1)
+      
+      if (endIdx === -1) break
+      
+      // 添加斜体前的普通文本
+      if (startIdx > 0) {
+        parts.push(<span key={`${lineIndex}-${partIndex++}`}>{remaining.slice(0, startIdx)}</span>)
+      }
+      
+      // 添加斜体文本
+      const italicText = remaining.slice(startIdx + 1, endIdx)
+      parts.push(<em key={`${lineIndex}-${partIndex++}`} className="italic">{italicText}</em>)
+      
+      remaining = remaining.slice(endIdx + 1)
+    }
+    
+    // 添加剩余的普通文本
+    if (remaining) {
+      parts.push(<span key={`${lineIndex}-${partIndex++}`}>{remaining}</span>)
+    }
+    
+    // 如果没有任何格式，直接返回原始行
+    if (parts.length === 0) {
+      parts.push(<span key={`${lineIndex}-0`}>{line}</span>)
+    }
+    
+    // 每行末尾添加换行（除了最后一行）
+    if (lineIndex < lines.length - 1) {
+      parts.push(<br key={`${lineIndex}-br`} />)
+    }
+    
+    return <span key={lineIndex}>{parts}</span>
+  })
+}
+
 export default function AIAssistant() {
   const router = useRouter()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
@@ -288,7 +358,7 @@ export default function AIAssistant() {
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  <div className="whitespace-pre-wrap">{renderMarkdown(message.content)}</div>
                   <p className={`text-xs mt-1 ${
                     message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
                   }`}>
