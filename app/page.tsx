@@ -75,10 +75,17 @@ export default function Home() {
         console.log('[Client] 当前所有Cookies:', document.cookie)
         
         // 根据用户类型决定跳转目标
-        console.log('[Client] 跳转到我的页面')
+        console.log('[Client] 用户类型:', userType)
         
-        // 如果是会员登录且有会员信息，尝试查找对应的人物
-        if (data.memberAccount && data.memberAccount.personName) {
+        // 管理员直接跳转到智能关系网
+        if (userType === UserRole.MANAGER) {
+          console.log('[Client] 管理员登录，跳转到智能关系网')
+          router.push('/dashboard')
+          return
+        }
+        
+        // 会员登录：尝试查找对应的人物
+        if (userType === UserRole.MEMBER && data.memberAccount && data.memberAccount.personName) {
           try {
             // 加载云端数据查找人物
             const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
@@ -170,7 +177,14 @@ export default function Home() {
                   variant="outline"
                   className="bg-white/20 border-white/30 text-white hover:bg-white/30"
                   onClick={async () => {
-                    // 尝试跳转到用户自己的页面
+                    // 根据用户角色决定跳转目标
+                    // 管理员直接跳转到智能关系网
+                    if (currentUserRole === UserRole.MANAGER) {
+                      router.push('/dashboard')
+                      return
+                    }
+                    
+                    // 会员尝试跳转到自己的页面
                     try {
                       const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
                       const { getCurrentMemberAccount } = await import('@/lib/memberKeys')
