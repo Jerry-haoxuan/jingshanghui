@@ -93,6 +93,31 @@ export async function POST(request: NextRequest) {
         }).filter(Boolean).join('\n')
       : '暂无分析出的关系'
     
+    // 提取数据库中所有公司名称（包括上下游）
+    const databaseCompanyNames = new Set<string>()
+    companyData.forEach(c => {
+      databaseCompanyNames.add(c.name)
+      // 添加上下游公司
+      if (c.suppliers) {
+        c.suppliers.forEach((s: any) => {
+          const name = typeof s === 'string' ? s : (s.supplierName || s.name)
+          if (name) databaseCompanyNames.add(name)
+        })
+      }
+      if (c.customers) {
+        c.customers.forEach((cust: any) => {
+          const name = typeof cust === 'string' ? cust : (cust.customerName || cust.name)
+          if (name) databaseCompanyNames.add(name)
+        })
+      }
+    })
+    // 从人物信息中提取公司名称
+    peopleData.forEach(p => {
+      if (p.company) databaseCompanyNames.add(p.company)
+    })
+    
+    const companyNamesList = Array.from(databaseCompanyNames).join('、')
+
     // 增强的系统提示词
     const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你是一个专业、友好、智能的人脉助手。
 
@@ -101,6 +126,22 @@ export async function POST(request: NextRequest) {
 2. 提供智能的人脉推荐和建议
 3. 分析人物之间的潜在联系
 4. 给出专业的商务社交建议
+
+⚠️ **重要的搜索限制规则**：
+1. 你只能回答关于数据库中公司的问题
+2. 当用户询问某个公司时，首先检查该公司是否在以下数据库公司列表中：
+   ${companyNamesList}
+3. 如果用户询问的公司在数据库中，你需要：
+   - 首先展示数据库中已有的信息
+   - 然后可以补充你所知道的该公司的公开信息（如业务范围、行业地位等）
+4. 如果用户询问的公司不在数据库中，你必须友好地告知：
+   "抱歉，【公司名】不在我们的数据库中。目前我只能查询数据库中的公司信息。您可以查询以下公司：[列出3-5个相关公司]"
+5. 当数据库信息较少时，可以补充该公司的公开信息，如：
+   - 公司主营业务
+   - 行业地位
+   - 发展历程
+   - 主要产品/服务
+   但要明确标注"以下为公开信息补充："
 
 回答风格：
 - 友好亲切，像朋友一样对话
@@ -437,10 +478,82 @@ function searchPeople(query: string, people: any[], companies: any[], role: stri
     return response
   }
   
-  // 搜索公司
-  const companyMatch = companies.find(c => 
+  // 构建数据库公司名称集合（包括上下游）
+  const dbCompanyNames = new Set<string>()
+  companies.forEach((c: any) => {
+    dbCompanyNames.add(c.name.toLowerCase())
+    if (c.suppliers) {
+      c.suppliers.forEach((s: any) => {
+        const name = typeof s === 'string' ? s : (s.supplierName || s.name)
+        if (name) dbCompanyNames.add(name.toLowerCase())
+      })
+    }
+    if (c.customers) {
+      c.customers.forEach((cust: any) => {
+        const name = typeof cust === 'string' ? cust : (cust.customerName || cust.name)
+        if (name) dbCompanyNames.add(name.toLowerCase())
+      })
+    }
+  })
+  people.forEach((p: any) => {
+    if (p.company) dbCompanyNames.add(p.company.toLowerCase())
+  })
+
+  // 搜索公司 - 先检查是否在数据库中
+  const companyMatch = companies.find((c: any) => 
     c.name.toLowerCase().includes(lowerQuery)
   )
+  
+  // 检查用户是否在查询一个看起来像公司名的内容（但不在数据库中）
+  const looksLikeCompanyQuery = lowerQuery.includes('公司') || 
+    lowerQuery.includes('集团') || 
+    lowerQuery.includes('有限') ||
+    lowerQuery.includes('股份') ||
+    lowerQuery.includes('科技') ||
+    lowerQuery.includes('技术')
+  
+  // 如果看起来在查公司但不在数据库中
+  if (looksLikeCompanyQuery && !companyMatch) {
+    // 检查是否在上下游公司中
+    let foundInUpstream = false
+    let upstreamCompanyInfo = null
+    
+    companies.forEach((c: any) => {
+      if (c.suppliers) {
+        c.suppliers.forEach((s: any) => {
+          const name = typeof s === 'string' ? s : (s.supplierName || s.name)
+          if (name && name.toLowerCase().includes(lowerQuery)) {
+            foundInUpstream = true
+            upstreamCompanyInfo = { name, relatedTo: c.name, type: '上游供应商' }
+          }
+        })
+      }
+      if (c.customers) {
+        c.customers.forEach((cust: any) => {
+          const name = typeof cust === 'string' ? cust : (cust.customerName || cust.name)
+          if (name && name.toLowerCase().includes(lowerQuery)) {
+            foundInUpstream = true
+            upstreamCompanyInfo = { name, relatedTo: c.name, type: '下游客户' }
+          }
+        })
+      }
+    })
+    
+    if (foundInUpstream && upstreamCompanyInfo) {
+      let response = `我在数据库中找到了 **${upstreamCompanyInfo.name}** 的相关信息！\n\n`
+      response += `🔗 **供应链关系**\n`
+      response += `• ${upstreamCompanyInfo.name} 是 ${upstreamCompanyInfo.relatedTo} 的${upstreamCompanyInfo.type}\n\n`
+      response += `💡 这是一家在我们供应链网络中的企业。如需了解更多详细信息，建议查看 ${upstreamCompanyInfo.relatedTo} 的完整资料。`
+      return response
+    }
+    
+    // 完全不在数据库中
+    const sampleCompanies = companies.slice(0, 5).map((c: any) => c.name).join('、')
+    return `抱歉，您查询的公司不在我们的数据库中。😅\n\n` +
+      `⚠️ 目前我只能查询数据库中已录入的公司信息。\n\n` +
+      `📋 您可以查询以下公司：\n${sampleCompanies}\n\n` +
+      `💡 如需添加新的公司信息，请联系管理员进行录入。`
+  }
   
   if (companyMatch) {
     const companyPeople = people.filter(p => p.company === companyMatch.name)
