@@ -38,18 +38,64 @@ export function SupplyChainDiagram({ company, suppliers = [], customers = [] }: 
   // 将数据标准化为对象数组格式
   const normalizeSuppliers = (data: string[] | SupplierInfo[]): SupplierInfo[] => {
     if (!data || data.length === 0) return []
-    if (typeof data[0] === 'string') {
-      return (data as string[]).map(name => ({ supplierName: name }))
-    }
-    return data as SupplierInfo[]
+    return data.map(item => {
+      if (typeof item === 'string') {
+        // 尝试解析 JSON 字符串
+        if (item.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(item)
+            return {
+              supplierName: parsed.supplierName || parsed.name || item,
+              industryCategory: parsed.industryCategory || '',
+              subTitle: parsed.subTitle || '',
+              materialName: parsed.materialName || '',
+              materialCategory: parsed.materialCategory || '',
+              keywords: parsed.keywords || '',
+              keyPerson1: parsed.keyPerson1 || '',
+              keyPerson2: parsed.keyPerson2 || '',
+              keyPerson3: parsed.keyPerson3 || ''
+            }
+          } catch {
+            // 解析失败，当作普通名称
+            return { supplierName: item }
+          }
+        }
+        // 普通字符串，当作名称
+        return { supplierName: item }
+      }
+      return item as SupplierInfo
+    })
   }
 
   const normalizeCustomers = (data: string[] | CustomerInfo[]): CustomerInfo[] => {
     if (!data || data.length === 0) return []
-    if (typeof data[0] === 'string') {
-      return (data as string[]).map(name => ({ customerName: name }))
-    }
-    return data as CustomerInfo[]
+    return data.map(item => {
+      if (typeof item === 'string') {
+        // 尝试解析 JSON 字符串
+        if (item.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(item)
+            return {
+              customerName: parsed.customerName || parsed.name || item,
+              industryCategory: parsed.industryCategory || '',
+              subTitle: parsed.subTitle || '',
+              productName: parsed.productName || '',
+              productCategory: parsed.productCategory || '',
+              keywords: parsed.keywords || '',
+              keyPerson1: parsed.keyPerson1 || '',
+              keyPerson2: parsed.keyPerson2 || '',
+              keyPerson3: parsed.keyPerson3 || ''
+            }
+          } catch {
+            // 解析失败，当作普通名称
+            return { customerName: item }
+          }
+        }
+        // 普通字符串，当作名称
+        return { customerName: item }
+      }
+      return item as CustomerInfo
+    })
   }
 
   // 使用新的 supplierInfos 和 customerInfos 如果存在，否则使用旧的 suppliers 和 customers

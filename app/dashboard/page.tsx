@@ -1,24 +1,115 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit, Network } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight, Search, Building2, Star, Trash2, MessageSquare, Download, Edit, Network, TrendingUp, Award, Zap, Factory, Cpu, HeartPulse, Car, Banknote, Globe, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getMyCards /* resetToDefaultData, clearAllData, hasStoredData */ } from '@/lib/dataStore'
 import PersonEditModal from '@/components/PersonEditModal'
 import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@/lib/cloudStore'
-import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
+import { deterministicAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { findPersonByMemberAccount } from '@/lib/memberKeys'
 
+// 行业分类配置（带图标和颜色）
+const INDUSTRY_CATEGORIES = [
+  { key: '半导体', label: '半导体/芯片', icon: Cpu, color: 'from-blue-500 to-cyan-500', bgColor: 'bg-blue-50', textColor: 'text-blue-700', 
+    aliases: ['半导体', '芯片', '集成电路', 'IC', '晶圆', '封装', '测试', '微电子', '纳芯', '东微', '卓胜微', '圣邦', '兆易', '韦尔', '士兰微', '华虹', '中芯', '长电', '通富微', '华天', '晶方', '澜起', '寒武纪', '地平线'] },
+  { key: '人工智能', label: '人工智能', icon: Sparkles, color: 'from-purple-500 to-pink-500', bgColor: 'bg-purple-50', textColor: 'text-purple-700',
+    aliases: ['人工智能', 'AI', '机器学习', '深度学习', '算法', '智能', '机器人', '自动驾驶', '语音识别', '图像识别', '大模型', 'GPT', '科大讯飞', '商汤', '旷视', '依图', '云从'] },
+  { key: '新能源', label: '新能源', icon: Zap, color: 'from-green-500 to-emerald-500', bgColor: 'bg-green-50', textColor: 'text-green-700',
+    aliases: ['新能源', '光伏', '太阳能', '风电', '风能', '储能', '电池', '锂电', '氢能', '燃料电池', '隆基', '通威', '阳光电源', '宁德时代', '亿纬锂能', '欣旺达', '国轩', '赣锋'] },
+  { key: '新能源汽车', label: '新能源汽车', icon: Car, color: 'from-teal-500 to-green-500', bgColor: 'bg-teal-50', textColor: 'text-teal-700',
+    aliases: ['新能源汽车', '电动汽车', '电动车', '汽车', '整车', '充电', '蔚来', '理想', '小鹏', '比亚迪', '特斯拉', '零跑', '哪吒', '威马', '极氪', '极越', '智己'] },
+  { key: '生物医药', label: '生物医药', icon: HeartPulse, color: 'from-red-500 to-pink-500', bgColor: 'bg-red-50', textColor: 'text-red-700',
+    aliases: ['生物医药', '医药', '制药', '药业', '生物科技', '生物技术', '创新药', '疫苗', '抗体', '基因', '细胞', '恒瑞', '药明康德', '康龙', '泰格', '百济神州', '信达', '君实'] },
+  { key: '医疗器械', label: '医疗器械', icon: HeartPulse, color: 'from-rose-500 to-red-500', bgColor: 'bg-rose-50', textColor: 'text-rose-700',
+    aliases: ['医疗器械', '医疗设备', '医疗', '器械', '诊断', '影像', '手术', '植入', '内窥镜', '监护', '迈瑞', '联影', '威高', '乐普', '微创', '德品'] },
+  { key: '智能制造', label: '智能制造/自动化', icon: Factory, color: 'from-orange-500 to-amber-500', bgColor: 'bg-orange-50', textColor: 'text-orange-700',
+    aliases: ['智能制造', '自动化', '工业自动化', '机械', '设备', '数控', '激光', '精密', '检测', '测量', '机床', '工控', '传感器', '伺服', '变频', '鼎纳', '先导', '利元亨', '赢合', '杭可'] },
+  { key: '电子加工装配', label: '电子制造/加工', icon: Cpu, color: 'from-indigo-500 to-blue-500', bgColor: 'bg-indigo-50', textColor: 'text-indigo-700',
+    aliases: ['电子加工', '电子装配', '电子制造', 'SMT', 'PCBA', 'PCB', '线路板', '代工', 'OEM', 'ODM', 'EMS', '富士康', '立讯', '歌尔', '蓝思', '伯恩', '领益', '舜宇'] },
+  { key: '通信光电', label: '通信/光电', icon: Globe, color: 'from-cyan-500 to-blue-500', bgColor: 'bg-cyan-50', textColor: 'text-cyan-700',
+    aliases: ['通信', '光通信', '光模块', '光纤', '光缆', '5G', '基站', '天线', '射频', '中际旭创', '光迅', '华工', '新易盛', '剑桥', '太辰光', '博创', '天孚'] },
+  { key: '金融投资', label: '金融投资', icon: Banknote, color: 'from-yellow-500 to-orange-500', bgColor: 'bg-yellow-50', textColor: 'text-yellow-700', 
+    aliases: ['金融', '投资', '股权', '基金', '证券', '银行', '保险', '私募', '创投', '风投', 'VC', 'PE', '资本', '红杉', '高瓴', 'IDG', '软银', '深创投', '达晨', '君联', '经纬', '启明', '永鑫'] },
+  { key: '互联网', label: '互联网/软件', icon: Globe, color: 'from-sky-500 to-blue-500', bgColor: 'bg-sky-50', textColor: 'text-sky-700', 
+    aliases: ['互联网', '信息技术', '软件', '云计算', '大数据', '电子商务', 'SaaS', 'PaaS', '云服务', '数据中心', 'IT', '华为', '腾讯', '阿里', '百度', '字节', '美团', '京东', '网易'] },
+  { key: '新材料', label: '新材料', icon: Sparkles, color: 'from-violet-500 to-purple-500', bgColor: 'bg-violet-50', textColor: 'text-violet-700',
+    aliases: ['新材料', '材料', '化工', '高分子', '复合材料', '碳纤维', '石墨烯', '稀土', '磁材', '钕铁硼', '正极', '负极', '隔膜', '电解液'] },
+  { key: '其他', label: '其他行业', icon: Building2, color: 'from-gray-500 to-slate-500', bgColor: 'bg-gray-50', textColor: 'text-gray-700' },
+]
+
+// 知名上市公司/大企业关键词（用于识别重要企业）
+const NOTABLE_COMPANY_KEYWORDS = [
+  '上市', '股份', '集团', '控股', 
+  // 知名科技公司
+  '华为', '腾讯', '阿里', '百度', '京东', '小米', '字节', '美团', '拼多多', '网易',
+  // 知名半导体公司
+  '中芯', '台积电', '英特尔', 'Intel', 'AMD', '英伟达', 'NVIDIA', '高通', '联发科', '紫光', '长江存储', '华虹', '士兰微', '韦尔', '卓胜微', '圣邦', '兆易创新', '北方华创', '中微',
+  // 知名新能源公司
+  '宁德时代', '比亚迪', '特斯拉', 'Tesla', '隆基', '通威', '阳光电源', '蔚来', '理想', '小鹏',
+  // 知名制造业
+  '富士康', '立讯精密', '歌尔', '蓝思', '伯恩', '德赛', '欣旺达', '亿纬锂能',
+  // 知名金融机构
+  '红杉', '高瓴', 'IDG', '软银', '深创投', '达晨', '君联', '经纬', '启明', '光速',
+  // 其他知名企业
+  '华润', '中信', '招商', '平安', '万科', '恒大', '碧桂园',
+  // 苏州本地知名企业
+  '苏州', '园区', '工业园',
+]
+
+// 判断是否为重要企业
+const isNotableCompany = (companyName: string): boolean => {
+  if (!companyName) return false
+  const name = companyName.toLowerCase()
+  return NOTABLE_COMPANY_KEYWORDS.some(keyword => 
+    name.includes(keyword.toLowerCase())
+  )
+}
+
+// 从公司名称中提取简称
+const getCompanyShortName = (fullName: string): string => {
+  if (!fullName) return ''
+  // 移除常见后缀
+  return fullName
+    .replace(/有限公司|股份有限公司|有限责任公司|集团|（.*?）|\(.*?\)/g, '')
+    .trim()
+    .slice(0, 12) + (fullName.length > 15 ? '...' : '')
+}
+
+// 判断企业属于哪个行业分类
+const getIndustryCategory = (company: CompanyData): typeof INDUSTRY_CATEGORIES[0] => {
+  const industry = company.industry?.toLowerCase() || ''
+  const name = company.name?.toLowerCase() || ''
+  
+  for (const category of INDUSTRY_CATEGORIES) {
+    if (category.key === '其他') continue
+    
+    // 检查行业名称匹配
+    if (industry.includes(category.key.toLowerCase())) {
+      return category
+    }
+    
+    // 检查别名匹配
+    if (category.aliases) {
+      for (const alias of category.aliases) {
+        if (industry.includes(alias.toLowerCase()) || name.includes(alias.toLowerCase())) {
+          return category
+        }
+      }
+    }
+  }
+  
+  // 默认返回"其他"
+  return INDUSTRY_CATEGORIES[INDUSTRY_CATEGORIES.length - 1]
+}
+
 export default function Dashboard() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState('people')
   const [searchQuery, setSearchQuery] = useState('')
   const [people, setPeople] = useState<PersonData[]>([])
   const [companies, setCompanies] = useState<CompanyData[]>([])
@@ -110,15 +201,9 @@ export default function Dashboard() {
 
     // 延迟加载确保localStorage可用
     const timer = setTimeout(() => { loadData() }, 50)
-    
-    // 处理tab查询参数
-    const tab = searchParams.get('tab')
-    if (tab === 'companies') {
-      setActiveTab('companies')
-    }
 
     return () => clearTimeout(timer)
-  }, [searchParams, router])
+  }, [router])
 
   // Realtime subscribe
   useEffect(() => {
@@ -140,18 +225,239 @@ export default function Dashboard() {
     }
   }, [])
 
-  // 过滤搜索结果
-  const filteredPeople = people.filter(person => {
-    const displayName = deterministicAliasName(person.name)
-    return displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  })
+  // 核心企业（福润和永鑫）
+  const coreCompanies = useMemo(() => {
+    return companies.filter(company => 
+      company.name.includes('福润') || company.name.includes('永鑫')
+    )
+  }, [companies])
 
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    company.industry.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // 从核心企业的上下游提取所有企业，作为展示的企业列表
+  interface DisplayCompany {
+    name: string
+    industry: string
+    type: 'supplier' | 'customer' | 'core'
+    sourceCompany: string
+    industryCategory?: string
+    subTitle?: string
+    companyId?: string // 核心企业的ID，用于跳转详情
+  }
+
+  const upDownstreamCompanies = useMemo(() => {
+    const companyMap = new Map<string, DisplayCompany>()
+    
+    // 首先添加核心企业本身
+    coreCompanies.forEach(company => {
+      companyMap.set(company.name, {
+        name: company.name,
+        industry: company.industry || '待分类',
+        type: 'core',
+        sourceCompany: '核心企业',
+        industryCategory: company.industry,
+        subTitle: company.positioning || '',
+        companyId: company.id
+      })
+    })
+    
+    coreCompanies.forEach(company => {
+      // 从供应商中提取
+      if (company.suppliers) {
+        company.suppliers.forEach(supplier => {
+          let name = supplier
+          let industryCategory = ''
+          let subTitle = ''
+          
+          if (typeof supplier === 'string' && supplier.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(supplier)
+              name = parsed.supplierName || parsed.name || supplier
+              industryCategory = parsed.industryCategory || ''
+              subTitle = parsed.subTitle || ''
+            } catch {}
+          }
+          
+          if (name && !companyMap.has(name)) {
+            companyMap.set(name, {
+              name,
+              industry: industryCategory || '待分类',
+              type: 'supplier',
+              sourceCompany: company.name,
+              industryCategory,
+              subTitle
+            })
+          }
+        })
+      }
+      
+      if (company.supplierInfos) {
+        company.supplierInfos.forEach(info => {
+          if (info.supplierName && !companyMap.has(info.supplierName)) {
+            companyMap.set(info.supplierName, {
+              name: info.supplierName,
+              industry: info.industryCategory || '待分类',
+              type: 'supplier',
+              sourceCompany: company.name,
+              industryCategory: info.industryCategory,
+              subTitle: info.subTitle
+            })
+          }
+        })
+      }
+      
+      // 从客户中提取
+      if (company.customers) {
+        company.customers.forEach(customer => {
+          let name = customer
+          let industryCategory = ''
+          let subTitle = ''
+          
+          if (typeof customer === 'string' && customer.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(customer)
+              name = parsed.customerName || parsed.name || customer
+              industryCategory = parsed.industryCategory || ''
+              subTitle = parsed.subTitle || ''
+            } catch {}
+          }
+          
+          if (name && !companyMap.has(name)) {
+            companyMap.set(name, {
+              name,
+              industry: industryCategory || '待分类',
+              type: 'customer',
+              sourceCompany: company.name,
+              industryCategory,
+              subTitle
+            })
+          }
+        })
+      }
+      
+      if (company.customerInfos) {
+        company.customerInfos.forEach(info => {
+          if (info.customerName && !companyMap.has(info.customerName)) {
+            companyMap.set(info.customerName, {
+              name: info.customerName,
+              industry: info.industryCategory || '待分类',
+              type: 'customer',
+              sourceCompany: company.name,
+              industryCategory: info.industryCategory,
+              subTitle: info.subTitle
+            })
+          }
+        })
+      }
+    })
+    
+    return Array.from(companyMap.values())
+  }, [coreCompanies])
+
+  // 过滤搜索结果
+  const filteredUpDownstream = useMemo(() => {
+    if (!searchQuery) return upDownstreamCompanies
+    const query = searchQuery.toLowerCase()
+    return upDownstreamCompanies.filter(company =>
+      company.name.toLowerCase().includes(query) ||
+      company.industry.toLowerCase().includes(query) ||
+      (company.subTitle && company.subTitle.toLowerCase().includes(query))
+    )
+  }, [upDownstreamCompanies, searchQuery])
+
+  // 判断上下游企业属于哪个行业分类
+  const getDisplayCompanyCategory = (company: DisplayCompany): typeof INDUSTRY_CATEGORIES[0] => {
+    const industry = company.industry?.toLowerCase() || ''
+    const industryCategory = company.industryCategory?.toLowerCase() || ''
+    const name = company.name?.toLowerCase() || ''
+    
+    for (const category of INDUSTRY_CATEGORIES) {
+      if (category.key === '其他') continue
+      
+      // 检查行业大类匹配
+      if (industryCategory.includes(category.key.toLowerCase())) {
+        return category
+      }
+      
+      // 检查行业名称匹配
+      if (industry.includes(category.key.toLowerCase())) {
+        return category
+      }
+      
+      // 检查别名匹配
+      if (category.aliases) {
+        for (const alias of category.aliases) {
+          if (industry.includes(alias.toLowerCase()) || 
+              industryCategory.includes(alias.toLowerCase()) ||
+              name.includes(alias.toLowerCase())) {
+            return category
+          }
+        }
+      }
+    }
+    
+    return INDUSTRY_CATEGORIES[INDUSTRY_CATEGORIES.length - 1]
+  }
+
+  // 按行业分类整理上下游企业
+  const categorizedUpDownstream = useMemo(() => {
+    const result: { category: typeof INDUSTRY_CATEGORIES[0], companies: DisplayCompany[], isExpanded?: boolean }[] = []
+    
+    INDUSTRY_CATEGORIES.forEach(category => {
+      const categoryCompanies = filteredUpDownstream.filter(company => 
+        getDisplayCompanyCategory(company).key === category.key
+      )
+      
+      // 按知名度排序（稳定排序：知名度相同时按名称排序）
+      categoryCompanies.sort((a, b) => {
+        const aNotable = isNotableCompany(a.name) ? 1 : 0
+        const bNotable = isNotableCompany(b.name) ? 1 : 0
+        const notableDiff = bNotable - aNotable
+        if (notableDiff !== 0) return notableDiff
+        // 知名度相同时，按名称排序保证稳定性
+        return a.name.localeCompare(b.name)
+      })
+      
+      if (categoryCompanies.length > 0) {
+        result.push({ category, companies: categoryCompanies })
+      }
+    })
+    
+    // 按企业数量排序，但"其他"始终放最后
+    // 使用稳定排序：数量相同时按分类key字母顺序排序，确保每次渲染结果一致
+    result.sort((a, b) => {
+      if (a.category.key === '其他') return 1
+      if (b.category.key === '其他') return -1
+      const countDiff = b.companies.length - a.companies.length
+      if (countDiff !== 0) return countDiff
+      // 数量相同时，按分类key排序保证稳定性
+      return a.category.key.localeCompare(b.category.key)
+    })
+    
+    return result
+  }, [filteredUpDownstream])
+
+  // 折叠状态管理
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  const toggleCategory = (categoryKey: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryKey)) {
+        newSet.delete(categoryKey)
+      } else {
+        newSet.add(categoryKey)
+      }
+      return newSet
+    })
+  }
+
+  // 展开全部/收起全部
+  const expandAll = () => {
+    setExpandedCategories(new Set(categorizedUpDownstream.map(c => c.category.key)))
+  }
+
+  const collapseAll = () => {
+    setExpandedCategories(new Set())
+  }
 
   // 批量分析所有关系
   const handleAnalyzeAllRelationships = async () => {
@@ -440,21 +746,7 @@ export default function Dashboard() {
           </div>
 
           <nav className="space-y-2">
-            <Link
-              href="/dashboard"
-              className="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg"
-            >
-              <User className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>智能关系网</span>}
-            </Link>
-            <Link
-              href="/data-input"
-              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
-            >
-              <Building2 className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>信息录入</span>}
-            </Link>
-            {/* 我的 - 查看自己的卡片（显示真实信息） */}
+            {/* 我的 - 查看自己的卡片或录入信息（显示真实信息） */}
             <div>
               <button
                 onClick={() => {
@@ -462,7 +754,7 @@ export default function Dashboard() {
                     // 跳转到自己的人物详情页
                     router.push(`/person/${myCards[0].id}`)
                   } else {
-                    alert('您还没有输入自己的卡片，请前往信息录入')
+                    // 没有卡片时，跳转到信息录入页面
                     router.push('/data-input')
                   }
                 }}
@@ -489,6 +781,13 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+            <Link
+              href="/dashboard"
+              className="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg"
+            >
+              <Building2 className="h-5 w-5" />
+              {!isSidebarCollapsed && <span>智能关系网</span>}
+            </Link>
             <Link
               href="/ai-assistant"
               className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
@@ -592,156 +891,134 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-6">
-              <TabsTrigger value="people">人物</TabsTrigger>
-              <TabsTrigger value="companies">企业</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="people">
-              {people.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">暂无人物数据</div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredPeople.map(person => (
-                    <div
-                      key={person.id}
-                      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 cursor-pointer"
-                      onClick={() => {
-                        console.log('点击人物卡片，ID:', person.id, '姓名:', person.name)
-                        console.log('即将跳转到:', `/person/${person.id}`)
-                        router.push(`/person/${person.id}`)
-                      }}
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="h-6 w-6 text-blue-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-lg">
-                              {isManager() 
-                                ? `${person.name}（${forceGetAliasName(person.name)}）` 
-                                : deterministicAliasName(person.name)}
-                            </h3>
-                            <p className="text-sm text-gray-500">{person.position}</p>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant={person.isFollowed ? "default" : "outline"}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleFollow('person', person.id)
-                            }}
-                          >
-                            <Star className={`h-4 w-4 ${person.isFollowed ? 'fill-current' : ''}`} />
-                          </Button>
-                          {isManager() && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                deleteItem('person', person.id)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{person.company}</p>
-                      {person.industry && (
-                        <p className="text-xs text-gray-500 mb-1">行业: {person.industry}</p>
-                      )}
-                      {person.currentCity && (
-                        <p className="text-xs text-gray-500 mb-3">现居: {person.currentCity}</p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {person.tags.map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {filteredPeople.length === 0 && (
-                    <div className="col-span-3 text-center py-12 text-gray-400">
-                      暂无人物数据
-                    </div>
-                  )}
+          <div className="space-y-6">
+            {/* 统计信息 */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="bg-blue-500 text-white rounded-xl p-3">
+                    <Network className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800">产业生态网络</h2>
+                    <p className="text-gray-600">
+                      基于 <span className="font-semibold text-blue-600">{coreCompanies.length}</span> 家核心企业的上下游关系，
+                      共收录 <span className="font-semibold text-blue-600">{upDownstreamCompanies.length}</span> 家合作企业
+                    </p>
+                  </div>
                 </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="companies">
-              {companies.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">暂无企业数据</div>
-              ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCompanies.map(company => (
-                  <div
-                    key={company.id}
-                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 cursor-pointer"
-                    onClick={() => router.push(`/company/${company.id}?from=companies`)}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                          <Building2 className="h-6 w-6 text-green-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-lg">{company.name}</h3>
-                          <p className="text-sm text-gray-500">{company.industry}</p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant={company.isFollowed ? "default" : "outline"}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleFollow('company', company.id)
-                          }}
-                        >
-                          <Star className={`h-4 w-4 ${company.isFollowed ? 'fill-current' : ''}`} />
-                        </Button>
-                        {isManager() && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteItem('company', company.id)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">规模: {company.scale}</p>
-                    <div className="text-sm text-gray-500">
-                      主要产品: {company.products.slice(0, 2).join(', ')}
-                      {company.products.length > 2 && '...'}
-                    </div>
-                  </div>
-                ))}
-                {filteredCompanies.length === 0 && (
-                  <div className="col-span-3 text-center py-12 text-gray-400">
-                    暂无企业数据
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={expandAll}>
+                    全部展开
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={collapseAll}>
+                    全部收起
+                  </Button>
+                </div>
               </div>
-              )}
-            </TabsContent>
-          </Tabs>
+            </div>
+
+            {/* 分类标签折叠展示 */}
+            {upDownstreamCompanies.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                <Building2 className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg">暂无企业数据</p>
+                <p className="text-sm mt-2">请通过"我的"页面录入企业信息，添加上下游供应商和客户</p>
+              </div>
+            ) : categorizedUpDownstream.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                没有找到匹配的企业
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {categorizedUpDownstream.map(({ category, companies: categoryCompanies }) => {
+                  const IconComponent = category.icon
+                  const isExpanded = expandedCategories.has(category.key)
+                  const notableCount = categoryCompanies.filter(c => isNotableCompany(c.name)).length
+                  
+                  return (
+                    <div key={category.key} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                      {/* 可点击的分类标题 */}
+                      <button
+                        onClick={() => toggleCategory(category.key)}
+                        className={`w-full bg-gradient-to-r ${category.color} px-6 py-4 flex items-center justify-between hover:opacity-95 transition-opacity`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                            <IconComponent className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="text-left">
+                            <h2 className="text-lg font-bold text-white">{category.label}</h2>
+                            <p className="text-sm text-white/80">
+                              {categoryCompanies.length} 家企业
+                              {notableCount > 0 && ` · ${notableCount} 家知名企业`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className={`h-6 w-6 text-white transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                        </div>
+                      </button>
+                      
+                      {/* 可折叠的企业列表 */}
+                      {isExpanded && (
+                        <div className="p-6 bg-gray-50/50">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                            {categoryCompanies.map((company, idx) => {
+                              const isNotable = isNotableCompany(company.name)
+                              return (
+                                <div
+                                  key={`${company.name}-${idx}`}
+                                  className={`group relative rounded-xl p-4 transition-all duration-200 hover:shadow-md ${
+                                    isNotable 
+                                      ? 'bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200' 
+                                      : 'bg-white border border-gray-200'
+                                  }`}
+                                >
+                                  {/* 知名企业标识 */}
+                                  {isNotable && (
+                                    <div className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                      <Award className="h-3 w-3" />
+                                      知名
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex items-start gap-3">
+                                    <div className={`flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center ${category.bgColor}`}>
+                                      <IconComponent className={`h-4 w-4 ${category.textColor}`} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <h3 className="font-medium text-gray-900 text-sm leading-tight">
+                                        {company.name}
+                                      </h3>
+                                      {company.subTitle && (
+                                        <p className="text-xs text-gray-500 mt-1 truncate">{company.subTitle}</p>
+                                      )}
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${
+                                          company.type === 'core'
+                                            ? 'bg-green-100 text-green-700'
+                                            : company.type === 'supplier' 
+                                              ? 'bg-blue-100 text-blue-700' 
+                                              : 'bg-orange-100 text-orange-700'
+                                        }`}>
+                                          {company.type === 'core' ? '★ 核心企业' : company.type === 'supplier' ? '↑ 供应商' : '↓ 客户'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -74,9 +74,31 @@ export default function Home() {
         // 检查Cookie是否被设置
         console.log('[Client] 当前所有Cookies:', document.cookie)
         
-        console.log('[Client] 跳转到dashboard')
-        // 跳转到dashboard
-        router.push('/dashboard')
+        // 根据用户类型决定跳转目标
+        console.log('[Client] 跳转到我的页面')
+        
+        // 如果是会员登录且有会员信息，尝试查找对应的人物
+        if (data.memberAccount && data.memberAccount.personName) {
+          try {
+            // 加载云端数据查找人物
+            const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
+            const people = await loadPeopleFromCloudIfAvailable()
+            
+            if (people && people.length > 0) {
+              const myPerson = people.find((p: any) => p.name === data.memberAccount.personName)
+              if (myPerson) {
+                console.log('[Client] 找到会员对应的人物，跳转到详情页:', myPerson.id)
+                router.push(`/person/${myPerson.id}`)
+                return
+              }
+            }
+          } catch (err) {
+            console.error('[Client] 查找人物失败:', err)
+          }
+        }
+        
+        // 如果没找到对应人物，跳转到信息录入页面
+        router.push('/data-input')
       } else {
         console.log('[Client] 登录失败:', data.message)
         setError(data.message || '无效的内测码，请重试')
@@ -147,7 +169,29 @@ export default function Home() {
                   size="sm"
                   variant="outline"
                   className="bg-white/20 border-white/30 text-white hover:bg-white/30"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={async () => {
+                    // 尝试跳转到用户自己的页面
+                    try {
+                      const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
+                      const { getCurrentMemberAccount } = await import('@/lib/memberKeys')
+                      
+                      const memberAccount = getCurrentMemberAccount()
+                      if (memberAccount && memberAccount.personName) {
+                        const people = await loadPeopleFromCloudIfAvailable()
+                        if (people && people.length > 0) {
+                          const myPerson = people.find((p: any) => p.name === memberAccount.personName)
+                          if (myPerson) {
+                            router.push(`/person/${myPerson.id}`)
+                            return
+                          }
+                        }
+                      }
+                    } catch (err) {
+                      console.error('查找人物失败:', err)
+                    }
+                    // 如果找不到，跳转到信息录入页
+                    router.push('/data-input')
+                  }}
                 >
                   欢迎登入
                 </Button>

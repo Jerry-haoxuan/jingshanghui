@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, User, Building2, MessageSquare, Send, Bot, Edit } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Building2, MessageSquare, Send, Bot, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
@@ -203,21 +203,7 @@ export default function AIAssistant() {
           </div>
 
           <nav className="space-y-2">
-            <Link
-              href="/dashboard"
-              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
-            >
-              <User className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>智能关系网</span>}
-            </Link>
-            <Link
-              href="/data-input"
-              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
-            >
-              <Building2 className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>信息录入</span>}
-            </Link>
-            {/* 我的 - 查看自己的卡片（显示真实信息） */}
+            {/* 我的 - 查看自己的卡片或录入信息（显示真实信息） */}
             <div>
               <button
                 onClick={() => {
@@ -225,7 +211,7 @@ export default function AIAssistant() {
                     // 跳转到自己的人物详情页
                     router.push(`/person/${myCards[0].id}`)
                   } else {
-                    alert('您还没有输入自己的卡片，请前往信息录入')
+                    // 没有卡片时，跳转到信息录入页面
                     router.push('/data-input')
                   }
                 }}
@@ -234,8 +220,7 @@ export default function AIAssistant() {
                 <Edit className="h-5 w-5" />
                 {!isSidebarCollapsed && <span>我的</span>}
               </button>
-              
-              {/* 已创建的卡片列表 */}
+              {/* 仅显示自己录入的卡片 */}
               {!isSidebarCollapsed && myCards.length > 0 && (
                 <div className="mt-2 space-y-1 ml-8">
                   {myCards.map((card) => (
@@ -253,6 +238,13 @@ export default function AIAssistant() {
                 </div>
               )}
             </div>
+            <Link
+              href="/dashboard"
+              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
+            >
+              <Building2 className="h-5 w-5" />
+              {!isSidebarCollapsed && <span>智能关系网</span>}
+            </Link>
             <Link
               href="/ai-assistant"
               className="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg"

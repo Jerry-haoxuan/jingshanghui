@@ -70,7 +70,6 @@ const politicalParties = [
 // 行业大类选项
 const industryCategories = [
   '半导体',
-  '芯片',
   '人工智能',
   '新能源',
   '生物医药',
@@ -88,6 +87,8 @@ const industryCategories = [
   '新能源汽车',
   '智能硬件',
   '工业互联网',
+  '电子加工装配',
+  '医疗器械',
   '其他'
 ]
 

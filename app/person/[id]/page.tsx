@@ -573,9 +573,9 @@ export default function PersonDetail() {
       {/* 返回按钮 */}
       <div className="bg-white border-b border-gray-200 px-8 py-4">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => router.back()}>
+          <Button variant="ghost" onClick={() => router.push('/dashboard')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            返回
+            返回智能关系网
           </Button>
           <div className="flex gap-2">
             <Button 
