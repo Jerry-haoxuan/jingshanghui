@@ -32,7 +32,7 @@ export const ASSIGNED_MEMBERS: MemberAccount[] = [
     key: 'JSH-RLFS-5Y9T2K4M',
     personId: undefined,  // 运行时从数据库查找
     personName: '徐翔',
-    aliasName: '如来佛祖',
+    aliasName: '宋江',
     createdAt: new Date().toISOString(),
     isUsed: true
   }

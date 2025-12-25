@@ -23,7 +23,7 @@ const CHARACTER_NAMES = [
 
 // 指定人物的别名覆盖（优先级最高）
 const ALIAS_OVERRIDES: Record<string, string> = {
-  '徐翔': '如来佛祖',
+  '徐翔': '宋江',
 }
 
 // 简单的字符串哈希函数

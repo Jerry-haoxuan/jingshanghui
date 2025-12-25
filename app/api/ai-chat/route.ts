@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       if (!aliasMode) return name
       // 指定人物的别名覆盖（优先级最高）
       const ALIAS_OVERRIDES: Record<string, string> = {
-        '徐翔': '如来佛祖',
+        '徐翔': '宋江',
       }
       // 覆盖优先
       if (ALIAS_OVERRIDES[name]) {
@@ -359,7 +359,7 @@ function searchPeople(query: string, people: any[], companies: any[], role: stri
   const localAliasNameFn = (name: string) => {
     // 指定人物的别名覆盖（优先级最高）
     const ALIAS_OVERRIDES: Record<string, string> = {
-      '徐翔': '如来佛祖',
+      '徐翔': '宋江',
     }
     // 覆盖优先
     if (ALIAS_OVERRIDES[name]) {
