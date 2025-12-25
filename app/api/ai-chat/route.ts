@@ -516,7 +516,7 @@ function searchPeople(query: string, people: any[], companies: any[], role: stri
   if (looksLikeCompanyQuery && !companyMatch) {
     // 检查是否在上下游公司中
     let foundInUpstream = false
-    let upstreamCompanyInfo = null
+    let upstreamCompanyInfo: { name: string; relatedTo: string; type: string } | null = null
     
     companies.forEach((c: any) => {
       if (c.suppliers) {
