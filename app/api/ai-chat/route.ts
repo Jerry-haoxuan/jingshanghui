@@ -540,10 +540,11 @@ function searchPeople(query: string, people: any[], companies: any[], role: stri
     })
     
     if (foundInUpstream && upstreamCompanyInfo) {
-      let response = `我在数据库中找到了 **${upstreamCompanyInfo.name}** 的相关信息！\n\n`
+      const info = upstreamCompanyInfo as { name: string; relatedTo: string; type: string }
+      let response = `我在数据库中找到了 **${info.name}** 的相关信息！\n\n`
       response += `🔗 **供应链关系**\n`
-      response += `• ${upstreamCompanyInfo.name} 是 ${upstreamCompanyInfo.relatedTo} 的${upstreamCompanyInfo.type}\n\n`
-      response += `💡 这是一家在我们供应链网络中的企业。如需了解更多详细信息，建议查看 ${upstreamCompanyInfo.relatedTo} 的完整资料。`
+      response += `• ${info.name} 是 ${info.relatedTo} 的${info.type}\n\n`
+      response += `💡 这是一家在我们供应链网络中的企业。如需了解更多详细信息，建议查看 ${info.relatedTo} 的完整资料。`
       return response
     }
     
