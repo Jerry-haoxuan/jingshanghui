@@ -15,7 +15,7 @@ import { findPersonByMemberAccount } from '@/lib/memberKeys'
 
 // 行业分类配置（带图标和颜色）
 const INDUSTRY_CATEGORIES = [
-  { key: '半导体', label: '半导体/芯片', icon: Cpu, color: 'from-blue-500 to-cyan-500', bgColor: 'bg-blue-50', textColor: 'text-blue-700', 
+  { key: '半导体', label: '半导体', icon: Cpu, color: 'from-blue-500 to-cyan-500', bgColor: 'bg-blue-50', textColor: 'text-blue-700', 
     aliases: ['半导体', '芯片', '集成电路', 'IC', '晶圆', '封装', '测试', '微电子', '纳芯', '东微', '卓胜微', '圣邦', '兆易', '韦尔', '士兰微', '华虹', '中芯', '长电', '通富微', '华天', '晶方', '澜起', '寒武纪', '地平线'] },
   { key: '人工智能', label: '人工智能', icon: Sparkles, color: 'from-purple-500 to-pink-500', bgColor: 'bg-purple-50', textColor: 'text-purple-700',
     aliases: ['人工智能', 'AI', '机器学习', '深度学习', '算法', '智能', '机器人', '自动驾驶', '语音识别', '图像识别', '大模型', 'GPT', '科大讯飞', '商汤', '旷视', '依图', '云从'] },
@@ -27,7 +27,7 @@ const INDUSTRY_CATEGORIES = [
     aliases: ['生物医药', '医药', '制药', '药业', '生物科技', '生物技术', '创新药', '疫苗', '抗体', '基因', '细胞', '恒瑞', '药明康德', '康龙', '泰格', '百济神州', '信达', '君实'] },
   { key: '医疗器械', label: '医疗器械', icon: HeartPulse, color: 'from-rose-500 to-red-500', bgColor: 'bg-rose-50', textColor: 'text-rose-700',
     aliases: ['医疗器械', '医疗设备', '医疗', '器械', '诊断', '影像', '手术', '植入', '内窥镜', '监护', '迈瑞', '联影', '威高', '乐普', '微创', '德品'] },
-  { key: '智能制造', label: '智能制造/自动化', icon: Factory, color: 'from-orange-500 to-amber-500', bgColor: 'bg-orange-50', textColor: 'text-orange-700',
+  { key: '智能制造', label: '智能制造', icon: Factory, color: 'from-orange-500 to-amber-500', bgColor: 'bg-orange-50', textColor: 'text-orange-700',
     aliases: ['智能制造', '自动化', '工业自动化', '机械', '设备', '数控', '激光', '精密', '检测', '测量', '机床', '工控', '传感器', '伺服', '变频', '鼎纳', '先导', '利元亨', '赢合', '杭可'] },
   { key: '电子加工装配', label: '电子制造/加工', icon: Cpu, color: 'from-indigo-500 to-blue-500', bgColor: 'bg-indigo-50', textColor: 'text-indigo-700',
     aliases: ['电子加工', '电子装配', '电子制造', 'SMT', 'PCBA', 'PCB', '线路板', '代工', 'OEM', 'ODM', 'EMS', '富士康', '立讯', '歌尔', '蓝思', '伯恩', '领益', '舜宇'] },
