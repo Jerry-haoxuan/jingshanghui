@@ -72,7 +72,7 @@ export default function BusinessCirclePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ personId: currentPersonId, friendId }),
     })
-    setFriendIds(prev => new Set([...prev, friendId]))
+    setFriendIds(prev => { const next = new Set(prev); next.add(friendId); return next })
     setActionLoading(null)
   }
 
