@@ -4,125 +4,168 @@ import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowRight, Network, Users, Building2, Target } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ArrowRight, Network, Users, Building2, Target, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
 import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
-import { saveMemberAccount } from '@/lib/memberKeys'
+import { loginUser, registerUser, saveCurrentUser, getCurrentUser, clearCurrentUser } from '@/lib/userStore'
 
 export default function Home() {
   const [showDialog, setShowDialog] = useState(false)
-  const [userType, setUserType] = useState<UserRole | null>(null)
-  const [betaCode, setBetaCode] = useState('')
-  const [error, setError] = useState('')
   const [isClient, setIsClient] = useState(false)
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null)
+
+  // 登录表单
+  const [loginUsername, setLoginUsername] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+
+  // 注册表单
+  const [regUsername, setRegUsername] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regConfirmPassword, setRegConfirmPassword] = useState('')
+  const [regInviteCode, setRegInviteCode] = useState('')
+  const [regError, setRegError] = useState('')
+  const [regLoading, setRegLoading] = useState(false)
+  const [showRegPassword, setShowRegPassword] = useState(false)
+  const [regSuccess, setRegSuccess] = useState(false)
+
   const router = useRouter()
 
-  // 确保客户端渲染的标志
   useEffect(() => {
     setIsClient(true)
-    
-    // 检查当前登录状态，但不自动跳转
     const existingRole = getUserRole()
     if (existingRole) {
-      console.log('[Client] 发现已有登录状态:', existingRole)
       setCurrentUserRole(existingRole)
     }
-  }, [router])
+  }, [])
 
-  const handleUserTypeSelect = (type: UserRole) => {
-    setUserType(type)
-    setError('')
-    setBetaCode('')
-  }
+  // 设置 Cookie 并跳转（直接使用传入的 account，不读 localStorage 避免残留数据）
+  const setCookieAndRedirect = async (role: UserRole, account: import('@/lib/userStore').UserAccount) => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userType: role, username: account.username }),
+    })
 
-  const handleBetaAccess = async () => {
-    try {
-      console.log('[Client] 开始登录流程:', { userType, betaCode })
-      
-      // 调用登录API
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userType,
-          betaCode
-        })
-      })
+    if (!response.ok) {
+      throw new Error('设置会话失败')
+    }
 
-      console.log('[Client] API响应状态:', response.status)
-      console.log('[Client] 响应头:', Object.fromEntries(response.headers.entries()))
+    setUserRole(role)
 
-      const data = await response.json()
-      console.log('[Client] API响应数据:', data)
+    if (role === UserRole.MANAGER) {
+      router.push('/dashboard')
+      return
+    }
 
-      if (response.ok && data.success) {
-        console.log('[Client] 登录成功，设置localStorage')
-        
-        // 在客户端也设置localStorage
-        setUserRole(userType as UserRole)
-        
-        // 如果是会员登录，保存会员信息
-        if (data.memberAccount) {
-          saveMemberAccount(data.memberAccount)
-          console.log('[Client] 会员信息已保存:', data.memberAccount)
-        }
-        
-        // 检查Cookie是否被设置
-        console.log('[Client] 当前所有Cookies:', document.cookie)
-        
-        // 根据用户类型决定跳转目标
-        console.log('[Client] 用户类型:', userType)
-        
-        // 管理员直接跳转到智能关系网
-        if (userType === UserRole.MANAGER) {
-          console.log('[Client] 管理员登录，跳转到智能关系网')
-          router.push('/dashboard')
-          return
-        }
-        
-        // 会员登录：尝试查找对应的人物
-        if (userType === UserRole.MEMBER && data.memberAccount && data.memberAccount.personName) {
-          try {
-            // 加载云端数据查找人物
-            const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
-            const people = await loadPeopleFromCloudIfAvailable()
-            
-            if (people && people.length > 0) {
-              const myPerson = people.find((p: any) => p.name === data.memberAccount.personName)
-              if (myPerson) {
-                console.log('[Client] 找到会员对应的人物，跳转到详情页:', myPerson.id)
-                router.push(`/person/${myPerson.id}`)
-                return
-              }
-            }
-          } catch (err) {
-            console.error('[Client] 查找人物失败:', err)
+    // 会员：根据当前登录账号的 personName 跳转（直接使用参数，不读 localStorage）
+    if (account.personName) {
+      try {
+        const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
+        const people = await loadPeopleFromCloudIfAvailable()
+        if (Array.isArray(people) && people.length > 0) {
+          const myPerson = people.find((p: any) => p.name === account.personName)
+          if (myPerson) {
+            router.push(`/person/${myPerson.id}`)
+            return
           }
         }
-        
-        // 如果没找到对应人物，跳转到信息录入页面
-        router.push('/data-input')
-      } else {
-        console.log('[Client] 登录失败:', data.message)
-        setError(data.message || '无效的内测码，请重试')
+      } catch {
+        // ignore
       }
-    } catch (error) {
-      console.error('[Client] 登录过程中出错:', error)
-      setError('登录失败，请稍后重试')
+    }
+
+    router.push('/data-input')
+  }
+
+  const handleLogin = async () => {
+    setLoginError('')
+    setLoginLoading(true)
+    try {
+      const result = await loginUser(loginUsername, loginPassword)
+      if (!result.success || !result.role || !result.account) {
+        setLoginError(result.message)
+        return
+      }
+      saveCurrentUser(result.account)
+      await setCookieAndRedirect(result.role as UserRole, result.account)
+    } catch {
+      setLoginError('登录失败，请稍后重试')
+    } finally {
+      setLoginLoading(false)
     }
   }
 
-  const handleBack = () => {
-    setUserType(null)
-    setBetaCode('')
-    setError('')
+  const handleRegister = async () => {
+    setRegError('')
+
+    if (regPassword !== regConfirmPassword) {
+      setRegError('两次输入的密码不一致')
+      return
+    }
+
+    setRegLoading(true)
+    try {
+      const result = await registerUser(regUsername, regPassword, regInviteCode)
+      if (!result.success || !result.role || !result.account) {
+        setRegError(result.message)
+        return
+      }
+      saveCurrentUser(result.account)
+      setRegSuccess(true)
+      // 短暂显示成功后跳转
+      setTimeout(async () => {
+        await setCookieAndRedirect(result.role as UserRole, result.account!)
+      }, 800)
+    } catch {
+      setRegError('注册失败，请稍后重试')
+    } finally {
+      setRegLoading(false)
+    }
   }
 
-  // 在hydration期间显示简单的加载状态
+  const handleOpenDialog = () => {
+    setLoginUsername('')
+    setLoginPassword('')
+    setLoginError('')
+    setRegUsername('')
+    setRegPassword('')
+    setRegConfirmPassword('')
+    setRegInviteCode('')
+    setRegError('')
+    setRegSuccess(false)
+    setShowDialog(true)
+  }
+
+  const handleContinue = async () => {
+    if (currentUserRole === UserRole.MANAGER) {
+      router.push('/dashboard')
+      return
+    }
+    try {
+      const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
+      const currentUser = getCurrentUser()
+      if (currentUser?.personName) {
+        const people = await loadPeopleFromCloudIfAvailable()
+        if (Array.isArray(people) && people.length > 0) {
+          const myPerson = people.find((p: any) => p.name === currentUser.personName)
+          if (myPerson) {
+            router.push(`/person/${myPerson.id}`)
+            return
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    router.push('/data-input')
+  }
+
   if (!isClient) {
     return (
       <div className="min-h-screen relative overflow-hidden bg-black">
@@ -135,10 +178,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* 星空背景 */}
       <StarryBackground />
-      
-      {/* 内容层 */}
+
       <div className="relative z-10 min-h-screen">
         {/* 导航栏 */}
         <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/20 backdrop-blur-lg">
@@ -165,60 +206,31 @@ export default function Home() {
             </p>
           </div>
 
-          {/* 显示当前登录状态 */}
+          {/* 已登录状态 */}
           {currentUserRole && (
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 max-w-md">
               <p className="text-white mb-3">
-                您当前已登录为 <span className="font-semibold">{currentUserRole === 'member' ? '会员' : '管理者'}</span>
+                您当前已登录为{' '}
+                <span className="font-semibold">{currentUserRole === 'member' ? '会员' : '管理者'}</span>
               </p>
               <div className="flex gap-3 justify-center">
-                <Button 
+                <Button
                   size="sm"
                   variant="outline"
                   className="bg-white/20 border-white/30 text-white hover:bg-white/30"
-                  onClick={async () => {
-                    // 根据用户角色决定跳转目标
-                    // 管理员直接跳转到智能关系网
-                    if (currentUserRole === UserRole.MANAGER) {
-                      router.push('/dashboard')
-                      return
-                    }
-                    
-                    // 会员尝试跳转到自己的页面
-                    try {
-                      const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
-                      const { getCurrentMemberAccount } = await import('@/lib/memberKeys')
-                      
-                      const memberAccount = getCurrentMemberAccount()
-                      if (memberAccount && memberAccount.personName) {
-                        const people = await loadPeopleFromCloudIfAvailable()
-                        if (people && people.length > 0) {
-                          const myPerson = people.find((p: any) => p.name === memberAccount.personName)
-                          if (myPerson) {
-                            router.push(`/person/${myPerson.id}`)
-                            return
-                          }
-                        }
-                      }
-                    } catch (err) {
-                      console.error('查找人物失败:', err)
-                    }
-                    // 如果找不到，跳转到信息录入页
-                    router.push('/data-input')
-                  }}
+                  onClick={handleContinue}
                 >
                   欢迎登入
                 </Button>
-                <Button 
+                <Button
                   size="sm"
                   variant="outline"
                   className="bg-white/20 border-white/30 text-white hover:bg-white/30"
                   onClick={() => {
-                    if (typeof window !== 'undefined') {
-                      localStorage.removeItem('userRole')
-                    }
+                    localStorage.removeItem('userRole')
+                    clearCurrentUser()
                     setCurrentUserRole(null)
-                    setShowDialog(true)
+                    handleOpenDialog()
                   }}
                 >
                   切换账号
@@ -227,14 +239,14 @@ export default function Home() {
             </div>
           )}
 
-          {/* 开始内测按钮 */}
+          {/* 登录按钮 */}
           {!currentUserRole && (
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="h-12 px-8 text-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0"
-              onClick={() => setShowDialog(true)}
+              onClick={handleOpenDialog}
             >
-              开始内测
+              登录 / 注册
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           )}
@@ -247,118 +259,198 @@ export default function Home() {
               我们解决什么问题
             </h2>
           </div>
-
           <div className="grid gap-8 md:grid-cols-3">
             <div className="flex flex-col items-center text-center space-y-4 p-6 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors">
               <div className="rounded-full bg-blue-500/20 p-4">
                 <Users className="h-8 w-8 text-blue-400" />
               </div>
               <h3 className="text-xl font-bold text-white">人脉网络可视化</h3>
-              <p className="text-gray-400">
-                将隐形的社交网络变为可见的关系图谱，直观展示人际连接
-              </p>
+              <p className="text-gray-400">将隐形的社交网络变为可见的关系图谱，直观展示人际连接</p>
             </div>
-
             <div className="flex flex-col items-center text-center space-y-4 p-6 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors">
               <div className="rounded-full bg-purple-500/20 p-4">
                 <Building2 className="h-8 w-8 text-purple-400" />
               </div>
               <h3 className="text-xl font-bold text-white">产业链关系挖掘</h3>
-              <p className="text-gray-400">
-                基于AI算法分析企业间的上下游关系，发现潜在商业机会
-              </p>
+              <p className="text-gray-400">基于AI算法分析企业间的上下游关系，发现潜在商业机会</p>
             </div>
-
             <div className="flex flex-col items-center text-center space-y-4 p-6 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors">
               <div className="rounded-full bg-pink-500/20 p-4">
                 <Target className="h-8 w-8 text-pink-400" />
               </div>
               <h3 className="text-xl font-bold text-white">精准连接推荐</h3>
-              <p className="text-gray-400">
-                基于六度分隔理论，为您推荐最有价值的人脉连接路径
-              </p>
+              <p className="text-gray-400">基于六度分隔理论，为您推荐最有价值的人脉连接路径</p>
             </div>
           </div>
         </section>
 
-        {/* 内测码验证弹窗 */}
+        {/* 登录/注册弹窗 */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="sm:max-w-[425px] bg-black/90 backdrop-blur-xl border border-white/20">
-            <DialogHeader>
-              <DialogTitle className="text-white">
-                {userType === null ? '选择用户类型' : userType === UserRole.MEMBER ? '输入会员密钥' : '输入内测码'}
+          <DialogContent className="sm:max-w-[440px] bg-black/90 backdrop-blur-xl border border-white/20 p-0 overflow-hidden">
+            <DialogHeader className="px-6 pt-6 pb-0">
+              <DialogTitle className="text-white text-xl flex items-center gap-2">
+                <Network className="h-5 w-5 text-blue-400" />
+                精尚慧生态圈
               </DialogTitle>
-              <DialogDescription className="text-gray-400">
-                {userType === null 
-                  ? '请选择您的身份以继续' 
-                  : `请输入${userType === UserRole.MEMBER ? '会员密钥' : '管理者'}内测码`}
-                {userType !== null && (
-                  <div className="text-xs text-green-400 mt-2">
-                    💡 登录后将保持90天有效，无需重复输入{userType === UserRole.MEMBER ? '密钥' : '密码'}
-                  </div>
-                )}
+              <DialogDescription className="text-gray-400 text-sm">
+                登录已有账号，或使用邀请码注册新账号
               </DialogDescription>
             </DialogHeader>
-            
-            {userType === null ? (
-              // 用户类型选择界面
-              <div className="space-y-4 py-4">
-                <Button
-                  onClick={() => handleUserTypeSelect(UserRole.MEMBER)}
-                  className="w-full h-16 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 flex flex-col items-center justify-center gap-1"
-                >
-                  <span className="text-lg font-semibold">我是精尚慧会员</span>
-                  <span className="text-sm opacity-90">体验人脉网络功能</span>
-                </Button>
-                
-                <Button
-                  onClick={() => handleUserTypeSelect(UserRole.MANAGER)}
-                  className="w-full h-16 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 flex flex-col items-center justify-center gap-1"
-                >
-                  <span className="text-lg font-semibold">我是精尚慧管理者</span>
-                  <span className="text-sm opacity-90">完整管理功能</span>
-                </Button>
+
+            <Tabs defaultValue="login" className="w-full">
+              <div className="px-6 pt-4">
+                <TabsList className="w-full bg-white/10 border border-white/10">
+                  <TabsTrigger
+                    value="login"
+                    className="flex-1 data-[state=active]:bg-blue-500/80 data-[state=active]:text-white text-gray-300"
+                  >
+                    <LogIn className="h-4 w-4 mr-1.5" />
+                    登录
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="register"
+                    className="flex-1 data-[state=active]:bg-purple-500/80 data-[state=active]:text-white text-gray-300"
+                  >
+                    <UserPlus className="h-4 w-4 mr-1.5" />
+                    注册
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            ) : (
-              // 内测码输入界面
-              <div className="space-y-4 py-4">
-                <Input
-                  placeholder={`请输入${userType === UserRole.MEMBER ? '会员密钥（格式：JSH-XXX-XXXXXXXX）' : '管理者内测码'}`}
-                  value={betaCode}
-                  onChange={(e) => {
-                    setBetaCode(e.target.value)
-                    setError('')
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleBetaAccess()
-                    }
-                  }}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-500"
-                />
-                {error && (
-                  <p className="text-sm text-red-400">{error}</p>
-                )}
-                <div className="flex gap-2">
+
+              {/* 登录 */}
+              <TabsContent value="login" className="px-6 pb-6 mt-0">
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-300 text-sm">用户名</Label>
+                    <Input
+                      placeholder="请输入用户名"
+                      value={loginUsername}
+                      onChange={e => { setLoginUsername(e.target.value); setLoginError('') }}
+                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-blue-400"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-300 text-sm">密码</Label>
+                    <div className="relative">
+                      <Input
+                        type={showLoginPassword ? 'text' : 'password'}
+                        placeholder="请输入密码"
+                        value={loginPassword}
+                        onChange={e => { setLoginPassword(e.target.value); setLoginError('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-blue-400 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {loginError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2">
+                      <p className="text-sm text-red-400">{loginError}</p>
+                    </div>
+                  )}
+
                   <Button
-                    onClick={handleBack}
-                    variant="outline"
-                    className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10"
+                    onClick={handleLogin}
+                    disabled={loginLoading}
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 h-10"
                   >
-                    返回
+                    {loginLoading ? '登录中...' : '登录'}
                   </Button>
-                  <Button 
-                    onClick={handleBetaAccess}
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0"
-                  >
-                    验证并进入
-                  </Button>
+
+                  <p className="text-center text-xs text-gray-500">
+                    登录后将保持 90 天有效
+                  </p>
                 </div>
-              </div>
-            )}
+              </TabsContent>
+
+              {/* 注册 */}
+              <TabsContent value="register" className="px-6 pb-6 mt-0">
+                {regSuccess ? (
+                  <div className="py-8 text-center space-y-3">
+                    <div className="text-4xl">🎉</div>
+                    <p className="text-white font-semibold">注册成功！</p>
+                    <p className="text-gray-400 text-sm">正在为您跳转...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-gray-300 text-sm">用户名</Label>
+                      <Input
+                        placeholder="请设置用户名（2-20个字符）"
+                        value={regUsername}
+                        onChange={e => { setRegUsername(e.target.value); setRegError('') }}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300 text-sm">密码</Label>
+                      <div className="relative">
+                        <Input
+                          type={showRegPassword ? 'text' : 'password'}
+                          placeholder="请设置密码（至少6位）"
+                          value={regPassword}
+                          onChange={e => { setRegPassword(e.target.value); setRegError('') }}
+                          className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPassword(!showRegPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                        >
+                          {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300 text-sm">确认密码</Label>
+                      <Input
+                        type="password"
+                        placeholder="再次输入密码"
+                        value={regConfirmPassword}
+                        onChange={e => { setRegConfirmPassword(e.target.value); setRegError('') }}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300 text-sm">内测邀请码</Label>
+                      <Input
+                        placeholder="请输入邀请码（如：ECO-INV-XXXXXXXX）"
+                        value={regInviteCode}
+                        onChange={e => { setRegInviteCode(e.target.value.toUpperCase()); setRegError('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleRegister()}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 font-mono"
+                      />
+                      <p className="text-xs text-gray-500">需要有效的内测邀请码才能注册</p>
+                    </div>
+
+                    {regError && (
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2">
+                        <p className="text-sm text-red-400">{regError}</p>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handleRegister}
+                      disabled={regLoading}
+                      className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white border-0 h-10"
+                    >
+                      {regLoading ? '注册中...' : '注册账号'}
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
     </div>
   )
-} 
+}

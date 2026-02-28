@@ -4,21 +4,114 @@ import { PersonData, CompanyData } from '@/lib/dataStore'
 import { deterministicAliasName, shouldAliasName, findPersonByAliasName, findPeopleByAliasName } from '@/lib/deterministicNameAlias'
 
 // DeepSeek API配置
-// 管理者版本和会员版本使用不同的API密钥
-// 使用您提供的API密钥
 const DEEPSEEK_API_KEY_MANAGER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER || 'sk-393da700b1f64e94bd73ee12b450651a'
 const DEEPSEEK_API_KEY_MEMBER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MEMBER || 'sk-73f01c8df5354bc1a01a218ef6f27c16'
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
-// 调试：打印当前使用的API密钥（仅显示前后几位）
-console.log('Manager API Key:', DEEPSEEK_API_KEY_MANAGER.substring(0, 6) + '...' + DEEPSEEK_API_KEY_MANAGER.substring(DEEPSEEK_API_KEY_MANAGER.length - 4))
-console.log('Member API Key:', DEEPSEEK_API_KEY_MEMBER.substring(0, 6) + '...' + DEEPSEEK_API_KEY_MEMBER.substring(DEEPSEEK_API_KEY_MEMBER.length - 4))
+// 博查 (Bocha) 联网搜索 API — 国内搜索引擎，中文结果更优
+// 注册地址：https://open.bochaai.com （微信扫码登录）
+const BOCHA_API_KEY = process.env.BOCHA_API_KEY || ''
+
+// ========== 联网搜索工具 ==========
+interface WebSearchResult {
+  title: string
+  snippet: string
+  link: string
+}
+
+async function webSearch(query: string, numResults = 5): Promise<{ results: WebSearchResult[]; success: boolean }> {
+  if (!BOCHA_API_KEY) {
+    console.log('[WebSearch] Bocha API Key 未配置，跳过联网搜索')
+    return { results: [], success: false }
+  }
+  try {
+    const res = await fetch('https://api.bochaai.com/v1/web-search', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${BOCHA_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        summary: true,
+        count: numResults,
+      }),
+    })
+    if (!res.ok) {
+      console.error('[WebSearch] Bocha API 错误:', res.status)
+      return { results: [], success: false }
+    }
+    const data = await res.json()
+    const webPages = data?.webPages?.value || data?.data?.webPages?.value || []
+    const results: WebSearchResult[] = webPages.slice(0, numResults).map((item: any) => ({
+      title: item.name || item.title || '',
+      snippet: item.summary || item.snippet || '',
+      link: item.url || item.link || '',
+    }))
+    console.log(`[WebSearch] 搜索「${query}」返回 ${results.length} 条结果`)
+    return { results, success: true }
+  } catch (e) {
+    console.error('[WebSearch] 搜索失败:', e)
+    return { results: [], success: false }
+  }
+}
+
+// 从用户消息中提取需要联网搜索的公司名（与本地库中的公司匹配）
+function extractCompanyNamesToSearch(
+  message: string,
+  allCompanyNames: string[]
+): string[] {
+  const found: string[] = []
+  for (const name of allCompanyNames) {
+    if (name.length >= 3 && message.includes(name)) {
+      found.push(name)
+    }
+  }
+  return found
+}
+
+// 批量联网搜索多个公司，汇总结果
+async function batchWebSearch(
+  queries: string[],
+  maxQueries = 3
+): Promise<{ searchSummary: string; sources: string[] }> {
+  const toSearch = queries.slice(0, maxQueries)
+  const allResults: WebSearchResult[] = []
+  const sources: string[] = []
+
+  await Promise.all(
+    toSearch.map(async q => {
+      const { results, success } = await webSearch(`${q} 公司业务 主营产品`)
+      if (success) {
+        allResults.push(...results)
+        results.forEach(r => { if (r.link) sources.push(r.link) })
+      }
+    })
+  )
+
+  if (allResults.length === 0) return { searchSummary: '', sources: [] }
+
+  const summary = allResults
+    .map(r => `【${r.title}】${r.snippet}`)
+    .join('\n')
+
+  return { searchSummary: summary, sources: Array.from(new Set(sources)) }
+}
 
 export async function POST(request: NextRequest) {
+  // 在函数顶层解析请求体，确保只读一次，catch 块也能访问
+  let parsedBody: any = {}
   try {
-    const { message, history, people, companies, role } = await request.json()
-    
+    parsedBody = await request.json()
+  } catch {
+    return NextResponse.json({ response: '请求格式错误，请刷新页面重试。' }, { status: 400 })
+  }
+
+  const { message, history, people, companies, role, deepThinking } = parsedBody
+
+  try {
     const isMember = role === 'member'
+    const useDeepThinking = deepThinking === true
     
     const aliasMode = isMember
     const aliasNameFn = (name: string) => {
@@ -51,24 +144,54 @@ export async function POST(request: NextRequest) {
      const shouldAliasName = () => aliasMode
      const deterministicAliasName = aliasNameFn
 
-    // 如果客户端未提供数据或数据为空，尝试从云端（Supabase）加载
-    let peopleData: PersonData[] = Array.isArray(people) ? people : []
-    let companyData: CompanyData[] = Array.isArray(companies) ? companies : []
+    // 始终优先从 Supabase 拉取最新完整数据，保证数据全面性
+    // 客户端传来的数据只作为 Supabase 不可用时的降级备用
+    let peopleData: PersonData[] = []
+    let companyData: CompanyData[] = []
 
-    if (peopleData.length === 0 || companyData.length === 0) {
-      try {
-        const { isSupabaseReady } = await import('@/lib/supabaseClient')
-        if (isSupabaseReady) {
-          const { listPeopleFromCloud, listCompaniesFromCloud } = await import('@/lib/cloudStore')
-          if (peopleData.length === 0) peopleData = await listPeopleFromCloud()
-          if (companyData.length === 0) companyData = await listCompaniesFromCloud()
+    try {
+      const { isSupabaseReady } = await import('@/lib/supabaseClient')
+      if (isSupabaseReady) {
+        const { listPeopleFromCloud, listCompaniesFromCloud } = await import('@/lib/cloudStore')
+        console.log('[AI Chat] 从 Supabase 拉取最新完整数据...')
+        ;[peopleData, companyData] = await Promise.all([
+          listPeopleFromCloud(),
+          listCompaniesFromCloud(),
+        ])
+        console.log(`[AI Chat] Supabase 数据加载完成：${peopleData.length} 人，${companyData.length} 家企业档案`)
+        // 调试：打印每家企业的上下游明细数量
+        for (const c of companyData) {
+          const si = c.supplierInfos?.length || 0
+          const ci = c.customerInfos?.length || 0
+          const s = c.suppliers?.length || 0
+          const cu = c.customers?.length || 0
+          if (si > 0 || ci > 0 || s > 0 || cu > 0) {
+            console.log(`[AI Chat] 企业「${c.name}」: supplierInfos=${si}, customerInfos=${ci}, suppliers=${s}, customers=${cu}`)
+          }
         }
-      } catch (e) {
-        console.error('[AI Chat] 加载云端数据失败:', e)
+        // 调试：打印每个人物的 allCompanies 数量
+        for (const p of peopleData) {
+          const ac = Array.isArray(p.allCompanies) ? p.allCompanies.length : 0
+          if (ac > 0) {
+            console.log(`[AI Chat] 人物「${p.name}」: allCompanies=${ac}家`)
+          }
+        }
       }
+    } catch (e) {
+      console.error('[AI Chat] Supabase 加载失败，降级使用客户端数据:', e)
     }
 
-    if (peopleData.length === 0 || companyData.length === 0) {
+    // Supabase 不可用时，降级使用客户端传来的数据
+    if (peopleData.length === 0) {
+      peopleData = Array.isArray(people) ? people : []
+      console.warn('[AI Chat] 使用客户端降级数据，人物数量:', peopleData.length)
+    }
+    if (companyData.length === 0) {
+      companyData = Array.isArray(companies) ? companies : []
+      console.warn('[AI Chat] 使用客户端降级数据，企业数量:', companyData.length)
+    }
+
+    if (peopleData.length === 0) {
       return NextResponse.json({
         response: '抱歉，我当前无法访问到数据库数据。请检查 Supabase 配置，或稍后重试。'
       })
@@ -93,30 +216,135 @@ export async function POST(request: NextRequest) {
         }).filter(Boolean).join('\n')
       : '暂无分析出的关系'
     
-    // 提取数据库中所有公司名称（包括上下游）
-    const databaseCompanyNames = new Set<string>()
-    companyData.forEach(c => {
-      databaseCompanyNames.add(c.name)
-      // 添加上下游公司
-      if (c.suppliers) {
-        c.suppliers.forEach((s: any) => {
-          const name = typeof s === 'string' ? s : (s.supplierName || s.name)
-          if (name) databaseCompanyNames.add(name)
+    // ===== 构建全量公司清单（三个来源合并去重）=====
+    // 来源1：独立企业档案（companies 表）
+    // 来源2：人物档案的 allCompanies 字段
+    // 来源3：企业档案的 supplierInfos / customerInfos 字段
+    type CompanyEntry = { name: string; detail: string; source: string }
+    const allCompanyMap = new Map<string, CompanyEntry>()
+
+    // 来源1：独立企业档案 + 来源3：上下游关系
+    for (const c of companyData) {
+      if (!c.name) continue
+      allCompanyMap.set(c.name, {
+        name: c.name,
+        detail: [c.industry, c.scale].filter(Boolean).join('・'),
+        source: '独立企业档案',
+      })
+
+      // 来源3a：supplierInfos（详细版上游）
+      if (Array.isArray(c.supplierInfos)) {
+        for (const s of c.supplierInfos) {
+          if (!s.supplierName || allCompanyMap.has(s.supplierName)) continue
+          allCompanyMap.set(s.supplierName, {
+            name: s.supplierName,
+            detail: `${s.industryCategory || ''}・${s.subTitle || ''}`.replace(/^・|・$/g, ''),
+            source: `${c.name}的上游供应商`,
+          })
+        }
+      }
+      // 来源3b：suppliers（简单字符串数组上游）
+      if (Array.isArray(c.suppliers)) {
+        for (const sName of c.suppliers) {
+          if (!sName || allCompanyMap.has(sName)) continue
+          allCompanyMap.set(sName, {
+            name: sName,
+            detail: '',
+            source: `${c.name}的上游供应商`,
+          })
+        }
+      }
+
+      // 来源3c：customerInfos（详细版下游）
+      if (Array.isArray(c.customerInfos)) {
+        for (const cu of c.customerInfos) {
+          if (!cu.customerName || allCompanyMap.has(cu.customerName)) continue
+          allCompanyMap.set(cu.customerName, {
+            name: cu.customerName,
+            detail: `${cu.industryCategory || ''}・${cu.subTitle || ''}`.replace(/^・|・$/g, ''),
+            source: `${c.name}的下游客户`,
+          })
+        }
+      }
+      // 来源3d：customers（简单字符串数组下游）——288家客户在这里！
+      if (Array.isArray(c.customers)) {
+        for (const cuName of c.customers) {
+          if (!cuName || allCompanyMap.has(cuName)) continue
+          allCompanyMap.set(cuName, {
+            name: cuName,
+            detail: '',
+            source: `${c.name}的下游客户`,
+          })
+        }
+      }
+    }
+
+    // 来源2：人物档案的 allCompanies
+    for (const p of peopleData) {
+      if (p.company && !allCompanyMap.has(p.company)) {
+        allCompanyMap.set(p.company, {
+          name: p.company,
+          detail: p.industry || p.position || '',
+          source: `${aliasMode ? aliasNameFn(p.name) : p.name}的主要公司`,
         })
       }
-      if (c.customers) {
-        c.customers.forEach((cust: any) => {
-          const name = typeof cust === 'string' ? cust : (cust.customerName || cust.name)
-          if (name) databaseCompanyNames.add(name)
-        })
+      if (Array.isArray(p.allCompanies)) {
+        for (const ac of p.allCompanies as { company: string; position: string }[]) {
+          if (!ac.company || allCompanyMap.has(ac.company)) continue
+          allCompanyMap.set(ac.company, {
+            name: ac.company,
+            detail: ac.position || '',
+            source: `${aliasMode ? aliasNameFn(p.name) : p.name}的关联公司`,
+          })
+        }
       }
-    })
-    // 从人物信息中提取公司名称
-    peopleData.forEach(p => {
-      if (p.company) databaseCompanyNames.add(p.company)
-    })
-    
-    const companyNamesList = Array.from(databaseCompanyNames).join('、')
+    }
+
+    const allCompaniesList = Array.from(allCompanyMap.values())
+    const allCompaniesSection = allCompaniesList.length > 0
+      ? allCompaniesList.map((c, i) =>
+          `${i + 1}. ${c.name}${c.detail ? `（${c.detail}）` : ''}【来源：${c.source}】`
+        ).join('\n')
+      : '暂无公司数据'
+    // ===== 全量公司清单构建完成 =====
+    const allCompanyNamesArray = Array.from(allCompanyMap.keys())
+
+    // ===== 联网搜索阶段 =====
+    // 策略：
+    // 1. 从用户消息中识别提到的公司名
+    // 2. 对这些公司进行联网搜索获取最新业务信息
+    // 3. 如果用户问题较通用（未提到具体公司），搜索关键词补充信息
+    let webSearchSection = ''
+    let webSearchSources: string[] = []
+    let didWebSearch = false
+
+    if (BOCHA_API_KEY) {
+      const mentionedCompanies = extractCompanyNamesToSearch(message, allCompanyNamesArray)
+      
+      if (mentionedCompanies.length > 0) {
+        // 用户提到了库里的公司，搜索其最新业务信息
+        console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，启动联网搜索`)
+        const { searchSummary, sources } = await batchWebSearch(mentionedCompanies, 3)
+        if (searchSummary) {
+          webSearchSection = searchSummary
+          webSearchSources = sources
+          didWebSearch = true
+        }
+      } else {
+        // 用户没提到具体公司，但可能在问通用商务问题，用消息关键词搜索
+        const genericKeywords = message.replace(/[？?！!。，,、]/g, ' ').trim()
+        if (genericKeywords.length > 4) {
+          console.log(`[AI Chat] 通用问题联网搜索: ${genericKeywords}`)
+          const { results, success } = await webSearch(genericKeywords, 3)
+          if (success && results.length > 0) {
+            webSearchSection = results.map(r => `【${r.title}】${r.snippet}`).join('\n')
+            webSearchSources = results.map(r => r.link).filter(Boolean)
+            didWebSearch = true
+          }
+        }
+      }
+    }
+    // ===== 联网搜索阶段结束 =====
 
     // 增强的系统提示词
     const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你是一个专业、友好、智能的人脉助手。
@@ -126,22 +354,13 @@ export async function POST(request: NextRequest) {
 2. 提供智能的人脉推荐和建议
 3. 分析人物之间的潜在联系
 4. 给出专业的商务社交建议
+5. 结合联网搜索的最新信息，提供更准确全面的回答
 
-⚠️ **重要的搜索限制规则**：
-1. 你只能回答关于数据库中公司的问题
-2. 当用户询问某个公司时，首先检查该公司是否在以下数据库公司列表中：
-   ${companyNamesList}
-3. 如果用户询问的公司在数据库中，你需要：
-   - 首先展示数据库中已有的信息
-   - 然后可以补充你所知道的该公司的公开信息（如业务范围、行业地位等）
-4. 如果用户询问的公司不在数据库中，你必须友好地告知：
-   "抱歉，【公司名】不在我们的数据库中。目前我只能查询数据库中的公司信息。您可以查询以下公司：[列出3-5个相关公司]"
-5. 当数据库信息较少时，可以补充该公司的公开信息，如：
-   - 公司主营业务
-   - 行业地位
-   - 发展历程
-   - 主要产品/服务
-   但要明确标注"以下为公开信息补充："
+回答策略（严格按此优先级）：
+① 首先搜索精尚慧数据库（${allCompaniesList.length}家公司、${peopleData.length}位人物），优先使用库内数据回答
+② 如果库内数据不足，结合联网搜索到的实时信息补充说明
+③ 如果库内完全没有相关数据，则基于联网搜索结果给出最合适的回答
+④ 回答时要明确区分哪些信息来自库内、哪些来自网络搜索
 
 回答风格：
 - 友好亲切，像朋友一样对话
@@ -151,7 +370,7 @@ export async function POST(request: NextRequest) {
 
 重要的隐私保护规则：
 ${aliasMode ? `
-- 你正在为会员用户服务，所有人名都已经AI化处理
+- 你正在为会员用户服务，所有【人名】都已经AI化处理
 - 显示的人名都是水浒传/西游记的角色名，这些是真实人物的代号
 - 绝对不能透露或推测真实姓名
 - 在所有回复中都要使用AI化的名字
@@ -164,16 +383,29 @@ ${aliasMode ? `
 - 每个人名后面都会显示方括号中的AI化名字，格式如："张三 [金大坚]"
 - 这个方括号中的名字是该人在会员版中的代号，方便管理者与会员沟通时对应
 `}
+⚠️ 重要：公司名称、企业名称【永远不需要AI化】，无论是会员还是管理员，都直接显示真实的公司名称。只有人名才需要AI化处理。
+
+数据库公司数量说明：
+- 信息库中的公司来自三个来源，合计共 ${allCompaniesList.length} 家（已去重）
+- 来源①：独立建档企业（companies表，共${companyData.length}家，含完整详细信息）
+- 来源②：人物档案中的关联公司（allCompanies字段，含历史任职公司）
+- 来源③：企业上下游关系中的供应商和客户
+- 当用户问"库里有多少公司"，应回答 ${allCompaniesList.length} 家，而不是只说${companyData.length}家
 
 当前数据库中的人物信息（包含${people.length}人）：
 ${people.map((p: PersonData) => {
   const displayName = aliasMode 
     ? aliasNameFn(p.name) 
     : `${p.name} [${aliasNameFn(p.name)}]`;
+  // 整理所有关联公司（allCompanies 包含完整的历史公司列表）
+  const allCompanyList = Array.isArray(p.allCompanies) && p.allCompanies.length > 0
+    ? p.allCompanies.map((c: { company: string; position: string }) => `${c.company}（${c.position}）`).join('、')
+    : p.company
   return `
 【${displayName}】
-- 公司：${p.company}
-- 职位：${p.position}
+- 当前主要公司：${p.company}
+- 当前职位：${p.position}
+- 所有关联公司（共${Array.isArray(p.allCompanies) ? p.allCompanies.length : 1}家）：${allCompanyList}
 - 现居地：${p.currentCity || p.location || '未知'}
 - 家乡：${p.hometown || '未知'}
 - 行业：${p.industry || '未知'}
@@ -187,7 +419,30 @@ ${people.map((p: PersonData) => {
 }).join('\n')}
 
 公司信息：
-${companyData.map((c: CompanyData) => `
+${companyData.map((c: CompanyData) => {
+  // 上游供应商明细（优先用 supplierInfos 详细版，降级用 suppliers 简单版）
+  let supplierSection = ''
+  if (c.supplierInfos && c.supplierInfos.length > 0) {
+    supplierSection = `- 上游供应商（共${c.supplierInfos.length}家，含详细信息）：\n` +
+      c.supplierInfos.map((s, i) =>
+        `  ${i + 1}. ${s.supplierName}｜行业：${s.industryCategory}｜核心业务：${s.subTitle}${s.materialName ? `｜采购品类：${s.materialName}` : ''}${s.keywords ? `｜关键词：${s.keywords}` : ''}${s.keyPerson1 ? `｜关键人：${s.keyPerson1}${s.keyPerson2 ? '、' + s.keyPerson2 : ''}${s.keyPerson3 ? '、' + s.keyPerson3 : ''}` : ''}`
+      ).join('\n')
+  } else if (c.suppliers && c.suppliers.length > 0) {
+    supplierSection = `- 上游供应商（共${c.suppliers.length}家）：${c.suppliers.join('、')}`
+  }
+
+  // 下游客户明细（优先用 customerInfos 详细版，降级用 customers 简单版）
+  let customerSection = ''
+  if (c.customerInfos && c.customerInfos.length > 0) {
+    customerSection = `- 下游客户（共${c.customerInfos.length}家，含详细信息）：\n` +
+      c.customerInfos.map((cu, i) =>
+        `  ${i + 1}. ${cu.customerName}｜行业：${cu.industryCategory}｜核心业务：${cu.subTitle}${cu.productName ? `｜产品：${cu.productName}` : ''}${cu.keywords ? `｜关键词：${cu.keywords}` : ''}${cu.keyPerson1 ? `｜关键人：${cu.keyPerson1}${cu.keyPerson2 ? '、' + cu.keyPerson2 : ''}${cu.keyPerson3 ? '、' + cu.keyPerson3 : ''}` : ''}`
+      ).join('\n')
+  } else if (c.customers && c.customers.length > 0) {
+    customerSection = `- 下游客户（共${c.customers.length}家）：${c.customers.join('、')}`
+  }
+
+  return `
 【${c.name}】
 - 行业：${c.industry}
 - 规模：${c.scale}
@@ -195,10 +450,11 @@ ${companyData.map((c: CompanyData) => `
 ${c.positioning ? `- 企业定位：${c.positioning}` : ''}
 ${c.value ? `- 企业价值：${c.value}` : ''}
 ${c.achievements ? `- 关键成就：${c.achievements}` : ''}
-${c.suppliers && c.suppliers.length > 0 ? `- 上游供应商（共${c.suppliers.length}个）：${c.suppliers.join('、')}` : ''}
-${c.customers && c.customers.length > 0 ? `- 下游客户（共${c.customers.length}个）：${c.customers.join('、')}` : ''}
+${c.demands ? `- 企业诉求：${c.demands}` : ''}
+${supplierSection}
+${customerSection}
 - 简介：${c.additionalInfo || '暂无'}
-`).join('\n')}
+`}).join('\n')}
 
 已分析的人物关系：
 ${relationshipSummary}
@@ -225,7 +481,25 @@ ${aliasMode ? `重要的会员服务提醒：
 1. 所有人名都是AI化的代号，要自然地使用这些名字
 2. 当用户搜索AI化的名字时，要理解这是在找某个人
 3. 在回答时自然地使用AI化的名字，不要暴露任何真实信息
-4. 在回答中多处提醒用户联系管理员获取真实信息，如："若需了解真实信息和联系方式，请联系精尚慧管理员"` : ''}`
+4. 在回答中多处提醒用户联系管理员获取真实信息，如："若需了解真实信息和联系方式，请联系精尚慧管理员"` : ''}
+
+===== 全量公司清单（共 ${allCompaniesList.length} 家，含所有来源）=====
+${allCompaniesSection}
+===== 全量公司清单结束 =====
+
+${didWebSearch ? `
+===== 联网搜索结果（实时从互联网获取）=====
+以下是针对用户问题从网上搜索到的最新信息，可以作为补充参考：
+${webSearchSection}
+
+引用来源：${webSearchSources.slice(0, 3).join(' | ')}
+
+使用规则：
+- 如果库内已有相关数据，以库内为准，联网搜索仅作补充
+- 如果库内没有，可以用联网搜索的信息来回答
+- 引用联网信息时注明"根据网络公开信息"
+===== 联网搜索结果结束 =====
+` : ''}`
 
     // 构建对话历史
     const messages = [
@@ -248,21 +522,35 @@ ${aliasMode ? `重要的会员服务提醒：
     // 根据角色选择对应的API密钥
     const apiKey = isMember ? DEEPSEEK_API_KEY_MEMBER : DEEPSEEK_API_KEY_MANAGER
 
-    // 调用DeepSeek API
-    const response = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: messages,
-        temperature: 0.8,  // 提高创造性
-        max_tokens: 1500,
-        top_p: 0.95
+    // 深度思考模式使用 deepseek-reasoner，普通模式使用 deepseek-chat
+    const modelName = useDeepThinking ? 'deepseek-reasoner' : 'deepseek-chat'
+    console.log('[AI Chat] 使用模型:', modelName, '深度思考:', useDeepThinking)
+
+    // 调用DeepSeek API（加超时控制：普通60秒，深度思考120秒）
+    const timeoutMs = useDeepThinking ? 120_000 : 60_000
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    let response: Response
+    try {
+      response = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: messages,
+          temperature: useDeepThinking ? 0.6 : 0.8,
+          max_tokens: useDeepThinking ? 4000 : 1500,
+          top_p: 0.95
+        }),
+        signal: controller.signal,
       })
-    })
+    } finally {
+      clearTimeout(timeoutId)
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -283,8 +571,20 @@ ${aliasMode ? `重要的会员服务提醒：
 
     const data = await response.json()
     console.log('DeepSeek API response:', data)
+
+    // 防御性检查：choices 可能为空（限流、服务端错误等情况）
+    if (!data.choices || data.choices.length === 0 || !data.choices[0]?.message) {
+      console.error('[AI Chat] DeepSeek 返回数据异常:', JSON.stringify(data))
+      return NextResponse.json({
+        response: '⚠️ AI 服务返回了空响应（可能正在限流）。\n\n让我用本地搜索帮你找一下：\n\n' +
+          searchPeople(message, people, companies, role)
+      })
+    }
     
-    let aiResponse = data.choices[0].message.content
+    const responseMessage = data.choices[0].message
+    let aiResponse = responseMessage.content || ''
+    // deepseek-reasoner 会返回 reasoning_content（思考过程）
+    const reasoningContent: string | undefined = responseMessage.reasoning_content || undefined
     
     // 如果是会员用户，增强隐私提示
     if (aliasMode) {
@@ -320,33 +620,44 @@ ${aliasMode ? `重要的会员服务提醒：
     }
 
     return NextResponse.json({
-      response: aiResponse
+      response: aiResponse,
+      reasoning: reasoningContent,
+      webSearch: didWebSearch,
+      webSources: didWebSearch ? webSearchSources.slice(0, 3) : undefined,
     })
 
-  } catch (error) {
-    console.error('AI chat error:', error)
-    
-    // 使用增强的本地搜索作为备用
-    try {
-      const requestData = await request.json()
-      const { message, people, companies, role } = requestData
-      
-      if (!people || !companies) {
-        return NextResponse.json({
-          response: '抱歉，我无法访问数据库。请刷新页面后重试。'
-        })
-      }
-      
-      const searchResults = searchPeople(message, people, companies, role)
-      
+  } catch (error: any) {
+    console.error('[AI Chat] 出错:', error)
+
+    // 判断错误类型，给出更明确的提示
+    const errMsg: string = error?.message || String(error)
+
+    // 网络超时 / fetch 失败
+    if (errMsg.includes('fetch') || errMsg.includes('network') || errMsg.includes('timeout') || errMsg.includes('ECONNREFUSED')) {
       return NextResponse.json({
-        response: searchResults
-      })
-    } catch (e) {
-      return NextResponse.json({
-        response: '抱歉，我遇到了一些问题。请稍后再试。'
+        response: '⚠️ 连接 AI 服务超时，可能是网络问题或 DeepSeek 服务暂时繁忙。\n\n让我用本地搜索帮你找一下：\n\n' +
+          (message && people && companies ? searchPeople(message, people, companies, role) : '请稍后重试或刷新页面。')
       })
     }
+
+    // 数据解析失败（choices 为空等）
+    if (errMsg.includes('Cannot read') || errMsg.includes('undefined') || errMsg.includes('null')) {
+      return NextResponse.json({
+        response: '⚠️ AI 返回了异常数据（可能是模型限流）。\n\n让我用本地搜索帮你找一下：\n\n' +
+          (message && people && companies ? searchPeople(message, people, companies, role) : '请稍后重试。')
+      })
+    }
+
+    // 有请求数据时，降级到本地搜索
+    if (message && people && companies) {
+      return NextResponse.json({
+        response: '⚠️ AI 服务暂时不可用，已切换到本地搜索模式：\n\n' + searchPeople(message, people, companies, role)
+      })
+    }
+
+    return NextResponse.json({
+      response: '抱歉，服务出现了异常，请刷新页面后重试。如持续出现请联系管理员。'
+    })
   }
 }
 
@@ -478,83 +789,10 @@ function searchPeople(query: string, people: any[], companies: any[], role: stri
     return response
   }
   
-  // 构建数据库公司名称集合（包括上下游）
-  const dbCompanyNames = new Set<string>()
-  companies.forEach((c: any) => {
-    dbCompanyNames.add(c.name.toLowerCase())
-    if (c.suppliers) {
-      c.suppliers.forEach((s: any) => {
-        const name = typeof s === 'string' ? s : (s.supplierName || s.name)
-        if (name) dbCompanyNames.add(name.toLowerCase())
-      })
-    }
-    if (c.customers) {
-      c.customers.forEach((cust: any) => {
-        const name = typeof cust === 'string' ? cust : (cust.customerName || cust.name)
-        if (name) dbCompanyNames.add(name.toLowerCase())
-      })
-    }
-  })
-  people.forEach((p: any) => {
-    if (p.company) dbCompanyNames.add(p.company.toLowerCase())
-  })
-
-  // 搜索公司 - 先检查是否在数据库中
-  const companyMatch = companies.find((c: any) => 
+  // 搜索公司
+  const companyMatch = companies.find(c => 
     c.name.toLowerCase().includes(lowerQuery)
   )
-  
-  // 检查用户是否在查询一个看起来像公司名的内容（但不在数据库中）
-  const looksLikeCompanyQuery = lowerQuery.includes('公司') || 
-    lowerQuery.includes('集团') || 
-    lowerQuery.includes('有限') ||
-    lowerQuery.includes('股份') ||
-    lowerQuery.includes('科技') ||
-    lowerQuery.includes('技术')
-  
-  // 如果看起来在查公司但不在数据库中
-  if (looksLikeCompanyQuery && !companyMatch) {
-    // 检查是否在上下游公司中
-    let foundInUpstream = false
-    let upstreamCompanyInfo: { name: string; relatedTo: string; type: string } | null = null
-    
-    companies.forEach((c: any) => {
-      if (c.suppliers) {
-        c.suppliers.forEach((s: any) => {
-          const name = typeof s === 'string' ? s : (s.supplierName || s.name)
-          if (name && name.toLowerCase().includes(lowerQuery)) {
-            foundInUpstream = true
-            upstreamCompanyInfo = { name, relatedTo: c.name, type: '上游供应商' }
-          }
-        })
-      }
-      if (c.customers) {
-        c.customers.forEach((cust: any) => {
-          const name = typeof cust === 'string' ? cust : (cust.customerName || cust.name)
-          if (name && name.toLowerCase().includes(lowerQuery)) {
-            foundInUpstream = true
-            upstreamCompanyInfo = { name, relatedTo: c.name, type: '下游客户' }
-          }
-        })
-      }
-    })
-    
-    if (foundInUpstream && upstreamCompanyInfo) {
-      const info = upstreamCompanyInfo as { name: string; relatedTo: string; type: string }
-      let response = `我在数据库中找到了 **${info.name}** 的相关信息！\n\n`
-      response += `🔗 **供应链关系**\n`
-      response += `• ${info.name} 是 ${info.relatedTo} 的${info.type}\n\n`
-      response += `💡 这是一家在我们供应链网络中的企业。如需了解更多详细信息，建议查看 ${info.relatedTo} 的完整资料。`
-      return response
-    }
-    
-    // 完全不在数据库中
-    const sampleCompanies = companies.slice(0, 5).map((c: any) => c.name).join('、')
-    return `抱歉，您查询的公司不在我们的数据库中。😅\n\n` +
-      `⚠️ 目前我只能查询数据库中已录入的公司信息。\n\n` +
-      `📋 您可以查询以下公司：\n${sampleCompanies}\n\n` +
-      `💡 如需添加新的公司信息，请联系管理员进行录入。`
-  }
   
   if (companyMatch) {
     const companyPeople = people.filter(p => p.company === companyMatch.name)

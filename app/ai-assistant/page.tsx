@@ -3,19 +3,23 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Building2, MessageSquare, Send, Bot, Edit } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Network, MessageSquare, Send, Bot, Edit, Users, FolderOpen, Brain, ChevronDown, ChevronUp, Sparkles, Globe, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
 import { getUserRole, UserRole, isManager, isMember } from '@/lib/userRole'
 import PersonEditModal from '@/components/PersonEditModal'
-import { findPersonByMemberAccount } from '@/lib/memberKeys'
+import { getCurrentUser } from '@/lib/userStore'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  thinkingContent?: string
+  isDeepThinking?: boolean
+  webSearch?: boolean         // 是否使用了联网搜索
+  webSources?: string[]       // 联网搜索来源链接
 }
 
 // 简单的 Markdown 渲染函数
@@ -99,6 +103,8 @@ export default function AIAssistant() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
   const [myCards, setMyCards] = useState<PersonData[]>([])
+  const [deepThinking, setDeepThinking] = useState(false)
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
 
   // 获取当前用户角色并设置欢迎消息
   useEffect(() => {
@@ -170,9 +176,10 @@ export default function AIAssistant() {
         body: JSON.stringify({
           message: inputValue,
           history: messages,
-          people: people,                  // 发送原始数据，让后端处理AI化
-          companies: companies,            // 公司数据
-          role: role                       // 传递角色信息，便于服务端识别
+          people: people,
+          companies: companies,
+          role: role,
+          deepThinking: deepThinking       // 是否启用深度思考模式
         })
       })
 
@@ -182,7 +189,11 @@ export default function AIAssistant() {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: data.response,
-          timestamp: new Date()
+          timestamp: new Date(),
+          thinkingContent: data.reasoning || undefined,
+          isDeepThinking: deepThinking && !!data.reasoning,
+          webSearch: data.webSearch || false,
+          webSources: data.webSources || undefined,
         }
         setMessages(prev => [...prev, assistantMessage])
       } else {
@@ -216,10 +227,13 @@ export default function AIAssistant() {
       // 优先加载云端人物到本地缓存
       await loadPeopleFromCloudIfAvailable().catch(() => {})
       
-      // 如果是会员，根据会员账号查找对应的人物
+      // 如果是会员，根据当前登录账号查找对应的人物
       if (isMember()) {
         const people = getPeople()
-        const myPerson = findPersonByMemberAccount(people)
+        const currentUser = getCurrentUser()
+        const myPerson = currentUser?.personName
+          ? people.find(p => p.name === currentUser.personName) ?? null
+          : null
         if (myPerson) {
           setMyCards([myPerson])
           console.log('[AI Assistant] 会员卡片已加载:', myPerson.name)
@@ -273,15 +287,20 @@ export default function AIAssistant() {
           </div>
 
           <nav className="space-y-2">
-            {/* 我的 - 查看自己的卡片或录入信息（显示真实信息） */}
+            <Link
+              href="/dashboard"
+              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
+            >
+              <Network className="h-5 w-5" />
+              {!isSidebarCollapsed && <span>生态商圈</span>}
+            </Link>
+            {/* 我的 */}
             <div>
               <button
                 onClick={() => {
                   if (myCards.length > 0) {
-                    // 跳转到自己的人物详情页
                     router.push(`/person/${myCards[0].id}`)
                   } else {
-                    // 没有卡片时，跳转到信息录入页面
                     router.push('/data-input')
                   }
                 }}
@@ -290,16 +309,12 @@ export default function AIAssistant() {
                 <Edit className="h-5 w-5" />
                 {!isSidebarCollapsed && <span>我的</span>}
               </button>
-              {/* 仅显示自己录入的卡片 */}
               {!isSidebarCollapsed && myCards.length > 0 && (
                 <div className="mt-2 space-y-1 ml-8">
                   {myCards.map((card) => (
                     <button
                       key={card.id}
-                      onClick={() => {
-                        // 跳转到人物详情页
-                        router.push(`/person/${card.id}`)
-                      }}
+                      onClick={() => router.push(`/person/${card.id}`)}
                       className="w-full text-left px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded"
                     >
                       {card.name}
@@ -309,11 +324,18 @@ export default function AIAssistant() {
               )}
             </div>
             <Link
-              href="/dashboard"
+              href="/business-circle"
               className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
             >
-              <Building2 className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>智能关系网</span>}
+              <Users className="h-5 w-5" />
+              {!isSidebarCollapsed && <span>我的商圈</span>}
+            </Link>
+            <Link
+              href="/projects"
+              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
+            >
+              <FolderOpen className="h-5 w-5" />
+              {!isSidebarCollapsed && <span>My Project</span>}
             </Link>
             <Link
               href="/ai-assistant"
@@ -351,31 +373,100 @@ export default function AIAssistant() {
                 key={message.id}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className={`max-w-[70%] rounded-lg px-4 py-3 ${
-                    message.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{renderMarkdown(message.content)}</div>
-                  <p className={`text-xs mt-1 ${
-                    message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                  }`}>
-                    {message.timestamp.toLocaleTimeString('zh-CN', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
+                <div className={`max-w-[75%] flex flex-col gap-2`}>
+                  {/* 深度思考过程（可折叠） */}
+                  {message.thinkingContent && (
+                    <div className="rounded-lg border border-purple-200 bg-purple-50 overflow-hidden">
+                      <button
+                        onClick={() => setExpandedThinking(prev => {
+                          const next = new Set(prev)
+                          next.has(message.id) ? next.delete(message.id) : next.add(message.id)
+                          return next
+                        })}
+                        className="w-full flex items-center justify-between px-3 py-2 text-purple-700 hover:bg-purple-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Brain className="h-4 w-4" />
+                          <span>深度思考过程</span>
+                        </div>
+                        {expandedThinking.has(message.id)
+                          ? <ChevronUp className="h-4 w-4" />
+                          : <ChevronDown className="h-4 w-4" />
+                        }
+                      </button>
+                      {expandedThinking.has(message.id) && (
+                        <div className="px-3 pb-3 text-xs text-purple-600 leading-relaxed whitespace-pre-wrap border-t border-purple-200 pt-2">
+                          {message.thinkingContent}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* 主消息气泡 */}
+                  <div
+                    className={`rounded-lg px-4 py-3 ${
+                      message.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : message.isDeepThinking
+                          ? 'bg-white border border-purple-200 text-gray-800 shadow-sm'
+                          : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {message.isDeepThinking && (
+                      <div className="flex items-center gap-1 text-xs text-purple-500 mb-2 font-medium">
+                        <Sparkles className="h-3 w-3" />
+                        <span>深度思考</span>
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap">{renderMarkdown(message.content)}</div>
+                    {/* 联网搜索标识 */}
+                    {message.webSearch && message.role === 'assistant' && (
+                      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
+                        <Globe className="h-3 w-3 text-green-500" />
+                        <span className="text-xs text-green-600 font-medium">已联网搜索</span>
+                        {message.webSources && message.webSources.length > 0 && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            {message.webSources.map((src, i) => (
+                              <a
+                                key={i}
+                                href={src}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-600 ml-1"
+                              >
+                                来源{i + 1}<ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            ))}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <p className={`text-xs mt-1 ${
+                      message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
+                    }`}>
+                      {message.timestamp.toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg px-4 py-3">
+                <div className={`rounded-lg px-4 py-3 ${deepThinking ? 'bg-purple-50 border border-purple-200' : 'bg-gray-100'}`}>
                   <div className="flex items-center space-x-2">
-                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-gray-600 text-sm">慧慧Ai正在思考中</span>
+                    {deepThinking ? (
+                      <>
+                        <Brain className="w-5 h-5 text-purple-500 animate-pulse" />
+                        <span className="text-purple-600 text-sm font-medium">慧慧正在深度思考中，请稍候...</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-gray-600 text-sm">慧慧正在搜索数据库并联网查询...</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -386,22 +477,45 @@ export default function AIAssistant() {
 
         {/* 输入区域 */}
         <div className="bg-white border-t px-8 py-4">
-          <div className="max-w-3xl mx-auto flex space-x-4">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="输入你想查找的人名或描述..."
-              className="flex-1"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isLoading}
-              className="px-6"
-            >
-              <Send className="h-5 w-5" />
-            </Button>
+          <div className="max-w-3xl mx-auto space-y-3">
+            {/* 深度思考开关 */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDeepThinking(!deepThinking)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                  deepThinking
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-sm shadow-purple-200'
+                    : 'bg-white text-gray-500 border-gray-300 hover:border-purple-400 hover:text-purple-500'
+                }`}
+              >
+                <Brain className="h-4 w-4" />
+                <span>深度思考</span>
+                {deepThinking && <Sparkles className="h-3 w-3 animate-pulse" />}
+              </button>
+              {deepThinking && (
+                <span className="text-xs text-purple-500">
+                  已开启 · 慧慧将深入推理后再回答，响应会慢一些
+                </span>
+              )}
+            </div>
+            {/* 输入框 */}
+            <div className="flex space-x-4">
+              <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={deepThinking ? '深度思考模式：输入复杂问题，慧慧会仔细推理...' : '输入你想查找的人名或描述...'}
+                className={`flex-1 transition-all ${deepThinking ? 'border-purple-300 focus:border-purple-500' : ''}`}
+                disabled={isLoading}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isLoading}
+                className={`px-6 ${deepThinking ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
