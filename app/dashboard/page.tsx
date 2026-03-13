@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit, Network, FolderOpen, Users, ChevronDown, ChevronUp, Cpu, Settings, Sparkles, Layers, Zap, Car, Heart, Globe, TrendingUp, Award } from 'lucide-react'
@@ -14,7 +14,7 @@ import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNa
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { getCurrentUser } from '@/lib/userStore'
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
@@ -874,5 +874,13 @@ export default function Dashboard() {
       />
 
     </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">加载中...</div>}>
+      <DashboardContent />
+    </Suspense>
   )
 }
