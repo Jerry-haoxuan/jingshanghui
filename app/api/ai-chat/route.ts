@@ -12,6 +12,10 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 // 注册地址：https://open.bochaai.com （微信扫码登录）
 const BOCHA_API_KEY = process.env.BOCHA_API_KEY || ''
 
+// ========== 基准投资机构 ==========
+// 慧慧 AI 的所有分析都以该基金的投资圈为基准
+const BASE_FUND = '苏州永鑫方舟股权投资管理合伙企业（普通合伙）'
+
 // ========== 联网搜索工具 ==========
 interface WebSearchResult {
   title: string
@@ -70,7 +74,7 @@ function extractCompanyNamesToSearch(
   return found
 }
 
-// 批量联网搜索多个公司，汇总结果
+// 批量联网搜索多个公司，结合基金名精准定位
 async function batchWebSearch(
   queries: string[],
   maxQueries = 3
@@ -81,7 +85,15 @@ async function batchWebSearch(
 
   await Promise.all(
     toSearch.map(async q => {
-      const { results, success } = await webSearch(`${q} 公司业务 主营产品`)
+      // 优先搜索"基金 + 公司名"，获取投资关系信息
+      const fundQuery = `${BASE_FUND} ${q} 投资 被投企业`
+      const { results: fundResults, success: fundSuccess } = await webSearch(fundQuery, 3)
+      if (fundSuccess && fundResults.length > 0) {
+        allResults.push(...fundResults)
+        fundResults.forEach(r => { if (r.link) sources.push(r.link) })
+      }
+      // 补充搜索公司自身业务信息
+      const { results, success } = await webSearch(`${q} 公司业务 主营产品 最新动态`)
       if (success) {
         allResults.push(...results)
         results.forEach(r => { if (r.link) sources.push(r.link) })
@@ -96,6 +108,39 @@ async function batchWebSearch(
     .join('\n')
 
   return { searchSummary: summary, sources: Array.from(new Set(sources)) }
+}
+
+// 搜索苏州永鑫方舟的整体投资版图（用于初始化背景知识）
+async function fetchFundPortfolio(): Promise<{ summary: string; sources: string[] }> {
+  if (!BOCHA_API_KEY) return { summary: '', sources: [] }
+
+  const queries = [
+    `${BASE_FUND} 投资组合 被投企业列表`,
+    `${BASE_FUND} 投资方向 半导体 新能源`,
+    `永鑫方舟 投资 项目 2024 2025`,
+  ]
+
+  const allResults: WebSearchResult[] = []
+  const sources: string[] = []
+
+  await Promise.all(
+    queries.map(async q => {
+      const { results, success } = await webSearch(q, 3)
+      if (success) {
+        allResults.push(...results)
+        results.forEach(r => { if (r.link) sources.push(r.link) })
+      }
+    })
+  )
+
+  if (allResults.length === 0) return { summary: '', sources: [] }
+
+  const summary = allResults
+    .map(r => `【${r.title}】${r.snippet}`)
+    .join('\n')
+
+  console.log(`[AI Chat] 永鑫方舟投资版图搜索完成，获取 ${allResults.length} 条信息`)
+  return { summary, sources: Array.from(new Set(sources)) }
 }
 
 export async function POST(request: NextRequest) {
@@ -311,56 +356,83 @@ export async function POST(request: NextRequest) {
 
     // ===== 联网搜索阶段 =====
     // 策略：
-    // 1. 从用户消息中识别提到的公司名
-    // 2. 对这些公司进行联网搜索获取最新业务信息
-    // 3. 如果用户问题较通用（未提到具体公司），搜索关键词补充信息
+    // 1. 并行拉取苏州永鑫方舟的投资版图作为背景知识
+    // 2. 从用户消息中识别提到的公司名，结合基金名精准搜索
+    // 3. 如果问题较通用，用"基金 + 关键词"搜索
     let webSearchSection = ''
     let webSearchSources: string[] = []
+    let fundPortfolioSection = ''
     let didWebSearch = false
 
     if (BOCHA_API_KEY) {
       const mentionedCompanies = extractCompanyNamesToSearch(message, allCompanyNamesArray)
-      
-      if (mentionedCompanies.length > 0) {
-        // 用户提到了库里的公司，搜索其最新业务信息
-        console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，启动联网搜索`)
-        const { searchSummary, sources } = await batchWebSearch(mentionedCompanies, 3)
-        if (searchSummary) {
-          webSearchSection = searchSummary
-          webSearchSources = sources
-          didWebSearch = true
-        }
-      } else {
-        // 用户没提到具体公司，但可能在问通用商务问题，用消息关键词搜索
-        const genericKeywords = message.replace(/[？?！!。，,、]/g, ' ').trim()
-        if (genericKeywords.length > 4) {
-          console.log(`[AI Chat] 通用问题联网搜索: ${genericKeywords}`)
-          const { results, success } = await webSearch(genericKeywords, 3)
-          if (success && results.length > 0) {
-            webSearchSection = results.map(r => `【${r.title}】${r.snippet}`).join('\n')
-            webSearchSources = results.map(r => r.link).filter(Boolean)
-            didWebSearch = true
+
+      // 并行执行：① 拉取基金投资版图 ② 针对用户问题搜索
+      const [portfolioResult, queryResult] = await Promise.all([
+        // ① 始终拉取永鑫方舟投资版图作为背景
+        fetchFundPortfolio(),
+
+        // ② 针对用户问题的搜索
+        (async () => {
+          if (mentionedCompanies.length > 0) {
+            console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，结合基金名精准搜索`)
+            return batchWebSearch(mentionedCompanies, 3)
+          } else {
+            // 通用问题：结合基金名搜索，获取更精准的投资圈信息
+            const genericKeywords = message.replace(/[？?！!。，,、]/g, ' ').trim()
+            if (genericKeywords.length > 4) {
+              const fundContextQuery = `${BASE_FUND} ${genericKeywords}`
+              console.log(`[AI Chat] 基金视角通用搜索: ${fundContextQuery}`)
+              const { results, success } = await webSearch(fundContextQuery, 4)
+              if (success && results.length > 0) {
+                return {
+                  searchSummary: results.map(r => `【${r.title}】${r.snippet}`).join('\n'),
+                  sources: results.map(r => r.link).filter(Boolean),
+                }
+              }
+            }
+            return { searchSummary: '', sources: [] }
           }
-        }
+        })(),
+      ])
+
+      if (portfolioResult.summary) {
+        fundPortfolioSection = portfolioResult.summary
+        webSearchSources.push(...portfolioResult.sources)
       }
+      if (queryResult.searchSummary) {
+        webSearchSection = queryResult.searchSummary
+        webSearchSources.push(...queryResult.sources)
+        didWebSearch = true
+      }
+      if (fundPortfolioSection) {
+        didWebSearch = true
+      }
+      webSearchSources = Array.from(new Set(webSearchSources))
     }
     // ===== 联网搜索阶段结束 =====
 
     // 增强的系统提示词
-    const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你是一个专业、友好、智能的人脉助手。
+    const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你的核心定位是：**基于${BASE_FUND}投资圈的智能分析助理**。
 
-你的角色和能力：
-1. 帮助用户查找和了解人脉关系
-2. 提供智能的人脉推荐和建议
-3. 分析人物之间的潜在联系
-4. 给出专业的商务社交建议
-5. 结合联网搜索的最新信息，提供更准确全面的回答
+## 你的身份与定位
+- 你服务于 ${BASE_FUND} 的生态体系
+- 数据库中录入的所有人物和企业，均为该基金的投资版图相关方（被投企业、合作方、关键人物等）
+- 你的一切分析、搜索、推荐，都应围绕这个投资圈展开
+- 当用户询问任何公司或人物时，优先从"是否与永鑫方舟投资圈相关"的角度切入
 
-回答策略（严格按此优先级）：
-① 首先搜索精尚慧数据库（${allCompaniesList.length}家公司、${peopleData.length}位人物），优先使用库内数据回答
-② 如果库内数据不足，结合联网搜索到的实时信息补充说明
-③ 如果库内完全没有相关数据，则基于联网搜索结果给出最合适的回答
-④ 回答时要明确区分哪些信息来自库内、哪些来自网络搜索
+## 你的能力
+1. 基于永鑫方舟投资版图，分析被投企业之间的联系与协同机会
+2. 帮助用户查找投资圈内的人脉关系
+3. 结合最新联网信息，对被投企业做深度分析
+4. 给出专业的投后管理和商务合作建议
+5. 发现投资圈内的上下游供应链整合机会
+
+## 回答策略（严格按此优先级）
+① 首先在精尚慧数据库（${allCompaniesList.length}家公司、${peopleData.length}位人物）中检索，这些都是永鑫方舟投资圈的相关方
+② 结合联网搜索到的永鑫方舟投资组合信息，补充背景知识
+③ 如果库内没有该信息，参考联网搜索到的公开信息回答，并说明"该信息来自网络，需进一步核实"
+④ 回答时要明确区分哪些信息来自库内、哪些来自永鑫方舟投资版图搜索、哪些来自通用网络搜索
 
 回答风格：
 - 友好亲切，像朋友一样对话
@@ -487,17 +559,29 @@ ${aliasMode ? `重要的会员服务提醒：
 ${allCompaniesSection}
 ===== 全量公司清单结束 =====
 
-${didWebSearch ? `
-===== 联网搜索结果（实时从互联网获取）=====
-以下是针对用户问题从网上搜索到的最新信息，可以作为补充参考：
+${fundPortfolioSection ? `
+===== 苏州永鑫方舟投资版图（实时联网获取）=====
+以下是从网络搜索到的关于 ${BASE_FUND} 的投资组合和投资方向信息，作为你分析的基准背景：
+${fundPortfolioSection}
+
+使用规则：
+- 这是你的"基准知识库"，所有分析应结合此信息展开
+- 当用户问到数据库内的企业时，可以从"是否为永鑫方舟被投企业"角度补充说明
+- 此信息来自公开网络，引用时注明"根据公开信息"
+===== 苏州永鑫方舟投资版图结束 =====
+` : ''}
+
+${webSearchSection ? `
+===== 针对本次问题的联网搜索结果 =====
+以下是结合永鑫方舟视角，针对用户当前问题搜索到的最新信息：
 ${webSearchSection}
 
-引用来源：${webSearchSources.slice(0, 3).join(' | ')}
+引用来源：${webSearchSources.slice(0, 5).join(' | ')}
 
 使用规则：
 - 如果库内已有相关数据，以库内为准，联网搜索仅作补充
-- 如果库内没有，可以用联网搜索的信息来回答
-- 引用联网信息时注明"根据网络公开信息"
+- 如果库内没有，可以用联网搜索的信息来回答，注明"根据网络公开信息"
+- 优先分析该信息与永鑫方舟投资圈的关联性
 ===== 联网搜索结果结束 =====
 ` : ''}`
 
