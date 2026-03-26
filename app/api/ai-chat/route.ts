@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { analyzeAllRelationships, getPersonRelationships, recommendConnections } from '@/lib/relationshipAnalyzer'
 import { PersonData, CompanyData } from '@/lib/dataStore'
 import { deterministicAliasName, shouldAliasName, findPersonByAliasName, findPeopleByAliasName } from '@/lib/deterministicNameAlias'
+import { getYongxinPortfolio, getCompanyFullProfile, formatCompanyProfile, searchCompany } from '@/lib/tianyancha'
 
 // DeepSeek API配置
 const DEEPSEEK_API_KEY_MANAGER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER || 'sk-393da700b1f64e94bd73ee12b450651a'
@@ -354,63 +355,85 @@ export async function POST(request: NextRequest) {
     // ===== 全量公司清单构建完成 =====
     const allCompanyNamesArray = Array.from(allCompanyMap.keys())
 
-    // ===== 联网搜索阶段 =====
-    // 策略：
-    // 1. 并行拉取苏州永鑫方舟的投资版图作为背景知识
-    // 2. 从用户消息中识别提到的公司名，结合基金名精准搜索
-    // 3. 如果问题较通用，用"基金 + 关键词"搜索
+    // ===== 天眼查 + 联网搜索阶段 =====
     let webSearchSection = ''
     let webSearchSources: string[] = []
     let fundPortfolioSection = ''
+    let tycSection = ''       // 天眼查数据块
     let didWebSearch = false
 
-    if (BOCHA_API_KEY) {
-      const mentionedCompanies = extractCompanyNamesToSearch(message, allCompanyNamesArray)
+    const mentionedCompanies = extractCompanyNamesToSearch(message, allCompanyNamesArray)
 
-      // 并行执行：① 拉取基金投资版图 ② 针对用户问题搜索
-      const [portfolioResult, queryResult] = await Promise.all([
-        // ① 始终拉取永鑫方舟投资版图作为背景
-        fetchFundPortfolio(),
+    // 并行执行三路数据获取
+    const [tycPortfolioResult, bochaPortfolioResult, bochaQueryResult, tycCompaniesResult] = await Promise.all([
 
-        // ② 针对用户问题的搜索
-        (async () => {
-          if (mentionedCompanies.length > 0) {
-            console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，结合基金名精准搜索`)
-            return batchWebSearch(mentionedCompanies, 3)
-          } else {
-            // 通用问题：结合基金名搜索，获取更精准的投资圈信息
-            const genericKeywords = message.replace(/[？?！!。，,、]/g, ' ').trim()
-            if (genericKeywords.length > 4) {
-              const fundContextQuery = `${BASE_FUND} ${genericKeywords}`
-              console.log(`[AI Chat] 基金视角通用搜索: ${fundContextQuery}`)
-              const { results, success } = await webSearch(fundContextQuery, 4)
-              if (success && results.length > 0) {
-                return {
-                  searchSummary: results.map(r => `【${r.title}】${r.snippet}`).join('\n'),
-                  sources: results.map(r => r.link).filter(Boolean),
+      // ① 天眼查：拉取永鑫方舟官方对外投资组合（权威数据源）
+      getYongxinPortfolio(),
+
+      // ② Bocha：用联网搜索补充永鑫方舟投资版图
+      BOCHA_API_KEY ? fetchFundPortfolio() : Promise.resolve({ summary: '', sources: [] }),
+
+      // ③ Bocha：针对用户问题搜索
+      BOCHA_API_KEY
+        ? (async () => {
+            if (mentionedCompanies.length > 0) {
+              console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，结合基金名精准搜索`)
+              return batchWebSearch(mentionedCompanies, 3)
+            } else {
+              const genericKeywords = message.replace(/[？?！!。，,、]/g, ' ').trim()
+              if (genericKeywords.length > 4) {
+                const fundContextQuery = `${BASE_FUND} ${genericKeywords}`
+                const { results, success } = await webSearch(fundContextQuery, 4)
+                if (success && results.length > 0) {
+                  return {
+                    searchSummary: results.map(r => `【${r.title}】${r.snippet}`).join('\n'),
+                    sources: results.map(r => r.link).filter(Boolean),
+                  }
                 }
               }
+              return { searchSummary: '', sources: [] }
             }
-            return { searchSummary: '', sources: [] }
-          }
-        })(),
-      ])
+          })()
+        : Promise.resolve({ searchSummary: '', sources: [] }),
 
-      if (portfolioResult.summary) {
-        fundPortfolioSection = portfolioResult.summary
-        webSearchSources.push(...portfolioResult.sources)
-      }
-      if (queryResult.searchSummary) {
-        webSearchSection = queryResult.searchSummary
-        webSearchSources.push(...queryResult.sources)
-        didWebSearch = true
-      }
-      if (fundPortfolioSection) {
-        didWebSearch = true
-      }
-      webSearchSources = Array.from(new Set(webSearchSources))
+      // ④ 天眼查：对用户消息中提到的公司查询详细档案
+      (async () => {
+        if (mentionedCompanies.length === 0) return []
+        const profiles = await Promise.all(
+          mentionedCompanies.slice(0, 3).map(async name => {
+            const profile = await getCompanyFullProfile(name)
+            return formatCompanyProfile(name, profile)
+          })
+        )
+        return profiles.filter(Boolean)
+      })(),
+    ])
+
+    // 整合天眼查永鑫方舟数据
+    if (tycPortfolioResult.formattedText) {
+      tycSection += tycPortfolioResult.formattedText + '\n'
+      didWebSearch = true
     }
-    // ===== 联网搜索阶段结束 =====
+
+    // 整合天眼查被提及公司档案
+    if (tycCompaniesResult.length > 0) {
+      tycSection += '\n【天眼查 - 相关企业详情】\n' + tycCompaniesResult.join('\n') + '\n'
+      didWebSearch = true
+    }
+
+    // 整合 Bocha 搜索结果
+    if (bochaPortfolioResult.summary) {
+      fundPortfolioSection = bochaPortfolioResult.summary
+      webSearchSources.push(...bochaPortfolioResult.sources)
+      didWebSearch = true
+    }
+    if (bochaQueryResult.searchSummary) {
+      webSearchSection = bochaQueryResult.searchSummary
+      webSearchSources.push(...bochaQueryResult.sources)
+      didWebSearch = true
+    }
+    webSearchSources = Array.from(new Set(webSearchSources))
+    // ===== 天眼查 + 联网搜索阶段结束 =====
 
     // 增强的系统提示词
     const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你的核心定位是：**基于${BASE_FUND}投资圈的智能分析助理**。
@@ -559,15 +582,26 @@ ${aliasMode ? `重要的会员服务提醒：
 ${allCompaniesSection}
 ===== 全量公司清单结束 =====
 
+${tycSection ? `
+===== 天眼查权威数据（实时查询，收费接口）=====
+以下数据直接来自天眼查官方数据库，准确性最高，优先使用：
+${tycSection}
+
+使用规则：
+- 这是最权威的数据来源，优先级高于联网搜索和库内数据
+- 永鑫方舟的对外投资组合来自天眼查，代表其真实被投企业
+- 引用时可注明"据天眼查数据"
+===== 天眼查数据结束 =====
+` : ''}
+
 ${fundPortfolioSection ? `
-===== 苏州永鑫方舟投资版图（实时联网获取）=====
-以下是从网络搜索到的关于 ${BASE_FUND} 的投资组合和投资方向信息，作为你分析的基准背景：
+===== 苏州永鑫方舟投资版图（联网搜索补充）=====
+以下是从网络搜索到的关于 ${BASE_FUND} 的投资组合补充信息：
 ${fundPortfolioSection}
 
 使用规则：
-- 这是你的"基准知识库"，所有分析应结合此信息展开
-- 当用户问到数据库内的企业时，可以从"是否为永鑫方舟被投企业"角度补充说明
-- 此信息来自公开网络，引用时注明"根据公开信息"
+- 作为天眼查数据的补充参考
+- 此信息来自公开网络，引用时注明"根据网络公开信息"
 ===== 苏州永鑫方舟投资版图结束 =====
 ` : ''}
 
