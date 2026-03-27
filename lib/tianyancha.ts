@@ -2,10 +2,13 @@
  * 天眼查 Open API 客户端
  * 已开通接口：搜索(816) | 对外投资(823) | 融资历史(826) | 投资事件(829) | 历史股东信息(877) | 企业基本信息(1116)
  * 文档：https://open.tianyancha.com/console/mydata
+ *
+ * 接口路径可在天眼查控制台"测试工具"页查看，格式为：
+ * https://open.api.tianyancha.com/services/open/<模块>/<接口名>/2.0
  */
 
 const TYC_TOKEN = process.env.TIANYANCHA_TOKEN || ''
-const TYC_BASE = 'https://open.tianyancha.com'
+const TYC_BASE = 'https://open.api.tianyancha.com'  // 注意：是 open.api.tianyancha.com，不是 open.tianyancha.com
 
 // 通用请求函数
 async function tycFetch<T>(path: string, params: Record<string, string | number> = {}): Promise<T | null> {
@@ -21,7 +24,7 @@ async function tycFetch<T>(path: string, params: Record<string, string | number>
     console.log(`[天眼查] 请求 ${path}，参数:`, params)
     const res = await fetch(url.toString(), {
       headers: { Authorization: TYC_TOKEN },
-      cache: 'no-store', // 临时关闭缓存，方便调试
+      cache: 'no-store',
     })
     if (!res.ok) {
       const errBody = await res.text().catch(() => '')
@@ -30,11 +33,14 @@ async function tycFetch<T>(path: string, params: Record<string, string | number>
     }
     const json = await res.json()
     console.log(`[天眼查] 原始响应 ${path}:`, JSON.stringify(json).slice(0, 300))
-    if (json.state !== 'ok' && json.code !== 200) {
-      console.error(`[天眼查] 业务错误 ${path}: state=${json.state}, code=${json.code}, msg=${json.message || json.msg}`)
+
+    // 天眼查响应格式：{ error_code: 0, reason: "ok", result: {...} }
+    // error_code 为 0 表示成功，300000 表示无结果，其他为错误
+    if (json.error_code !== 0) {
+      console.warn(`[天眼查] 业务结果 ${path}: error_code=${json.error_code}, reason=${json.reason}`)
       return null
     }
-    return json.data as T
+    return json.result as T
   } catch (e) {
     console.error(`[天眼查] 网络错误 ${path}:`, e)
     return null
@@ -53,12 +59,12 @@ export interface TycSearchItem {
 }
 
 export async function searchCompany(keyword: string, pageNum = 1, pageSize = 10): Promise<TycSearchItem[]> {
-  const data = await tycFetch<{ items: TycSearchItem[] } | TycSearchItem[]>(
-    '/services/v4/search/2.0',
+  // 搜索接口返回：{ error_code: 0, reason: "ok", result: { total: N, items: [...] } }
+  const data = await tycFetch<{ items: TycSearchItem[]; total: number } | TycSearchItem[]>(
+    '/services/open/search/2.0',
     { word: keyword, pageSize, pageNum }
   )
   if (!data) return []
-  // 兼容两种返回格式：直接数组 或 {items: [...]}
   if (Array.isArray(data)) return data
   return (data as { items: TycSearchItem[] }).items || []
 }
@@ -81,9 +87,10 @@ export interface TycCompanyBasic {
 }
 
 export async function getCompanyBasic(companyId: string): Promise<TycCompanyBasic | null> {
+  // 接口1116：使用 keyword 参数（可传企业名称或天眼查ID）
   return tycFetch<TycCompanyBasic>(
-    '/services/v4/cloud-other-information/companyinfo/3.0',
-    { id: companyId }
+    '/services/open/ic/baseinfoV3/2.0',
+    { keyword: companyId }
   )
 }
 
@@ -98,9 +105,11 @@ export interface TycInvestment {
 }
 
 export async function getOutwardInvestments(companyId: string, pageNum = 1, pageSize = 20): Promise<TycInvestment[]> {
+  // 接口823：对外投资，使用 keyword 参数
+  // 注意：若接口路径有变，请到天眼查控制台"测试工具"查看接口823的实际请求URL
   const data = await tycFetch<{ items: TycInvestment[] }>(
-    '/services/v4/cloud-other-information/investment/2.0',
-    { id: companyId, pageNum, pageSize }
+    '/services/open/ic/inverst/2.0',
+    { keyword: companyId, pageNum, pageSize }
   )
   return data?.items || []
 }
@@ -115,9 +124,11 @@ export interface TycFinancing {
 }
 
 export async function getFinancingHistory(companyId: string): Promise<TycFinancing[]> {
+  // 接口826：融资历史，使用 keyword 参数
+  // 注意：若接口路径有变，请到天眼查控制台"测试工具"查看接口826的实际请求URL
   const data = await tycFetch<{ items: TycFinancing[] }>(
-    '/services/v4/cloud-other-information/financhingInfo/2.0',
-    { id: companyId }
+    '/services/open/cd/financhingInfo/2.0',
+    { keyword: companyId }
   )
   return data?.items || []
 }
@@ -133,9 +144,10 @@ export interface TycInvestmentEvent {
 }
 
 export async function getInvestmentEvents(companyId: string, pageNum = 1, pageSize = 20): Promise<TycInvestmentEvent[]> {
+  // 接口829：投资事件，路径已通过天眼查控制台测试工具确认
   const data = await tycFetch<{ items: TycInvestmentEvent[] }>(
-    '/services/v4/cloud-other-information/investmentEvent/2.0',
-    { id: companyId, pageNum, pageSize }
+    '/services/open/cd/findTzanli/2.0',
+    { keyword: companyId, pageNum, pageSize }
   )
   return data?.items || []
 }
@@ -149,9 +161,11 @@ export interface TycShareholder {
 }
 
 export async function getShareholderHistory(companyId: string, pageNum = 1, pageSize = 20): Promise<TycShareholder[]> {
+  // 接口877：历史股东信息，使用 keyword 参数
+  // 注意：若接口路径有变，请到天眼查控制台"测试工具"查看接口877的实际请求URL
   const data = await tycFetch<{ items: TycShareholder[] }>(
-    '/services/v4/cloud-other-information/holderInfo/2.0',
-    { id: companyId, pageNum, pageSize }
+    '/services/open/hi/holderInfo/2.0',
+    { keyword: companyId, pageNum, pageSize }
   )
   return data?.items || []
 }
@@ -171,11 +185,9 @@ export async function getCompanyFullProfile(companyName: string): Promise<{
   const searchResults = await searchCompany(companyName, 1, 3)
   if (searchResults.length === 0) return null
 
-  // 精确匹配优先，否则取第一条
   const match = searchResults.find(r => r.name === companyName) || searchResults[0]
   const id = match.id
 
-  // 并行请求所有信息
   const [basic, investments, financing, shareholders] = await Promise.all([
     getCompanyBasic(id),
     getOutwardInvestments(id),
@@ -203,12 +215,11 @@ export async function getYongxinPortfolio(): Promise<{
     return { companyId: null, investments: [], events: [], formattedText: '' }
   }
 
-  // 搜索苏州永鑫方舟，拿到天眼查ID（用短关键词搜索效果更好）
   if (!_yongxinId) {
     const results = await searchCompany('永鑫方舟', 1, 10)
     console.log(`[天眼查] 搜索"永鑫方舟"结果数量: ${results.length}，结果:`, results.map(r => r.name).join('、'))
-    const match = results.find(r => r.name.includes('永鑫方舟') && r.name.includes('苏州')) 
-      || results.find(r => r.name.includes('永鑫方舟')) 
+    const match = results.find(r => r.name.includes('永鑫方舟') && r.name.includes('苏州'))
+      || results.find(r => r.name.includes('永鑫方舟'))
       || results[0]
     _yongxinId = match?.id || null
     console.log(`[天眼查] 永鑫方舟 ID: ${_yongxinId}，匹配公司: ${match?.name || '未找到'}`)
@@ -223,7 +234,6 @@ export async function getYongxinPortfolio(): Promise<{
     getInvestmentEvents(_yongxinId, 1, 50),
   ])
 
-  // 格式化为文本供 AI 使用
   let formattedText = `【苏州永鑫方舟 对外投资组合（来自天眼查）】\n`
 
   if (investments.length > 0) {
