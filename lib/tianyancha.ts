@@ -53,11 +53,14 @@ export interface TycSearchItem {
 }
 
 export async function searchCompany(keyword: string, pageNum = 1, pageSize = 10): Promise<TycSearchItem[]> {
-  const data = await tycFetch<{ items: TycSearchItem[] }>(
+  const data = await tycFetch<{ items: TycSearchItem[] } | TycSearchItem[]>(
     '/services/v4/search/2.0',
     { word: keyword, pageSize, pageNum }
   )
-  return data?.items || []
+  if (!data) return []
+  // 兼容两种返回格式：直接数组 或 {items: [...]}
+  if (Array.isArray(data)) return data
+  return (data as { items: TycSearchItem[] }).items || []
 }
 
 // ========== 接口1116：企业基本信息 ==========
@@ -200,12 +203,15 @@ export async function getYongxinPortfolio(): Promise<{
     return { companyId: null, investments: [], events: [], formattedText: '' }
   }
 
-  // 搜索苏州永鑫方舟，拿到天眼查ID
+  // 搜索苏州永鑫方舟，拿到天眼查ID（用短关键词搜索效果更好）
   if (!_yongxinId) {
-    const results = await searchCompany(YONGXIN_FANGZHOU, 1, 5)
-    const match = results.find(r => r.name.includes('永鑫方舟')) || results[0]
+    const results = await searchCompany('永鑫方舟', 1, 10)
+    console.log(`[天眼查] 搜索"永鑫方舟"结果数量: ${results.length}，结果:`, results.map(r => r.name).join('、'))
+    const match = results.find(r => r.name.includes('永鑫方舟') && r.name.includes('苏州')) 
+      || results.find(r => r.name.includes('永鑫方舟')) 
+      || results[0]
     _yongxinId = match?.id || null
-    console.log(`[天眼查] 永鑫方舟 ID: ${_yongxinId}`)
+    console.log(`[天眼查] 永鑫方舟 ID: ${_yongxinId}，匹配公司: ${match?.name || '未找到'}`)
   }
 
   if (!_yongxinId) {
