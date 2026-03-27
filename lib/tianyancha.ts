@@ -8,7 +8,11 @@
  */
 
 const TYC_TOKEN = process.env.TIANYANCHA_TOKEN || ''
-const TYC_BASE = 'https://open.api.tianyancha.com'  // 注意：是 open.api.tianyancha.com，不是 open.tianyancha.com
+// 默认直连天眼查（Vercel 海外服务器会被封）
+// 若部署在海外，需配置 TIANYANCHA_PROXY_BASE 指向国内中转代理，例如：
+// TIANYANCHA_PROXY_BASE=https://your-proxy.your-domain.com
+// 代理只需将请求原样转发给 https://open.api.tianyancha.com 即可
+const TYC_BASE = process.env.TIANYANCHA_PROXY_BASE || 'https://open.api.tianyancha.com'
 
 // 通用请求函数
 async function tycFetch<T>(path: string, params: Record<string, string | number> = {}): Promise<T | null> {

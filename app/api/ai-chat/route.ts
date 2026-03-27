@@ -11,7 +11,9 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 // 博查 (Bocha) 联网搜索 API — 国内搜索引擎，中文结果更优
 // 注册地址：https://open.bochaai.com （微信扫码登录）
+// 注意：博查服务器在国内，Vercel 海外服务器会连接超时，需配置代理或迁移至国内服务器
 const BOCHA_API_KEY = process.env.BOCHA_API_KEY || ''
+const BOCHA_BASE_URL = process.env.BOCHA_PROXY_BASE || 'https://api.bochaai.com'
 
 // ========== 基准投资机构 ==========
 // 慧慧 AI 的所有分析都以该基金的投资圈为基准
@@ -30,7 +32,7 @@ async function webSearch(query: string, numResults = 5): Promise<{ results: WebS
     return { results: [], success: false }
   }
   try {
-    const res = await fetch('https://api.bochaai.com/v1/web-search', {
+    const res = await fetch(`${BOCHA_BASE_URL}/v1/web-search`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${BOCHA_API_KEY}`,
