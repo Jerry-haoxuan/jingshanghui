@@ -176,6 +176,9 @@ export async function getShareholderHistory(companyId: string, pageNum = 1, page
 
 // ========== 高阶组合函数 ==========
 
+// 企业档案缓存，避免同一公司在短时间内重复查询
+const _companyProfileCache = new Map<string, { result: any; fetchedAt: number }>()
+
 /**
  * 先搜索企业拿到ID，再批量查询详细信息
  * 适用于已知企业名但不知道天眼查ID的场景
@@ -186,6 +189,12 @@ export async function getCompanyFullProfile(companyName: string): Promise<{
   financing: TycFinancing[]
   shareholders: TycShareholder[]
 } | null> {
+  const cached = _companyProfileCache.get(companyName)
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    console.log(`[天眼查] 企业"${companyName}"命中缓存`)
+    return cached.result
+  }
+
   const searchResults = await searchCompany(companyName, 1, 3)
   if (searchResults.length === 0) return null
 
@@ -199,15 +208,24 @@ export async function getCompanyFullProfile(companyName: string): Promise<{
     getShareholderHistory(id),
   ])
 
-  return { basic, investments, financing, shareholders }
+  const result = { basic, investments, financing, shareholders }
+  _companyProfileCache.set(companyName, { result, fetchedAt: Date.now() })
+  return result
 }
 
 /**
  * 专门用于获取苏州永鑫方舟的对外投资组合
- * 每次调用前先搜索确认公司ID
+ * 缓存完整结果 30 分钟，避免每次对话都触发多个 API 请求导致频率限制
  */
 const YONGXIN_FANGZHOU = '苏州永鑫方舟股权投资管理合伙企业（普通合伙）'
-let _yongxinId: string | null = null  // 缓存ID，避免重复搜索
+let _yongxinId: string | null = null
+
+interface YongxinCache {
+  result: { companyId: string | null; investments: TycInvestment[]; events: TycInvestmentEvent[]; formattedText: string }
+  fetchedAt: number
+}
+let _yongxinCache: YongxinCache | null = null
+const CACHE_TTL_MS = 30 * 60 * 1000  // 30 分钟
 
 export async function getYongxinPortfolio(): Promise<{
   companyId: string | null
@@ -217,6 +235,12 @@ export async function getYongxinPortfolio(): Promise<{
 }> {
   if (!TYC_TOKEN) {
     return { companyId: null, investments: [], events: [], formattedText: '' }
+  }
+
+  // 命中缓存直接返回，避免频繁调用
+  if (_yongxinCache && Date.now() - _yongxinCache.fetchedAt < CACHE_TTL_MS) {
+    console.log('[天眼查] 永鑫方舟数据命中缓存，跳过 API 请求')
+    return _yongxinCache.result
   }
 
   if (!_yongxinId) {
@@ -264,7 +288,9 @@ export async function getYongxinPortfolio(): Promise<{
     formattedText += '（暂未获取到投资数据）'
   }
 
-  return { companyId: _yongxinId, investments, events, formattedText }
+  const result = { companyId: _yongxinId, investments, events, formattedText }
+  _yongxinCache = { result, fetchedAt: Date.now() }
+  return result
 }
 
 /**
