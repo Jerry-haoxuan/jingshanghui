@@ -18,17 +18,20 @@ async function tycFetch<T>(path: string, params: Record<string, string | number>
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
 
   try {
+    console.log(`[天眼查] 请求 ${path}，参数:`, params)
     const res = await fetch(url.toString(), {
       headers: { Authorization: TYC_TOKEN },
-      next: { revalidate: 3600 }, // 缓存1小时，节省调用次数
+      cache: 'no-store', // 临时关闭缓存，方便调试
     })
     if (!res.ok) {
-      console.error(`[天眼查] 请求失败 ${path}: ${res.status}`)
+      const errBody = await res.text().catch(() => '')
+      console.error(`[天眼查] HTTP 错误 ${path}: status=${res.status}, body=${errBody}`)
       return null
     }
     const json = await res.json()
+    console.log(`[天眼查] 原始响应 ${path}:`, JSON.stringify(json).slice(0, 300))
     if (json.state !== 'ok' && json.code !== 200) {
-      console.error(`[天眼查] 业务错误 ${path}:`, json.message || json.msg)
+      console.error(`[天眼查] 业务错误 ${path}: state=${json.state}, code=${json.code}, msg=${json.message || json.msg}`)
       return null
     }
     return json.data as T
