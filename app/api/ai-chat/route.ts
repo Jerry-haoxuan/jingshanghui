@@ -77,10 +77,13 @@ function extractCompanyNamesToSearch(
   return found
 }
 
+// 苏州永鑫方舟在天眼查公开网站的公司主页（无需API Key，可通过博查抓取）
+const YONGXIN_TYC_URL = 'https://www.tianyancha.com/company/2347363028'
+
 // 批量联网搜索多个公司，结合基金名精准定位
 async function batchWebSearch(
   queries: string[],
-  maxQueries = 3
+  maxQueries = 5   // 从3提升到5，同时搜索更多公司
 ): Promise<{ searchSummary: string; sources: string[] }> {
   const toSearch = queries.slice(0, maxQueries)
   const allResults: WebSearchResult[] = []
@@ -90,13 +93,13 @@ async function batchWebSearch(
     toSearch.map(async q => {
       // 优先搜索"基金 + 公司名"，获取投资关系信息
       const fundQuery = `${BASE_FUND} ${q} 投资 被投企业`
-      const { results: fundResults, success: fundSuccess } = await webSearch(fundQuery, 3)
+      const { results: fundResults, success: fundSuccess } = await webSearch(fundQuery, 8)
       if (fundSuccess && fundResults.length > 0) {
         allResults.push(...fundResults)
         fundResults.forEach(r => { if (r.link) sources.push(r.link) })
       }
       // 补充搜索公司自身业务信息
-      const { results, success } = await webSearch(`${q} 公司业务 主营产品 最新动态`)
+      const { results, success } = await webSearch(`${q} 公司业务 主营产品 最新动态`, 8)
       if (success) {
         allResults.push(...results)
         results.forEach(r => { if (r.link) sources.push(r.link) })
@@ -114,21 +117,26 @@ async function batchWebSearch(
 }
 
 // 搜索苏州永鑫方舟的整体投资版图（用于初始化背景知识）
+// 固定包含天眼查公开页面，作为权威数据补充
 async function fetchFundPortfolio(): Promise<{ summary: string; sources: string[] }> {
   if (!BOCHA_API_KEY) return { summary: '', sources: [] }
 
   const queries = [
+    // 固定搜索天眼查公开页面，获取官方对外投资数据
+    `site:tianyancha.com 苏州永鑫方舟 对外投资 被投企业`,
+    // 以天眼查公司页URL为来源搜索
+    `${YONGXIN_TYC_URL} 投资组合`,
     `${BASE_FUND} 投资组合 被投企业列表`,
     `${BASE_FUND} 投资方向 半导体 新能源`,
     `永鑫方舟 投资 项目 2024 2025`,
   ]
 
   const allResults: WebSearchResult[] = []
-  const sources: string[] = []
+  const sources: string[] = [YONGXIN_TYC_URL]  // 固定包含天眼查公开页面
 
   await Promise.all(
     queries.map(async q => {
-      const { results, success } = await webSearch(q, 3)
+      const { results, success } = await webSearch(q, 8)  // 每条查询最多返回8条
       if (success) {
         allResults.push(...results)
         results.forEach(r => { if (r.link) sources.push(r.link) })
@@ -136,7 +144,7 @@ async function fetchFundPortfolio(): Promise<{ summary: string; sources: string[
     })
   )
 
-  if (allResults.length === 0) return { summary: '', sources: [] }
+  if (allResults.length === 0) return { summary: '', sources: [YONGXIN_TYC_URL] }
 
   const summary = allResults
     .map(r => `【${r.title}】${r.snippet}`)
@@ -597,13 +605,14 @@ ${tycSection}
 ` : ''}
 
 ${fundPortfolioSection ? `
-===== 苏州永鑫方舟投资版图（联网搜索补充）=====
-以下是从网络搜索到的关于 ${BASE_FUND} 的投资组合补充信息：
+===== 苏州永鑫方舟投资版图（联网搜索）=====
+数据来源包含天眼查公开页面：${YONGXIN_TYC_URL}
+以下是从网络搜索到的关于 ${BASE_FUND} 的投资组合信息：
 ${fundPortfolioSection}
 
 使用规则：
-- 作为天眼查数据的补充参考
-- 此信息来自公开网络，引用时注明"根据网络公开信息"
+- 优先引用天眼查公开页面的数据，引用时注明"据天眼查公开信息"
+- 其他来源注明"根据网络公开信息"
 ===== 苏州永鑫方舟投资版图结束 =====
 ` : ''}
 

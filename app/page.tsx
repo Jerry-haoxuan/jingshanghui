@@ -39,9 +39,36 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true)
     const existingRole = getUserRole()
-    if (existingRole) {
-      setCurrentUserRole(existingRole)
+    if (!existingRole) return
+
+    setCurrentUserRole(existingRole)
+
+    // 已登录：直接跳转，不停留在首页
+    if (existingRole === UserRole.MANAGER) {
+      router.push('/dashboard')
+      return
     }
+
+    // 会员：尝试跳转到本人档案页
+    ;(async () => {
+      try {
+        const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
+        const currentUser = getCurrentUser()
+        if (currentUser?.personName) {
+          const people = await loadPeopleFromCloudIfAvailable()
+          if (Array.isArray(people) && people.length > 0) {
+            const myPerson = people.find((p: any) => p.name === currentUser.personName)
+            if (myPerson) {
+              router.push(`/person/${myPerson.id}`)
+              return
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+      router.push('/dashboard')
+    })()
   }, [])
 
   // 设置 Cookie 并跳转（直接使用传入的 account，不读 localStorage 避免残留数据）
@@ -166,7 +193,7 @@ export default function Home() {
     router.push('/data-input')
   }
 
-  if (!isClient) {
+  if (!isClient || currentUserRole) {
     return (
       <div className="min-h-screen relative overflow-hidden bg-black">
         <div className="relative z-10 min-h-screen flex items-center justify-center">
