@@ -26,6 +26,16 @@ interface WebSearchResult {
   link: string
 }
 
+// 搜索结果黑名单域名：内容质量差或与业务无关
+const SEARCH_DOMAIN_BLACKLIST = [
+  'trjcn.com',        // 投融界，内容噪音多
+  'tianyancha.com/company',  // 天眼查公司页（除永鑫方舟外均无用，靠 Open API 获取）
+]
+
+function isBlacklistedUrl(url: string): boolean {
+  return SEARCH_DOMAIN_BLACKLIST.some(domain => url.includes(domain))
+}
+
 async function webSearch(query: string, numResults = 5): Promise<{ results: WebSearchResult[]; success: boolean }> {
   if (!BOCHA_API_KEY) {
     console.log('[WebSearch] Bocha API Key 未配置，跳过联网搜索')
@@ -41,7 +51,7 @@ async function webSearch(query: string, numResults = 5): Promise<{ results: WebS
       body: JSON.stringify({
         query,
         summary: true,
-        count: numResults,
+        count: numResults + 5,  // 多请求几条，过滤黑名单后仍能保证数量
       }),
     })
     if (!res.ok) {
@@ -50,12 +60,15 @@ async function webSearch(query: string, numResults = 5): Promise<{ results: WebS
     }
     const data = await res.json()
     const webPages = data?.webPages?.value || data?.data?.webPages?.value || []
-    const results: WebSearchResult[] = webPages.slice(0, numResults).map((item: any) => ({
-      title: item.name || item.title || '',
-      snippet: item.summary || item.snippet || '',
-      link: item.url || item.link || '',
-    }))
-    console.log(`[WebSearch] 搜索「${query}」返回 ${results.length} 条结果`)
+    const results: WebSearchResult[] = webPages
+      .map((item: any) => ({
+        title: item.name || item.title || '',
+        snippet: item.summary || item.snippet || '',
+        link: item.url || item.link || '',
+      }))
+      .filter((r: WebSearchResult) => r.link && !isBlacklistedUrl(r.link))
+      .slice(0, numResults)
+    console.log(`[WebSearch] 搜索「${query}」返回 ${results.length} 条结果（已过滤黑名单）`)
     return { results, success: true }
   } catch (e) {
     console.error('[WebSearch] 搜索失败:', e)
@@ -383,21 +396,28 @@ export async function POST(request: NextRequest) {
       // ② Bocha：用联网搜索补充永鑫方舟投资版图
       BOCHA_API_KEY ? fetchFundPortfolio() : Promise.resolve({ summary: '', sources: [] }),
 
-      // ③ Bocha：针对用户问题搜索
+      // ③ Bocha：针对用户问题搜索最新消息
       BOCHA_API_KEY
         ? (async () => {
             if (mentionedCompanies.length > 0) {
-              console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，结合基金名精准搜索`)
-              return batchWebSearch(mentionedCompanies, 3)
+              console.log(`[AI Chat] 用户提到公司: ${mentionedCompanies.join(', ')}，搜索最新动态`)
+              return batchWebSearch(mentionedCompanies, 5)
             } else {
               const genericKeywords = message.replace(/[？?！!。，,、]/g, ' ').trim()
               if (genericKeywords.length > 4) {
-                const fundContextQuery = `${BASE_FUND} ${genericKeywords}`
-                const { results, success } = await webSearch(fundContextQuery, 4)
-                if (success && results.length > 0) {
+                // 并行搜索：结合基金视角 + 最新新闻
+                const [fundRes, newsRes] = await Promise.all([
+                  webSearch(`${BASE_FUND} ${genericKeywords}`, 6),
+                  webSearch(`${genericKeywords} 最新消息 2025`, 6),
+                ])
+                const allResults = [
+                  ...(fundRes.success ? fundRes.results : []),
+                  ...(newsRes.success ? newsRes.results : []),
+                ]
+                if (allResults.length > 0) {
                   return {
-                    searchSummary: results.map(r => `【${r.title}】${r.snippet}`).join('\n'),
-                    sources: results.map(r => r.link).filter(Boolean),
+                    searchSummary: allResults.map(r => `【${r.title}】${r.snippet}`).join('\n'),
+                    sources: allResults.map(r => r.link).filter(Boolean),
                   }
                 }
               }
@@ -752,7 +772,7 @@ ${webSearchSection}
       response: aiResponse,
       reasoning: reasoningContent,
       webSearch: didWebSearch,
-      webSources: didWebSearch ? webSearchSources.slice(0, 3) : undefined,
+      webSources: didWebSearch ? webSearchSources.slice(0, 8) : undefined,
     })
 
   } catch (error: any) {
