@@ -115,7 +115,7 @@ export default function AIAssistant() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
   const [myCards, setMyCards] = useState<PersonData[]>([])
-  const [deepThinking, setDeepThinking] = useState(false)
+  const [deepThinking, setDeepThinking] = useState(true)
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
 
   // 对话历史
