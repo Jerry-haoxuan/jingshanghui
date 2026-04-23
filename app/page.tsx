@@ -43,8 +43,8 @@ export default function Home() {
 
     setCurrentUserRole(existingRole)
 
-    // 已登录：跳转到生态商圈主页面
-    router.push('/business-circle')
+    // 已登录：跳转到主页面（生态商圈）
+    router.push('/dashboard')
   }, [])
 
   // 设置 Cookie 并跳转（直接使用传入的 account，不读 localStorage 避免残留数据）
@@ -61,8 +61,8 @@ export default function Home() {
 
     setUserRole(role)
 
-    // 登录成功：跳转到生态商圈主页面
-    router.push('/business-circle')
+    // 登录成功：跳转到主页面（生态商圈）
+    router.push('/dashboard')
   }
 
   const handleLogin = async () => {
@@ -125,7 +125,7 @@ export default function Home() {
   }
 
   const handleContinue = async () => {
-    router.push('/business-circle')
+    router.push('/dashboard')
   }
 
   if (!isClient || currentUserRole) {
