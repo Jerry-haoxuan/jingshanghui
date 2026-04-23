@@ -10,7 +10,7 @@ import { ArrowRight, Network, Users, Building2, Target, Eye, EyeOff, LogIn, User
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
 import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
-import { loginUser, registerUser, saveCurrentUser, getCurrentUser, clearCurrentUser } from '@/lib/userStore'
+import { loginUser, registerUser, saveCurrentUser, clearCurrentUser } from '@/lib/userStore'
 
 export default function Home() {
   const [showDialog, setShowDialog] = useState(false)
@@ -49,26 +49,8 @@ export default function Home() {
       return
     }
 
-    // 会员：尝试跳转到本人档案页
-    ;(async () => {
-      try {
-        const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
-        const currentUser = getCurrentUser()
-        if (currentUser?.personName) {
-          const people = await loadPeopleFromCloudIfAvailable()
-          if (Array.isArray(people) && people.length > 0) {
-            const myPerson = people.find((p: any) => p.name === currentUser.personName)
-            if (myPerson) {
-              router.push(`/person/${myPerson.id}`)
-              return
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-      router.push('/dashboard')
-    })()
+    // 会员：跳转到生态商圈主页面
+    router.push('/business-circle')
   }, [])
 
   // 设置 Cookie 并跳转（直接使用传入的 account，不读 localStorage 避免残留数据）
@@ -90,24 +72,8 @@ export default function Home() {
       return
     }
 
-    // 会员：根据当前登录账号的 personName 跳转（直接使用参数，不读 localStorage）
-    if (account.personName) {
-      try {
-        const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
-        const people = await loadPeopleFromCloudIfAvailable()
-        if (Array.isArray(people) && people.length > 0) {
-          const myPerson = people.find((p: any) => p.name === account.personName)
-          if (myPerson) {
-            router.push(`/person/${myPerson.id}`)
-            return
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    router.push('/data-input')
+    // 会员：跳转到生态商圈主页面
+    router.push('/business-circle')
   }
 
   const handleLogin = async () => {
@@ -174,23 +140,7 @@ export default function Home() {
       router.push('/dashboard')
       return
     }
-    try {
-      const { loadPeopleFromCloudIfAvailable } = await import('@/lib/dataStore')
-      const currentUser = getCurrentUser()
-      if (currentUser?.personName) {
-        const people = await loadPeopleFromCloudIfAvailable()
-        if (Array.isArray(people) && people.length > 0) {
-          const myPerson = people.find((p: any) => p.name === currentUser.personName)
-          if (myPerson) {
-            router.push(`/person/${myPerson.id}`)
-            return
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-    router.push('/data-input')
+    router.push('/business-circle')
   }
 
   if (!isClient || currentUserRole) {

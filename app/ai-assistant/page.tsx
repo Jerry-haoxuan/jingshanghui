@@ -346,7 +346,17 @@ export default function AIAssistant() {
       <div className={`${navCollapsed ? 'w-14' : 'w-52'} bg-white border-r border-gray-100 flex flex-col transition-all duration-300 shrink-0`}>
         <div className="p-3 flex items-center justify-between border-b border-gray-100">
           {!navCollapsed && (
-            <Link href="/" className="text-lg font-bold text-blue-600 truncate">精尚慧</Link>
+            <button
+              onClick={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' })
+                localStorage.removeItem('userRole')
+                localStorage.removeItem('currentUser')
+                router.push('/')
+              }}
+              className="text-lg font-bold text-blue-600 hover:text-blue-700 truncate cursor-pointer"
+            >
+              精尚慧
+            </button>
           )}
           <button onClick={() => setNavCollapsed(!navCollapsed)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
             {navCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

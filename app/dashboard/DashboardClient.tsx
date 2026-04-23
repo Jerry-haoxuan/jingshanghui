@@ -458,12 +458,17 @@ export default function DashboardClient() {
         <div className="p-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <Link 
-                href="/" 
+              <button
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' })
+                  localStorage.removeItem('userRole')
+                  localStorage.removeItem('currentUser')
+                  router.push('/')
+                }}
                 className="text-2xl font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
               >
                 精尚慧
-              </Link>
+              </button>
             )}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
