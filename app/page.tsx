@@ -43,13 +43,7 @@ export default function Home() {
 
     setCurrentUserRole(existingRole)
 
-    // 已登录：直接跳转，不停留在首页
-    if (existingRole === UserRole.MANAGER) {
-      router.push('/dashboard')
-      return
-    }
-
-    // 会员：跳转到生态商圈主页面
+    // 已登录：跳转到生态商圈主页面
     router.push('/business-circle')
   }, [])
 
@@ -67,12 +61,7 @@ export default function Home() {
 
     setUserRole(role)
 
-    if (role === UserRole.MANAGER) {
-      router.push('/dashboard')
-      return
-    }
-
-    // 会员：跳转到生态商圈主页面
+    // 登录成功：跳转到生态商圈主页面
     router.push('/business-circle')
   }
 
@@ -136,10 +125,6 @@ export default function Home() {
   }
 
   const handleContinue = async () => {
-    if (currentUserRole === UserRole.MANAGER) {
-      router.push('/dashboard')
-      return
-    }
     router.push('/business-circle')
   }
 
