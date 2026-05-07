@@ -157,24 +157,38 @@ export const getCompanies = (): CompanyData[] => {
   }
 }
 
-// Cloud sync helpers - 优先使用云端数据
+// Cloud sync helpers - 通过 API 路由从服务端获取云端数据（避免在客户端直接访问数据库）
+let _cloudDataCache: { people: PersonData[]; companies: CompanyData[] } | null = null
+
+const fetchCloudData = async (): Promise<{ people: PersonData[]; companies: CompanyData[] } | null> => {
+  if (_cloudDataCache) return _cloudDataCache
+  try {
+    const response = await fetch('/api/sync-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'download-cloud-to-local' })
+    })
+    if (!response.ok) return null
+    const result = await response.json()
+    if (result.success && result.data) {
+      _cloudDataCache = result.data
+      return result.data
+    }
+    return null
+  } catch (error) {
+    console.error('从云端获取数据失败:', error)
+    return null
+  }
+}
+
 export const loadPeopleFromCloudIfAvailable = async (): Promise<PersonData[] | null> => {
   try {
-    const { isSupabaseReady } = await import('./supabaseClient')
-    if (!isSupabaseReady) {
-      // 在生产环境中，如果 Supabase 未配置，应该警告
-      if (process.env.NODE_ENV === 'production') {
-        console.error('⚠️ Supabase 未配置！请在 Vercel 中设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY')
-      }
-      return null
-    }
-    const { listPeopleFromCloud } = await import('./cloudStore')
-    const people = await listPeopleFromCloud()
-    // also cache locally
+    const data = await fetchCloudData()
+    if (!data) return null
     if (typeof window !== 'undefined') {
-      localStorage.setItem(PEOPLE_KEY, JSON.stringify(people))
+      localStorage.setItem(PEOPLE_KEY, JSON.stringify(data.people))
     }
-    return people
+    return data.people
   } catch (error) {
     console.error('从云端加载人物数据失败:', error)
     return null
@@ -183,20 +197,12 @@ export const loadPeopleFromCloudIfAvailable = async (): Promise<PersonData[] | n
 
 export const loadCompaniesFromCloudIfAvailable = async (): Promise<CompanyData[] | null> => {
   try {
-    const { isSupabaseReady } = await import('./supabaseClient')
-    if (!isSupabaseReady) {
-      // 在生产环境中，如果 Supabase 未配置，应该警告
-      if (process.env.NODE_ENV === 'production') {
-        console.error('⚠️ Supabase 未配置！请在 Vercel 中设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY')
-      }
-      return null
-    }
-    const { listCompaniesFromCloud } = await import('./cloudStore')
-    const companies = await listCompaniesFromCloud()
+    const data = await fetchCloudData()
+    if (!data) return null
     if (typeof window !== 'undefined') {
-      localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies))
+      localStorage.setItem(COMPANIES_KEY, JSON.stringify(data.companies))
     }
-    return companies
+    return data.companies
   } catch (error) {
     console.error('从云端加载企业数据失败:', error)
     return null
@@ -242,15 +248,15 @@ export const hasStoredData = (): boolean => {
 export const savePeople = (people: PersonData[]) => {
   if (typeof window === 'undefined') return
   localStorage.setItem(PEOPLE_KEY, JSON.stringify(people))
-  // fire-and-forget cloud upserts
+  _cloudDataCache = null // 使缓存失效
+  // fire-and-forget cloud upserts via API
   ;(async () => {
     try {
-      const { isSupabaseReady } = await import('./supabaseClient')
-      if (!isSupabaseReady) return
-      const { upsertPersonToCloud } = await import('./cloudStore')
-      for (const p of people) {
-        await upsertPersonToCloud(p)
-      }
+      await fetch('/api/sync-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upload-local-to-cloud', data: { people, companies: [] } })
+      })
     } catch (_) {}
   })()
 }
@@ -292,14 +298,15 @@ export const getMyCards = (): PersonData[] => {
 export const saveCompanies = (companies: CompanyData[]) => {
   if (typeof window === 'undefined') return
   localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies))
+  _cloudDataCache = null // 使缓存失效
+  // fire-and-forget cloud upserts via API
   ;(async () => {
     try {
-      const { isSupabaseReady } = await import('./supabaseClient')
-      if (!isSupabaseReady) return
-      const { upsertCompanyToCloud } = await import('./cloudStore')
-      for (const c of companies) {
-        await upsertCompanyToCloud(c)
-      }
+      await fetch('/api/sync-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upload-local-to-cloud', data: { people: [], companies } })
+      })
     } catch (_) {}
   })()
 }

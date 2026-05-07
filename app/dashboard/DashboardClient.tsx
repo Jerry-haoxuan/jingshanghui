@@ -56,9 +56,6 @@ export default function DashboardClient() {
         loadCompaniesFromCloudIfAvailable()
       ])
       
-      // 检查 Supabase 是否配置
-      const { isSupabaseReady } = await import('@/lib/supabaseClient')
-      
       let peopleData: PersonData[] = []
       let companiesData: CompanyData[] = []
       
@@ -67,17 +64,16 @@ export default function DashboardClient() {
         peopleData = cloudPeople
         companiesData = cloudCompanies
         setSupabaseWarning(null)
-      } else if (process.env.NODE_ENV === 'production' && !isSupabaseReady) {
-        // 生产环境但 Supabase 未配置
-        console.error('⚠️ 生产环境中 Supabase 未配置！请在 Vercel 中设置环境变量')
-        setSupabaseWarning('⚠️ Supabase 未配置！请在 Vercel 中设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY。详情请查看 ENV_CONFIG.md 文件。')
-        // 不使用本地数据，保持空数组
-      } else if (process.env.NODE_ENV !== 'production') {
+      } else if (process.env.NODE_ENV === 'production') {
+        // 生产环境但数据库未能加载
+        console.error('⚠️ 生产环境中数据库未能加载！请检查服务器 DATABASE_URL 环境变量配置。')
+        setSupabaseWarning('⚠️ 数据库连接失败！请联系管理员检查服务器配置。')
+      } else {
         // 开发环境，允许使用本地数据
         peopleData = cloudPeople !== null ? cloudPeople : getPeople()
         companiesData = cloudCompanies !== null ? cloudCompanies : getCompanies()
-        if (!isSupabaseReady) {
-          setSupabaseWarning('⚠️ 开发环境: Supabase 未配置，使用本地数据。请创建 .env.local 文件并配置 Supabase 参数。')
+        if (!cloudPeople) {
+          setSupabaseWarning('⚠️ 开发环境: 数据库未连接，使用本地数据。请在 .env.local 中配置 DATABASE_URL。')
         } else {
           setSupabaseWarning(null)
         }
