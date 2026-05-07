@@ -219,10 +219,10 @@ export async function POST(request: NextRequest) {
     let companyData: CompanyData[] = []
 
     try {
-      const { isSupabaseReady } = await import('@/lib/supabaseClient')
+      const isSupabaseReady = Boolean(process.env.DATABASE_URL)
       if (isSupabaseReady) {
         const { listPeopleFromCloud, listCompaniesFromCloud } = await import('@/lib/cloudStore')
-        console.log('[AI Chat] 从 Supabase 拉取最新完整数据...')
+        console.log('[AI Chat] 从数据库拉取最新完整数据...')
         ;[peopleData, companyData] = await Promise.all([
           listPeopleFromCloud(),
           listCompaniesFromCloud(),

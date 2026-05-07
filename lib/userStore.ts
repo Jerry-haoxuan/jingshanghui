@@ -1,7 +1,9 @@
 // 用户账号管理系统
-// 注册账号存储在 Supabase 云端，无法连接时降级到 localStorage
+// 注册账号存储在阿里云 RDS PostgreSQL，无法连接时降级到 localStorage
 
-import { supabase, isSupabaseReady } from './supabaseClient'
+import pool from './db'
+
+const isSupabaseReady = Boolean(process.env.DATABASE_URL)
 
 export interface UserAccount {
   id: string
@@ -90,13 +92,11 @@ type DbUserAccount = {
 async function findUserInCloud(username: string): Promise<DbUserAccount | null> {
   if (!isSupabaseReady) return null
   try {
-    const { data, error } = await supabase
-      .from('user_accounts')
-      .select('*')
-      .ilike('username', username)
-      .single()
-    if (error || !data) return null
-    return data as DbUserAccount
+    const { rows } = await pool.query(
+      'SELECT * FROM public.user_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      [username]
+    )
+    return (rows[0] as DbUserAccount) ?? null
   } catch {
     return null
   }
@@ -105,14 +105,11 @@ async function findUserInCloud(username: string): Promise<DbUserAccount | null> 
 async function insertUserToCloud(user: UserAccount): Promise<boolean> {
   if (!isSupabaseReady) return false
   try {
-    const { error } = await supabase.from('user_accounts').insert({
-      id: user.id,
-      username: user.username,
-      password_hash: user.passwordHash,
-      role: user.role,
-      invitation_code: user.invitationCode,
-    })
-    return !error
+    await pool.query(
+      'INSERT INTO public.user_accounts (id, username, password_hash, role, invitation_code) VALUES ($1,$2,$3,$4,$5)',
+      [user.id, user.username, user.passwordHash, user.role, user.invitationCode]
+    )
+    return true
   } catch {
     return false
   }
@@ -121,12 +118,11 @@ async function insertUserToCloud(user: UserAccount): Promise<boolean> {
 async function checkInviteCodeUsedInCloud(code: string): Promise<boolean> {
   if (!isSupabaseReady) return false
   try {
-    const { data } = await supabase
-      .from('user_accounts')
-      .select('id')
-      .eq('invitation_code', code)
-      .limit(1)
-    return Array.isArray(data) && data.length > 0
+    const { rows } = await pool.query(
+      'SELECT id FROM public.user_accounts WHERE invitation_code=$1 LIMIT 1',
+      [code]
+    )
+    return rows.length > 0
   } catch {
     return false
   }
@@ -135,12 +131,10 @@ async function checkInviteCodeUsedInCloud(code: string): Promise<boolean> {
 async function checkManagerExistsInCloud(): Promise<boolean> {
   if (!isSupabaseReady) return false
   try {
-    const { data } = await supabase
-      .from('user_accounts')
-      .select('id')
-      .eq('role', 'manager')
-      .limit(1)
-    return Array.isArray(data) && data.length > 0
+    const { rows } = await pool.query(
+      "SELECT id FROM public.user_accounts WHERE role='manager' LIMIT 1"
+    )
+    return rows.length > 0
   } catch {
     return false
   }

@@ -1,4 +1,6 @@
-import { supabase, isSupabaseReady } from './supabaseClient'
+import pool from './db'
+
+const isReady = Boolean(process.env.DATABASE_URL)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,231 +111,182 @@ export const STATUS_COLORS: Record<ProjectStatus, string> = {
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 export async function listProjects(personId: string): Promise<Project[]> {
-  if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .or(`creator_person_id.eq.${personId},partner_person_id.eq.${personId}`)
-    .order('updated_at', { ascending: false })
-  if (error) {
-    console.error('[projectStore] listProjects error:', error)
-    return []
-  }
-  return (data ?? []) as Project[]
+  if (!isReady) return []
+  const { rows } = await pool.query(
+    'SELECT * FROM public.projects WHERE creator_person_id=$1 OR partner_person_id=$1 ORDER BY updated_at DESC',
+    [personId]
+  )
+  return rows as Project[]
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  if (!isSupabaseReady) return null
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', id)
-    .single()
-  if (error) {
-    console.error('[projectStore] getProject error:', error)
-    return null
-  }
-  return data as Project
+  if (!isReady) return null
+  const { rows } = await pool.query('SELECT * FROM public.projects WHERE id=$1', [id])
+  return (rows[0] as Project) ?? null
 }
 
 export async function createProject(
   payload: Omit<Project, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Project | null> {
-  if (!isSupabaseReady) return null
-  const { data, error } = await supabase
-    .from('projects')
-    .insert([{ ...payload, updated_at: new Date().toISOString() }])
-    .select()
-    .single()
-  if (error) {
-    console.error('[projectStore] createProject error:', error)
-    return null
-  }
-  return data as Project
+  if (!isReady) return null
+  const now = new Date().toISOString()
+  const id = crypto.randomUUID()
+  const { rows } = await pool.query(
+    `INSERT INTO public.projects (id, name, description, status, current_stage, creator_person_id, partner_person_id, termination_category, termination_reason, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    [id, payload.name, payload.description ?? null, payload.status, payload.current_stage,
+     payload.creator_person_id, payload.partner_person_id,
+     payload.termination_category ?? null, payload.termination_reason ?? null, now, now]
+  )
+  return (rows[0] as Project) ?? null
 }
 
 export async function updateProject(
   id: string,
   payload: Partial<Omit<Project, 'id' | 'created_at'>>
 ): Promise<boolean> {
-  if (!isSupabaseReady) return false
-  const { error } = await supabase
-    .from('projects')
-    .update({ ...payload, updated_at: new Date().toISOString() })
-    .eq('id', id)
-  if (error) {
-    console.error('[projectStore] updateProject error:', error)
-    return false
-  }
+  if (!isReady) return false
+  const fields = Object.keys(payload).filter(k => k !== 'id' && k !== 'created_at')
+  if (fields.length === 0) return true
+  const sets = fields.map((f, i) => `${f}=$${i + 2}`).join(', ')
+  const values = fields.map(f => (payload as any)[f])
+  await pool.query(
+    `UPDATE public.projects SET ${sets}, updated_at=now() WHERE id=$1`,
+    [id, ...values]
+  )
   return true
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
-  if (!isSupabaseReady) return false
-  const { error } = await supabase.from('projects').delete().eq('id', id)
-  if (error) {
-    console.error('[projectStore] deleteProject error:', error)
-    return false
-  }
+  if (!isReady) return false
+  await pool.query('DELETE FROM public.projects WHERE id=$1', [id])
   return true
 }
 
 // ─── Milestones ───────────────────────────────────────────────────────────────
 
 export async function listMilestones(projectId: string): Promise<ProjectMilestone[]> {
-  if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('project_milestones')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('planned_date', { ascending: true })
-  if (error) {
-    console.error('[projectStore] listMilestones error:', error)
-    return []
-  }
-  return (data ?? []) as ProjectMilestone[]
+  if (!isReady) return []
+  const { rows } = await pool.query(
+    'SELECT * FROM public.project_milestones WHERE project_id=$1 ORDER BY planned_date ASC',
+    [projectId]
+  )
+  return rows as ProjectMilestone[]
 }
 
 export async function upsertMilestone(
   milestone: Omit<ProjectMilestone, 'id' | 'created_at'> & { id?: string }
 ): Promise<boolean> {
-  if (!isSupabaseReady) return false
-  const { error } = await supabase.from('project_milestones').upsert([milestone])
-  if (error) {
-    console.error('[projectStore] upsertMilestone error:', error)
-    return false
-  }
+  if (!isReady) return false
+  const id = milestone.id ?? crypto.randomUUID()
+  await pool.query(
+    `INSERT INTO public.project_milestones (id, project_id, stage, planned_date, completed_date, reminder_days, notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (id) DO UPDATE SET stage=EXCLUDED.stage, planned_date=EXCLUDED.planned_date,
+       completed_date=EXCLUDED.completed_date, reminder_days=EXCLUDED.reminder_days, notes=EXCLUDED.notes`,
+    [id, milestone.project_id, milestone.stage, milestone.planned_date ?? null,
+     milestone.completed_date ?? null, milestone.reminder_days ?? null, milestone.notes ?? null]
+  )
   return true
 }
 
 export async function batchUpsertMilestones(
   milestones: (Omit<ProjectMilestone, 'id' | 'created_at'> & { id?: string })[]
 ): Promise<boolean> {
-  if (!isSupabaseReady || milestones.length === 0) return true
-  const { error } = await supabase.from('project_milestones').upsert(milestones)
-  if (error) {
-    console.error('[projectStore] batchUpsertMilestones error:', error)
-    return false
-  }
+  if (!isReady || milestones.length === 0) return true
+  for (const m of milestones) await upsertMilestone(m)
   return true
 }
 
 // ─── Logs ─────────────────────────────────────────────────────────────────────
 
 export async function listLogs(projectId: string): Promise<ProjectLog[]> {
-  if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('project_logs')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: true })
-  if (error) {
-    console.error('[projectStore] listLogs error:', error)
-    return []
-  }
-  return (data ?? []) as ProjectLog[]
+  if (!isReady) return []
+  const { rows } = await pool.query(
+    'SELECT * FROM public.project_logs WHERE project_id=$1 ORDER BY created_at ASC',
+    [projectId]
+  )
+  return rows as ProjectLog[]
 }
 
 export async function addLog(
   log: Omit<ProjectLog, 'id' | 'created_at'>
 ): Promise<ProjectLog | null> {
-  if (!isSupabaseReady) return null
-  const { data, error } = await supabase
-    .from('project_logs')
-    .insert([log])
-    .select()
-    .single()
-  if (error) {
-    console.error('[projectStore] addLog error:', error)
-    return null
-  }
-  return data as ProjectLog
+  if (!isReady) return null
+  const id = crypto.randomUUID()
+  const { rows } = await pool.query(
+    `INSERT INTO public.project_logs (id, project_id, log_type, content, author_person_id, metadata)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [id, log.project_id, log.log_type, log.content, log.author_person_id ?? null,
+     log.metadata ? JSON.stringify(log.metadata) : null]
+  )
+  return (rows[0] as ProjectLog) ?? null
 }
 
 // ─── Files ────────────────────────────────────────────────────────────────────
 
 export async function listFiles(projectId: string): Promise<ProjectFile[]> {
-  if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('project_files')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
-  if (error) {
-    console.error('[projectStore] listFiles error:', error)
-    return []
-  }
-  return (data ?? []) as ProjectFile[]
+  if (!isReady) return []
+  const { rows } = await pool.query(
+    'SELECT * FROM public.project_files WHERE project_id=$1 ORDER BY created_at DESC',
+    [projectId]
+  )
+  return rows as ProjectFile[]
 }
 
 export async function addFile(
   file: Omit<ProjectFile, 'id' | 'created_at'>
 ): Promise<ProjectFile | null> {
-  if (!isSupabaseReady) return null
-  const { data, error } = await supabase
-    .from('project_files')
-    .insert([file])
-    .select()
-    .single()
-  if (error) {
-    console.error('[projectStore] addFile error:', error)
-    return null
-  }
-  return data as ProjectFile
+  if (!isReady) return null
+  const id = crypto.randomUUID()
+  const { rows } = await pool.query(
+    `INSERT INTO public.project_files (id, project_id, file_name, file_url, file_type, uploaded_by_person_id)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [id, file.project_id, file.file_name, file.file_url ?? null,
+     file.file_type ?? null, file.uploaded_by_person_id ?? null]
+  )
+  return (rows[0] as ProjectFile) ?? null
 }
 
 export async function deleteFile(id: string): Promise<boolean> {
-  if (!isSupabaseReady) return false
-  const { error } = await supabase.from('project_files').delete().eq('id', id)
-  if (error) {
-    console.error('[projectStore] deleteFile error:', error)
-    return false
-  }
+  if (!isReady) return false
+  await pool.query('DELETE FROM public.project_files WHERE id=$1', [id])
   return true
 }
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
 export async function listReviews(projectId: string): Promise<ProjectReview[]> {
-  if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('project_reviews')
-    .select('*')
-    .eq('project_id', projectId)
-  if (error) {
-    console.error('[projectStore] listReviews error:', error)
-    return []
-  }
-  return (data ?? []) as ProjectReview[]
+  if (!isReady) return []
+  const { rows } = await pool.query(
+    'SELECT * FROM public.project_reviews WHERE project_id=$1',
+    [projectId]
+  )
+  return rows as ProjectReview[]
 }
 
 export async function getReview(
   projectId: string,
   reviewerPersonId: string
 ): Promise<ProjectReview | null> {
-  if (!isSupabaseReady) return null
-  const { data, error } = await supabase
-    .from('project_reviews')
-    .select('*')
-    .eq('project_id', projectId)
-    .eq('reviewer_person_id', reviewerPersonId)
-    .single()
-  if (error) return null
-  return data as ProjectReview
+  if (!isReady) return null
+  const { rows } = await pool.query(
+    'SELECT * FROM public.project_reviews WHERE project_id=$1 AND reviewer_person_id=$2',
+    [projectId, reviewerPersonId]
+  )
+  return (rows[0] as ProjectReview) ?? null
 }
 
 export async function addReview(
   review: Omit<ProjectReview, 'id' | 'created_at'>
 ): Promise<ProjectReview | null> {
-  if (!isSupabaseReady) return null
-  const { data, error } = await supabase
-    .from('project_reviews')
-    .insert([review])
-    .select()
-    .single()
-  if (error) {
-    console.error('[projectStore] addReview error:', error)
-    return null
-  }
-  return data as ProjectReview
+  if (!isReady) return null
+  const id = crypto.randomUUID()
+  const { rows } = await pool.query(
+    `INSERT INTO public.project_reviews (id, project_id, reviewer_person_id, reviewee_person_id, tags, comment)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [id, review.project_id, review.reviewer_person_id, review.reviewee_person_id,
+     review.tags, review.comment ?? null]
+  )
+  return (rows[0] as ProjectReview) ?? null
 }

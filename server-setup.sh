@@ -50,10 +50,11 @@ fi
 echo ""
 echo "[5/7] 写入环境变量..."
 cat > .env.local << 'ENVEOF'
-NEXT_PUBLIC_SUPABASE_URL=https://ssrswknfomzizkaejric.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzcnN3a25mb216aXprYWVqcmljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyNTc4NzksImV4cCI6MjA3MTgzMzg3OX0.9WIcnmaFL69zDSXgL4u-neIGmHSn_31IR223Cpu_E8k
+# 阿里云 RDS PostgreSQL（内网地址）
+DATABASE_URL=postgresql://JSH:Qinhaoxuan520@pgm-uf63572vz9s9fve1.pg.rds.aliyuncs.com:5432/ecosystem
 BOCHA_API_KEY=sk-acad3b7087ea4b689a7b1c1ee0d0261c
 TIANYANCHA_TOKEN=494fc369-4149-4035-a994-ede38238ab0d
+TIANYANCHA_PROXY_BASE=
 ENVEOF
 echo "环境变量已写入 .env.local"
 

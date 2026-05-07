@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { supabase, isSupabaseReady } from '@/lib/supabaseClient'
+import pool from '@/lib/db'
 import { randomUUID } from 'crypto'
+
+const isSupabaseReady = Boolean(process.env.DATABASE_URL)
 
 // ── 行业关键词推断（与 dashboard 保持一致）─────────────────────
 const INDUSTRY_KW: [string, string[]][] = [
@@ -30,19 +32,18 @@ function inferIndustry(name: string, fallbackIndustry: string): string {
 
 // ── GET：预览待导入企业 ──────────────────────────────────────────
 export async function GET() {
-  if (!isSupabaseReady) return NextResponse.json({ error: 'Supabase未配置' }, { status: 500 })
+  if (!isSupabaseReady) return NextResponse.json({ error: '数据库未配置' }, { status: 500 })
 
-  const [{ data: companies, error: ce }, { data: people, error: pe }] = await Promise.all([
-    supabase.from('companies').select('name'),
-    supabase.from('people').select('name, industry, all_companies'),
+  const [{ rows: companies }, { rows: people }] = await Promise.all([
+    pool.query('SELECT name FROM public.companies'),
+    pool.query('SELECT name, industry, all_companies FROM public.people'),
   ])
-  if (ce || pe) return NextResponse.json({ error: ce?.message ?? pe?.message }, { status: 500 })
 
-  const existingNames = new Set((companies ?? []).map((c: any) => c.name.trim().toLowerCase()))
+  const existingNames = new Set(companies.map((c: any) => c.name.trim().toLowerCase()))
   const toImport: { name: string; industry: string; inferredIndustry: string; source: string }[] = []
   const seen = new Set<string>()
 
-  for (const person of (people ?? []) as any[]) {
+  for (const person of people as any[]) {
     if (!Array.isArray(person.all_companies)) continue
     for (const entry of person.all_companies) {
       const name = (entry.company ?? '').trim()
@@ -57,26 +58,25 @@ export async function GET() {
 
   return NextResponse.json({
     toImport,
-    existingCount: companies?.length ?? 0,
+    existingCount: companies.length,
     importCount: toImport.length,
   })
 }
 
 // ── POST：执行批量导入 ───────────────────────────────────────────
 export async function POST() {
-  if (!isSupabaseReady) return NextResponse.json({ error: 'Supabase未配置' }, { status: 500 })
+  if (!isSupabaseReady) return NextResponse.json({ error: '数据库未配置' }, { status: 500 })
 
-  const [{ data: companies, error: ce }, { data: people, error: pe }] = await Promise.all([
-    supabase.from('companies').select('name'),
-    supabase.from('people').select('name, industry, all_companies'),
+  const [{ rows: companies }, { rows: people }] = await Promise.all([
+    pool.query('SELECT name FROM public.companies'),
+    pool.query('SELECT name, industry, all_companies FROM public.people'),
   ])
-  if (ce || pe) return NextResponse.json({ error: ce?.message ?? pe?.message }, { status: 500 })
 
-  const existingNames = new Set((companies ?? []).map((c: any) => c.name.trim().toLowerCase()))
-  const rows: any[] = []
+  const existingNames = new Set(companies.map((c: any) => c.name.trim().toLowerCase()))
+  const toInsert: any[] = []
   const seen = new Set<string>()
 
-  for (const person of (people ?? []) as any[]) {
+  for (const person of people as any[]) {
     if (!Array.isArray(person.all_companies)) continue
     for (const entry of person.all_companies) {
       const name = (entry.company ?? '').trim()
@@ -84,48 +84,38 @@ export async function POST() {
       const key = name.toLowerCase()
       if (existingNames.has(key) || seen.has(key)) continue
       seen.add(key)
-      rows.push({
+      toInsert.push({
         id: randomUUID(),
         name,
         industry: inferIndustry(name, person.industry ?? ''),
-        scale: '',
-        products: [],
-        is_followed: false,
         additional_info: `从人员档案导入（${person.name}）`,
-        positioning: null,
-        value: null,
-        achievements: null,
-        suppliers: [],
-        customers: [],
-        supplier_infos: null,
-        customer_infos: null,
-        demands: null,
       })
     }
   }
 
-  if (rows.length === 0) {
+  if (toInsert.length === 0) {
     return NextResponse.json({ success: true, imported: 0, message: '无需导入，所有企业已存在' })
   }
 
-  // 分批插入，每批 50 条
-  const BATCH = 50
   let imported = 0
   const errors: string[] = []
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH)
-    const { error } = await supabase.from('companies').insert(batch)
-    if (error) {
-      errors.push(`批次 ${Math.floor(i / BATCH) + 1}: ${error.message}`)
-    } else {
-      imported += batch.length
+  for (const row of toInsert) {
+    try {
+      await pool.query(
+        `INSERT INTO public.companies (id, name, industry, scale, products, is_followed, additional_info, suppliers, customers)
+         VALUES ($1,$2,$3,'',ARRAY[]::text[],false,$4,ARRAY[]::text[],ARRAY[]::text[])`,
+        [row.id, row.name, row.industry, row.additional_info]
+      )
+      imported++
+    } catch (e: any) {
+      errors.push(`${row.name}: ${e.message}`)
     }
   }
 
   return NextResponse.json({
     success: errors.length === 0,
     imported,
-    total: rows.length,
+    total: toInsert.length,
     errors,
   })
 }

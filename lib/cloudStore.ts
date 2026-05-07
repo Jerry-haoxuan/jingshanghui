@@ -1,5 +1,7 @@
-import { supabase, isSupabaseReady } from './supabaseClient'
+import pool from './db'
 import type { PersonData, CompanyData } from './dataStore'
+
+export const isSupabaseReady = Boolean(process.env.DATABASE_URL)
 
 // Helpers to map fields between app types and DB rows
 type DbPerson = {
@@ -148,173 +150,95 @@ const mapAppCompanyToDb = (c: CompanyData): DbCompany => ({
 
 export async function listPeopleFromCloud(): Promise<PersonData[]> {
   if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('people')
-    .select('*')
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data as DbPerson[]).map(mapDbPersonToApp)
+  const { rows } = await pool.query('SELECT * FROM public.people ORDER BY created_at DESC')
+  return (rows as DbPerson[]).map(mapDbPersonToApp)
 }
 
 export async function upsertPersonToCloud(person: PersonData): Promise<void> {
-  if (!isSupabaseReady) {
-    console.warn('[CloudStore] Supabase未配置，跳过云端同步')
-    return
-  }
-  
-  console.log('[CloudStore] 准备同步人物到云端:', {
-    id: person.id,
-    name: person.name,
-    isUpdate: Boolean(person.id)
-  })
+  if (!isSupabaseReady) return
   const row = mapAppPersonToDb(person)
-  console.log('[CloudStore] 转换后的数据行ID:', row.id)
-  
-  try {
-    // 使用 upsert 时，确保指定冲突处理
-    const { data, error } = await supabase
-      .from('people')
-      .upsert(row, { 
-        onConflict: 'id',  // 明确指定以 id 为冲突判断字段
-        ignoreDuplicates: false  // 确保更新而不是忽略
-      })
-      .select()
-    
-    if (error) {
-      console.error('[CloudStore] Supabase upsert失败:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        rowId: row.id
-      })
-      throw error
-    }
-    
-    console.log('[CloudStore] 成功同步到云端:', data)
-  } catch (err) {
-    console.error('[CloudStore] 同步异常:', err)
-    throw err
-  }
+  await pool.query(
+    `INSERT INTO public.people (id, name, company, position, tags, current_city, hometown, home_address, company_address, industry, is_followed, phone, phones, email, political_party, social_organizations, hobbies, skills, expectations, educations, work_history, additional_info, all_companies, birth_date, school, products)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+     ON CONFLICT (id) DO UPDATE SET
+       name=EXCLUDED.name, company=EXCLUDED.company, position=EXCLUDED.position, tags=EXCLUDED.tags,
+       current_city=EXCLUDED.current_city, hometown=EXCLUDED.hometown, home_address=EXCLUDED.home_address,
+       company_address=EXCLUDED.company_address, industry=EXCLUDED.industry, is_followed=EXCLUDED.is_followed,
+       phone=EXCLUDED.phone, phones=EXCLUDED.phones, email=EXCLUDED.email, political_party=EXCLUDED.political_party,
+       social_organizations=EXCLUDED.social_organizations, hobbies=EXCLUDED.hobbies, skills=EXCLUDED.skills,
+       expectations=EXCLUDED.expectations, educations=EXCLUDED.educations, work_history=EXCLUDED.work_history,
+       additional_info=EXCLUDED.additional_info, all_companies=EXCLUDED.all_companies, birth_date=EXCLUDED.birth_date,
+       school=EXCLUDED.school, products=EXCLUDED.products`,
+    [row.id, row.name, row.company, row.position, row.tags, row.current_city, row.hometown,
+     row.home_address, row.company_address, row.industry, row.is_followed, row.phone,
+     row.phones ? JSON.stringify(row.phones) : null, row.email, row.political_party,
+     row.social_organizations ? JSON.stringify(row.social_organizations) : null,
+     row.hobbies, row.skills, row.expectations,
+     row.educations ? JSON.stringify(row.educations) : null,
+     row.work_history, row.additional_info,
+     row.all_companies ? JSON.stringify(row.all_companies) : null,
+     row.birth_date, row.school, row.products]
+  )
 }
 
 export async function deletePersonFromCloud(id: string): Promise<void> {
   if (!isSupabaseReady) return
-  const { error } = await supabase.from('people').delete().eq('id', id)
-  if (error) throw error
+  await pool.query('DELETE FROM public.people WHERE id = $1', [id])
 }
 
 export async function setPersonFollowInCloud(id: string, isFollowed: boolean): Promise<void> {
   if (!isSupabaseReady) return
-  const { error } = await supabase.from('people').update({ is_followed: isFollowed }).eq('id', id)
-  if (error) throw error
+  await pool.query('UPDATE public.people SET is_followed = $1 WHERE id = $2', [isFollowed, id])
 }
 
 export async function listCompaniesFromCloud(): Promise<CompanyData[]> {
   if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('companies')
-    .select('*')
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data as DbCompany[]).map(mapDbCompanyToApp)
+  const { rows } = await pool.query('SELECT * FROM public.companies ORDER BY created_at DESC')
+  return (rows as DbCompany[]).map(mapDbCompanyToApp)
 }
 
 export async function upsertCompanyToCloud(company: CompanyData): Promise<void> {
-  if (!isSupabaseReady) {
-    console.warn('[CloudStore] Supabase未配置，跳过企业云端同步')
-    return
-  }
-  
-  console.log('[CloudStore] 准备同步企业到云端:', {
-    id: company.id,
-    name: company.name,
-    isUpdate: Boolean(company.id)
-  })
-  
+  if (!isSupabaseReady) return
   const row = mapAppCompanyToDb(company)
-  console.log('[CloudStore] 转换后的企业数据行ID:', row.id, '名称:', row.name)
-  
-  try {
-    // 先尝试查找是否已存在同名企业（使用名称作为唯一标识）
-    const { data: existingCompanies, error: searchError } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('name', company.name)
-      .limit(1)
-    
-    if (searchError) {
-      console.error('[CloudStore] 查找现有企业失败:', searchError)
-      throw searchError
-    }
-    
-    if (existingCompanies && existingCompanies.length > 0) {
-      // 如果存在同名企业，更新它（保留原有ID）
-      const existingCompany = existingCompanies[0]
-      console.log('[CloudStore] 找到现有企业，更新而非创建:', existingCompany.id, existingCompany.name)
-      
-      const { data, error: updateError } = await supabase
-        .from('companies')
-        .update({
-          ...row,
-          id: existingCompany.id // 保持原有ID
-        })
-        .eq('id', existingCompany.id)
-        .select()
-      
-      if (updateError) {
-        console.error('[CloudStore] 更新企业失败:', updateError)
-        throw updateError
-      }
-      
-      console.log('[CloudStore] 成功更新企业到云端:', data)
-    } else {
-      // 如果不存在，创建新企业
-      console.log('[CloudStore] 未找到现有企业，创建新企业:', company.name)
-      
-      const { data, error: insertError } = await supabase
-        .from('companies')
-        .insert(row)
-        .select()
-      
-      if (insertError) {
-        console.error('[CloudStore] 创建企业失败:', insertError)
-        throw insertError
-      }
-      
-      console.log('[CloudStore] 成功创建新企业到云端:', data)
-    }
-  } catch (err) {
-    console.error('[CloudStore] 企业同步异常:', err)
-    throw err
+  const { rows: existing } = await pool.query(
+    'SELECT id FROM public.companies WHERE name = $1 LIMIT 1', [company.name]
+  )
+  if (existing.length > 0) {
+    await pool.query(
+      `UPDATE public.companies SET industry=$1, scale=$2, products=$3, is_followed=$4, additional_info=$5,
+       positioning=$6, value=$7, achievements=$8, suppliers=$9, customers=$10,
+       supplier_infos=$11, customer_infos=$12, demands=$13 WHERE id=$14`,
+      [row.industry, row.scale, row.products, row.is_followed, row.additional_info,
+       row.positioning, row.value, row.achievements, row.suppliers, row.customers,
+       row.supplier_infos ? JSON.stringify(row.supplier_infos) : null,
+       row.customer_infos ? JSON.stringify(row.customer_infos) : null,
+       row.demands, existing[0].id]
+    )
+  } else {
+    await pool.query(
+      `INSERT INTO public.companies (id, name, industry, scale, products, is_followed, additional_info, positioning, value, achievements, suppliers, customers, supplier_infos, customer_infos, demands)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [row.id, row.name, row.industry, row.scale, row.products, row.is_followed, row.additional_info,
+       row.positioning, row.value, row.achievements, row.suppliers, row.customers,
+       row.supplier_infos ? JSON.stringify(row.supplier_infos) : null,
+       row.customer_infos ? JSON.stringify(row.customer_infos) : null,
+       row.demands]
+    )
   }
 }
 
 export async function deleteCompanyFromCloud(id: string): Promise<void> {
   if (!isSupabaseReady) return
-  const { error } = await supabase.from('companies').delete().eq('id', id)
-  if (error) throw error
+  await pool.query('DELETE FROM public.companies WHERE id = $1', [id])
 }
 
 export async function setCompanyFollowInCloud(id: string, isFollowed: boolean): Promise<void> {
   if (!isSupabaseReady) return
-  const { error } = await supabase.from('companies').update({ is_followed: isFollowed }).eq('id', id)
-  if (error) throw error
+  await pool.query('UPDATE public.companies SET is_followed = $1 WHERE id = $2', [isFollowed, id])
 }
 
-export function subscribeCloud(table: 'people' | 'companies', onChange: () => void) {
-  if (!isSupabaseReady) return { unsubscribe: () => {} }
-  const channel = supabase
-    .channel(`public:${table}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-      onChange()
-    })
-    .subscribe()
-  return {
-    unsubscribe: () => {
-      try { supabase.removeChannel(channel) } catch (_) {}
-    }
-  }
+export function subscribeCloud(_table: 'people' | 'companies', _onChange: () => void) {
+  return { unsubscribe: () => {} }
 }
 
 // ==================== 关系数据云端同步 ====================
@@ -355,111 +279,35 @@ const mapAppRelationshipToDb = (rel: RelationshipData): DbRelationship => ({
   description: rel.description,
 })
 
-// 从云端加载所有关系数据
 export async function listRelationshipsFromCloud(): Promise<RelationshipData[]> {
   if (!isSupabaseReady) return []
-  const { data, error } = await supabase
-    .from('relationships')
-    .select('*')
-    .order('created_at', { ascending: false })
-  if (error) {
-    console.error('[CloudStore] 加载关系数据失败:', error)
-    throw error
-  }
-  return (data as DbRelationship[]).map(mapDbRelationshipToApp)
+  const { rows } = await pool.query('SELECT * FROM public.relationships ORDER BY created_at DESC')
+  return (rows as DbRelationship[]).map(mapDbRelationshipToApp)
 }
 
-// 上传单个关系到云端
 export async function upsertRelationshipToCloud(relationship: RelationshipData): Promise<void> {
-  if (!isSupabaseReady) {
-    console.warn('[CloudStore] Supabase未配置，跳过关系数据云端同步')
-    return
-  }
-  
-  console.log('[CloudStore] 准备同步关系到云端:', {
-    id: relationship.id,
-    personId: relationship.personId,
-    relatedPersonId: relationship.relatedPersonId,
-    type: relationship.relationshipType
-  })
-  
+  if (!isSupabaseReady) return
   const row = mapAppRelationshipToDb(relationship)
-  
-  try {
-    const { data, error } = await supabase
-      .from('relationships')
-      .upsert(row, { 
-        onConflict: 'id',
-        ignoreDuplicates: false
-      })
-      .select()
-    
-    if (error) {
-      console.error('[CloudStore] Supabase关系数据upsert失败:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        rowId: row.id
-      })
-      throw error
-    }
-    
-    console.log('[CloudStore] 成功同步关系到云端:', data)
-  } catch (err) {
-    console.error('[CloudStore] 关系数据同步异常:', err)
-    throw err
-  }
+  await pool.query(
+    `INSERT INTO public.relationships (id, person_id, related_person_id, related_company_id, relationship_type, strength, description)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (id) DO UPDATE SET
+       person_id=EXCLUDED.person_id, related_person_id=EXCLUDED.related_person_id,
+       related_company_id=EXCLUDED.related_company_id, relationship_type=EXCLUDED.relationship_type,
+       strength=EXCLUDED.strength, description=EXCLUDED.description, updated_at=now()`,
+    [row.id, row.person_id, row.related_person_id, row.related_company_id,
+     row.relationship_type, row.strength, row.description]
+  )
 }
 
-// 批量上传关系数据到云端
 export async function batchUpsertRelationshipsToCloud(relationships: RelationshipData[]): Promise<void> {
-  if (!isSupabaseReady) {
-    console.warn('[CloudStore] Supabase未配置，跳过批量关系数据同步')
-    return
-  }
-  
-  if (relationships.length === 0) {
-    console.log('[CloudStore] 没有关系数据需要同步')
-    return
-  }
-  
-  console.log('[CloudStore] 批量同步关系数据到云端:', relationships.length, '条')
-  
-  const rows = relationships.map(mapAppRelationshipToDb)
-  
-  try {
-    // 分批上传，每次50条
-    const batchSize = 50
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize)
-      const { error } = await supabase
-        .from('relationships')
-        .upsert(batch, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        })
-      
-      if (error) {
-        console.error('[CloudStore] 批量同步失败 (batch', Math.floor(i / batchSize) + 1, '):', error)
-        throw error
-      }
-      
-      console.log('[CloudStore] 成功同步批次', Math.floor(i / batchSize) + 1, '/', Math.ceil(rows.length / batchSize))
-    }
-    
-    console.log('[CloudStore] 所有关系数据同步完成')
-  } catch (err) {
-    console.error('[CloudStore] 批量关系数据同步异常:', err)
-    throw err
+  if (!isSupabaseReady || relationships.length === 0) return
+  for (const rel of relationships) {
+    await upsertRelationshipToCloud(rel)
   }
 }
 
-// 删除云端关系数据
 export async function deleteRelationshipFromCloud(id: string): Promise<void> {
   if (!isSupabaseReady) return
-  const { error } = await supabase.from('relationships').delete().eq('id', id)
-  if (error) throw error
+  await pool.query('DELETE FROM public.relationships WHERE id = $1', [id])
 }
-
-

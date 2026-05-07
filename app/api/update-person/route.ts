@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     console.log('[Update Person API] 收到更新请求:', {
       id: personData.id,
       name: personData.name,
-      hasSupabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL)
+      hasDatabase: Boolean(process.env.DATABASE_URL)
     })
     
     // 确保ID存在且有效
