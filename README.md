@@ -118,33 +118,17 @@ git pull origin main && npm run build && pm2 restart jsh
 
 等待 2-3 分钟构建完成，刷新网页即可看到最新版本。
 
-## 安装与运行
-
-### 快速启动（推荐）
-
-1. **Windows用户**：
-   - 使用 `start-stable.bat` 获得更稳定的运行体验
-   - 或双击运行 `start.bat` 文件
-   - 脚本会自动寻找可用端口（3000-3008）
-   - 启动成功后会显示访问地址
-
-2. **手动启动**：
+## 本地开发
 
 ```bash
 # 安装依赖
 npm install
 
-# 启动开发服务器（默认端口3000）
+# 启动开发服务器
 npm run dev
-
-# 或指定其他端口
-npm run dev -- -p 3001
 ```
 
-3. 访问应用
-```
-http://localhost:3000（或其他端口）
-```
+访问 `http://localhost:3000`
 
 ### 内测码
 默认内测码：**ECOSYSTEM2024**
@@ -152,40 +136,35 @@ http://localhost:3000（或其他端口）
 ## 项目结构
 
 ```
-ecosystem-network/
-├── app/                    # Next.js App Router页面
-│   ├── page.tsx           # 首页（带星空背景）
-│   ├── dashboard/         # 控制台
-│   ├── add/              # 信息收集（AI增强）
-│   └── relationship/     # 关系图谱（已废弃）
-├── components/            # UI组件
-│   ├── ui/               # 通用UI组件
-│   ├── StarryBackground.tsx  # 星空背景组件
-│   └── DetailModal.tsx   # 详情模态框
-├── lib/                   # 工具函数
-│   ├── utils.ts          # 通用工具
-│   └── config.ts         # API配置
+├── app/                    # Next.js App Router 页面和 API
+│   ├── page.tsx           # 首页（登录/注册）
+│   ├── dashboard/         # 主控制台
+│   ├── api/               # 后端接口
+│   └── ...                # 其他页面
+├── components/            # UI 组件
+├── lib/                   # 工具库
+│   ├── db.ts             # 数据库连接池（阿里云 RDS）
+│   ├── cloudStore.ts     # 数据 CRUD
+│   ├── userStore.ts      # 用户管理
+│   └── ...
 ├── public/               # 静态资源
-├── start.bat             # Windows启动脚本
-└── start-stable.bat      # 稳定版启动脚本
+├── server-setup.sh       # 服务器初始化脚本（一次性）
+└── update.sh             # 服务器一键更新脚本
 ```
 
 ## 常见问题
 
-### 服务器启动失败
-- 检查端口是否被占用
-- 使用 `start-stable.bat` 自动重启
-- 或手动指定其他端口：`npm run dev -- -p 端口号`
+### 网站无法访问
+- SSH 登录服务器，执行 `pm2 status` 检查应用是否在线
+- 执行 `pm2 logs jsh` 查看错误日志
 
-### 页面无法访问
-- 确保服务器已启动
-- 检查控制台输出的端口号
-- 清除浏览器缓存或使用无痕模式
+### 页面数据不显示
+- 检查 RDS 白名单是否包含 ECS 内网 IP
+- 执行 `pm2 logs jsh` 查看数据库连接错误
 
-### AI功能无法使用
-- 检查是否配置了DeepSeek API密钥
-- 确认.env.local文件在项目根目录
-- 重启开发服务器使配置生效
+### AI 功能无法使用
+- 检查 `.env.local` 中是否配置了 `DEEPSEEK_API_KEY`
+- 重新构建并重启：`npm run build && pm2 restart jsh`
 
 ## 核心AI能力
 
