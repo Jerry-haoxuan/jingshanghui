@@ -311,3 +311,30 @@ export async function deleteRelationshipFromCloud(id: string): Promise<void> {
   if (!isSupabaseReady) return
   await pool.query('DELETE FROM public.relationships WHERE id = $1', [id])
 }
+
+/**
+ * 按姓名查找 people 记录，若不存在则自动创建一条基础记录。
+ * 用于普通注册用户（有 personName 但尚未录入完整档案）。
+ */
+export async function findOrCreatePersonByName(name: string): Promise<PersonData | null> {
+  if (!isSupabaseReady || !name) return null
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM public.people WHERE name = $1 LIMIT 1',
+      [name]
+    )
+    if (rows.length > 0) {
+      return mapDbPersonToApp(rows[0] as DbPerson)
+    }
+    // 不存在则自动创建最基础的记录
+    const id = `person_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    const { rows: inserted } = await pool.query(
+      `INSERT INTO public.people (id, name, company, position, tags, is_followed)
+       VALUES ($1, $2, '', '', '{}', false) RETURNING *`,
+      [id, name]
+    )
+    return inserted.length > 0 ? mapDbPersonToApp(inserted[0] as DbPerson) : null
+  } catch {
+    return null
+  }
+}

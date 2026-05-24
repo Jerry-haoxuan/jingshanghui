@@ -26,6 +26,7 @@ export default function Home() {
 
   // 注册表单
   const [regUsername, setRegUsername] = useState('')
+  const [regRealName, setRegRealName] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirmPassword, setRegConfirmPassword] = useState('')
   const [regInviteCode, setRegInviteCode] = useState('')
@@ -91,9 +92,14 @@ export default function Home() {
       return
     }
 
+    if (!regRealName.trim()) {
+      setRegError('请填写您的真实姓名')
+      return
+    }
+
     setRegLoading(true)
     try {
-      const result = await registerUser(regUsername, regPassword, regInviteCode)
+      const result = await registerUser(regUsername, regPassword, regInviteCode, regRealName.trim())
       if (!result.success || !result.role || !result.account) {
         setRegError(result.message)
         return
@@ -116,6 +122,7 @@ export default function Home() {
     setLoginPassword('')
     setLoginError('')
     setRegUsername('')
+    setRegRealName('')
     setRegPassword('')
     setRegConfirmPassword('')
     setRegInviteCode('')
@@ -349,6 +356,15 @@ export default function Home() {
                         placeholder="请设置用户名（2-20个字符）"
                         value={regUsername}
                         onChange={e => { setRegUsername(e.target.value); setRegError('') }}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300 text-sm">真实姓名 <span className="text-purple-400">*</span></Label>
+                      <Input
+                        placeholder="请输入您的真实姓名（用于商圈识别）"
+                        value={regRealName}
+                        onChange={e => { setRegRealName(e.target.value); setRegError('') }}
                         className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
                       />
                     </div>

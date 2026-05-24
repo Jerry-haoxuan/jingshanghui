@@ -13,7 +13,7 @@ import {
   Building2,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/userStore'
-import { listPeopleFromCloud } from '@/lib/cloudStore'
+import { listPeopleFromCloud, findOrCreatePersonByName } from '@/lib/cloudStore'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
@@ -49,12 +49,14 @@ export default function BusinessCirclePage() {
     const init = async () => {
       setLoading(true)
       const people = await listPeopleFromCloud()
-      const me = people.find(
-        p => p.name === currentUser.personName
-      )
+      let me = people.find(p => p.name === currentUser.personName)
+      // 如果在已有列表里没找到但有 personName，则自动查找或创建
+      if (!me && currentUser.personName) {
+        me = (await findOrCreatePersonByName(currentUser.personName)) ?? undefined
+      }
       if (me) {
         setCurrentPersonId(me.id)
-        setAllPeople(people.filter(p => p.id !== me.id))
+        setAllPeople(people.filter(p => p.id !== me!.id))
         await loadFriends(me.id)
       } else {
         setAllPeople(people)

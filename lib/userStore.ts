@@ -106,8 +106,8 @@ async function insertUserToCloud(user: UserAccount): Promise<boolean> {
   if (!isSupabaseReady) return false
   try {
     await pool.query(
-      'INSERT INTO public.user_accounts (id, username, password_hash, role, invitation_code) VALUES ($1,$2,$3,$4,$5)',
-      [user.id, user.username, user.passwordHash, user.role, user.invitationCode]
+      'INSERT INTO public.user_accounts (id, username, password_hash, role, invitation_code, person_name) VALUES ($1,$2,$3,$4,$5,$6)',
+      [user.id, user.username, user.passwordHash, user.role, user.invitationCode, user.personName ?? null]
     )
     return true
   } catch {
@@ -167,7 +167,8 @@ export interface RegisterResult {
 export async function registerUser(
   username: string,
   password: string,
-  invitationCode: string
+  invitationCode: string,
+  personName?: string
 ): Promise<RegisterResult> {
   if (!username.trim()) return { success: false, message: '用户名不能为空' }
   if (username.length < 2) return { success: false, message: '用户名至少需要2个字符' }
@@ -222,6 +223,7 @@ export async function registerUser(
     passwordHash: hashPassword(password),
     role,
     invitationCode,
+    personName: personName?.trim() || undefined,
     createdAt: new Date().toISOString(),
   }
 
@@ -273,7 +275,7 @@ export async function loginUser(username: string, password: string): Promise<Log
 
   // 2. 从 Supabase 查找
   if (isSupabaseReady) {
-    const dbUser = await findUserInCloud(name)
+    const dbUser = await findUserInCloud(name) as DbUserAccountFull | null
     if (dbUser) {
       if (dbUser.password_hash !== passwordHash) {
         return { success: false, message: '用户名或密码错误' }
@@ -284,6 +286,7 @@ export async function loginUser(username: string, password: string): Promise<Log
         passwordHash: dbUser.password_hash,
         role: dbUser.role as 'member' | 'manager',
         invitationCode: dbUser.invitation_code,
+        personName: dbUser.person_name ?? undefined,
         createdAt: dbUser.created_at,
       }
       return { success: true, message: '登录成功', role: account.role, account }
@@ -301,6 +304,9 @@ export async function loginUser(username: string, password: string): Promise<Log
 
   return { success: false, message: '用户名或密码错误' }
 }
+
+// DbUserAccount 扩展（含 person_name）
+type DbUserAccountFull = DbUserAccount & { person_name?: string | null }
 
 // ========== 当前登录用户（Session，存 localStorage）==========
 export function getCurrentUser(): UserAccount | null {
