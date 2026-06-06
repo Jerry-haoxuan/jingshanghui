@@ -106,7 +106,6 @@ git push origin main
 
 ```bash
 ssh root@47.102.130.175
-# 密码：Qinhaoxuan520
 ```
 
 ### 第三步：拉取代码、重新构建、重启
