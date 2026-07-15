@@ -56,8 +56,6 @@
 - **语言**: TypeScript
 - **数据库**: 阿里云 RDS PostgreSQL（`pg` 库连接）
 - **服务器**: 阿里云 ECS + PM2 + Nginx
-- **可视化**: react-force-graph
-- **文件处理**: react-dropzone
 - **图标**: lucide-react
 - **AI集成**: DeepSeek API
 

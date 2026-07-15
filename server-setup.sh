@@ -48,15 +48,15 @@ fi
 
 # ---------- 5. 写入环境变量 ----------
 echo ""
-echo "[5/7] 写入环境变量..."
-cat > .env.local << 'ENVEOF'
-# 阿里云 RDS PostgreSQL（内网地址）
-DATABASE_URL=postgresql://JSH:Qinhaoxuan520@pgm-uf63572vz9s9fve1.pg.rds.aliyuncs.com:5432/ecosystem
-BOCHA_API_KEY=sk-acad3b7087ea4b689a7b1c1ee0d0261c
-TIANYANCHA_TOKEN=494fc369-4149-4035-a994-ede38238ab0d
-TIANYANCHA_PROXY_BASE=
-ENVEOF
-echo "环境变量已写入 .env.local"
+echo "[5/7] 检查环境变量..."
+if [ ! -f .env.local ]; then
+  cp env.example .env.local
+  echo "已从 env.example 生成 .env.local 模板，请手动编辑填入真实的数据库密码和 API 密钥："
+  echo "  vim /var/www/jingshanghui/.env.local"
+  echo "填写完成后重新运行本脚本，或手动执行 npm run build && pm2 restart jsh"
+else
+  echo ".env.local 已存在，跳过（如需更新密钥请手动编辑该文件）"
+fi
 
 # ---------- 6. 安装依赖并构建 ----------
 echo ""
