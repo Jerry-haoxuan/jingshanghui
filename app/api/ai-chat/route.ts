@@ -5,8 +5,8 @@ import { deterministicAliasName, shouldAliasName, findPersonByAliasName, findPeo
 import { getYongxinPortfolio, getCompanyFullProfile, formatCompanyProfile, searchCompany } from '@/lib/tianyancha'
 
 // DeepSeek API配置
-const DEEPSEEK_API_KEY_MANAGER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER || 'sk-393da700b1f64e94bd73ee12b450651a'
-const DEEPSEEK_API_KEY_MEMBER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MEMBER || 'sk-73f01c8df5354bc1a01a218ef6f27c16'
+const DEEPSEEK_API_KEY_MANAGER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER || ''
+const DEEPSEEK_API_KEY_MEMBER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MEMBER || ''
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 // 博查 (Bocha) 联网搜索 API — 国内搜索引擎，中文结果更优

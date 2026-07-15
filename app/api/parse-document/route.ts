@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // DeepSeek API配置
-const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || 'sk-93e0f6f2bb2146a3bae7187ee1c0c84f'
+const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || ''
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 export async function POST(request: NextRequest) {

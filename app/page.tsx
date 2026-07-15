@@ -157,9 +157,6 @@ export default function Home() {
               <Network className="h-6 w-6 text-white" />
               <span className="font-bold text-xl text-white">精尚慧</span>
             </div>
-            <div className="flex items-center space-x-4">
-              <a href="/updates" className="text-sm text-gray-300 hover:text-white">更新内容</a>
-            </div>
           </div>
         </nav>
 
