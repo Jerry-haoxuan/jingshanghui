@@ -12,7 +12,7 @@ import PersonEditModal from '@/components/PersonEditModal'
 import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@/lib/cloudStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
-import { getCurrentUser } from '@/lib/userStore'
+import { getCurrentUser } from '@/lib/session'
 
 export default function DashboardClient() {
   const router = useRouter()

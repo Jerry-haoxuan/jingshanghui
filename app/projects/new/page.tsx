@@ -11,7 +11,7 @@ import {
   Loader2,
   FolderOpen,
 } from 'lucide-react'
-import { getCurrentUser } from '@/lib/userStore'
+import { getCurrentUser } from '@/lib/session'
 import { listPeopleFromCloud } from '@/lib/cloudStore'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'

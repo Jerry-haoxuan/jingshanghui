@@ -12,7 +12,7 @@ import {
   Loader2,
   Building2,
 } from 'lucide-react'
-import { getCurrentUser } from '@/lib/userStore'
+import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'

@@ -29,7 +29,7 @@ import {
   updateProject,
   listMilestones,
 } from '@/lib/projectStore'
-import { getCurrentUser } from '@/lib/userStore'
+import { getCurrentUser } from '@/lib/session'
 import { listPeopleFromCloud } from '@/lib/cloudStore'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'

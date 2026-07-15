@@ -11,7 +11,7 @@ export interface UserAccount {
   passwordHash: string
   role: 'member' | 'manager'
   invitationCode: string
-  personName?: string   // 仅预置账号有此字段，不存入数据库（保护隐私）
+  personName?: string   // 真实姓名，用于商圈识别；存于 user_accounts.person_name
   createdAt: string
 }
 
@@ -116,7 +116,8 @@ async function findUserInCloud(username: string): Promise<DbUserAccount | null> 
       [username]
     )
     return (rows[0] as DbUserAccount) ?? null
-  } catch {
+  } catch (err) {
+    console.error('[findUserInCloud] 查询失败:', err)
     return null
   }
 }
@@ -129,7 +130,8 @@ async function insertUserToCloud(user: UserAccount): Promise<boolean> {
       [user.id, user.username, user.passwordHash, user.role, user.invitationCode, user.personName ?? null]
     )
     return true
-  } catch {
+  } catch (err) {
+    console.error('[insertUserToCloud] 插入失败:', err)
     return false
   }
 }
@@ -142,7 +144,8 @@ async function checkInviteCodeUsedInCloud(code: string): Promise<boolean> {
       [code]
     )
     return rows.length > 0
-  } catch {
+  } catch (err) {
+    console.error('[checkInviteCodeUsedInCloud] 查询失败:', err)
     return false
   }
 }
@@ -154,7 +157,8 @@ async function checkManagerExistsInCloud(): Promise<boolean> {
       "SELECT id FROM public.user_accounts WHERE role='manager' LIMIT 1"
     )
     return rows.length > 0
-  } catch {
+  } catch (err) {
+    console.error('[checkManagerExistsInCloud] 查询失败:', err)
     return false
   }
 }
@@ -327,23 +331,6 @@ export async function loginUser(username: string, password: string): Promise<Log
 // DbUserAccount 扩展（含 person_name）
 type DbUserAccountFull = DbUserAccount & { person_name?: string | null }
 
-// ========== 当前登录用户（Session，存 localStorage）==========
-export function getCurrentUser(): UserAccount | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const data = localStorage.getItem('jsh_currentUser')
-    return data ? JSON.parse(data) : null
-  } catch {
-    return null
-  }
-}
-
-export function saveCurrentUser(account: UserAccount): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem('jsh_currentUser', JSON.stringify(account))
-}
-
-export function clearCurrentUser(): void {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem('jsh_currentUser')
-}
+// 注意：当前登录用户的会话存取函数（getCurrentUser/saveCurrentUser/clearCurrentUser）
+// 已迁移到 lib/session.ts —— 该文件不引入数据库依赖，可安全被客户端组件导入。
+// 本文件（userStore.ts）包含数据库连接，只应在服务器端（API Route）中使用。

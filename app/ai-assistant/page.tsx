@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
 import { getUserRole, UserRole, isManager, isMember } from '@/lib/userRole'
 import PersonEditModal from '@/components/PersonEditModal'
-import { getCurrentUser } from '@/lib/userStore'
+import { getCurrentUser } from '@/lib/session'
 
 interface Message {
   id: string

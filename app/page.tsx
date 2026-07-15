@@ -10,7 +10,7 @@ import { ArrowRight, Network, Users, Building2, Target, Eye, EyeOff, LogIn, User
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
 import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
-import { loginUser, registerUser, saveCurrentUser, clearCurrentUser } from '@/lib/userStore'
+import { saveCurrentUser, clearCurrentUser, type UserAccount } from '@/lib/session'
 
 export default function Home() {
   const [showDialog, setShowDialog] = useState(false)
@@ -24,8 +24,9 @@ export default function Home() {
   const [loginLoading, setLoginLoading] = useState(false)
   const [showLoginPassword, setShowLoginPassword] = useState(false)
 
-  // 注册表单
-  const [regUsername, setRegUsername] = useState('')
+  // 注册表单（手机号 + 验证码）
+  const [regPhone, setRegPhone] = useState('')
+  const [regCode, setRegCode] = useState('')
   const [regRealName, setRegRealName] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirmPassword, setRegConfirmPassword] = useState('')
@@ -34,6 +35,8 @@ export default function Home() {
   const [regLoading, setRegLoading] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [regSuccess, setRegSuccess] = useState(false)
+  const [sendCodeLoading, setSendCodeLoading] = useState(false)
+  const [codeCooldown, setCodeCooldown] = useState(0) // 倒计时秒数，>0 时按钮禁用
 
   const router = useRouter()
 
@@ -48,8 +51,15 @@ export default function Home() {
     router.push('/dashboard')
   }, [])
 
+  // 验证码倒计时
+  useEffect(() => {
+    if (codeCooldown <= 0) return
+    const timer = setTimeout(() => setCodeCooldown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [codeCooldown])
+
   // 设置 Cookie 并跳转（直接使用传入的 account，不读 localStorage 避免残留数据）
-  const setCookieAndRedirect = async (role: UserRole, account: import('@/lib/userStore').UserAccount) => {
+  const setCookieAndRedirect = async (role: UserRole, account: UserAccount) => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,7 +80,12 @@ export default function Home() {
     setLoginError('')
     setLoginLoading(true)
     try {
-      const result = await loginUser(loginUsername, loginPassword)
+      const res = await fetch('/api/auth/login-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
+      })
+      const result = await res.json()
       if (!result.success || !result.role || !result.account) {
         setLoginError(result.message)
         return
@@ -84,14 +99,51 @@ export default function Home() {
     }
   }
 
+  const handleSendCode = async () => {
+    setRegError('')
+    if (!/^1[3-9]\d{9}$/.test(regPhone.trim())) {
+      setRegError('请输入有效的手机号')
+      return
+    }
+    setSendCodeLoading(true)
+    try {
+      const res = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: regPhone.trim() }),
+      })
+      const result = await res.json()
+      if (!result.success) {
+        setRegError(result.message)
+        return
+      }
+      setCodeCooldown(60)
+      if (result.devCode) {
+        // 短信服务未配置时的本地调试提示（生产环境不会出现）
+        setRegError(`（开发调试）短信未配置，验证码：${result.devCode}`)
+      }
+    } catch {
+      setRegError('发送验证码失败，请稍后重试')
+    } finally {
+      setSendCodeLoading(false)
+    }
+  }
+
   const handleRegister = async () => {
     setRegError('')
 
+    if (!/^1[3-9]\d{9}$/.test(regPhone.trim())) {
+      setRegError('请输入有效的手机号')
+      return
+    }
+    if (!regCode.trim()) {
+      setRegError('请输入验证码')
+      return
+    }
     if (regPassword !== regConfirmPassword) {
       setRegError('两次输入的密码不一致')
       return
     }
-
     if (!regRealName.trim()) {
       setRegError('请填写您的真实姓名')
       return
@@ -99,7 +151,18 @@ export default function Home() {
 
     setRegLoading(true)
     try {
-      const result = await registerUser(regUsername, regPassword, regInviteCode, regRealName.trim())
+      const res = await fetch('/api/auth/register-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: regPhone.trim(),
+          code: regCode.trim(),
+          password: regPassword,
+          inviteCode: regInviteCode,
+          realName: regRealName.trim(),
+        }),
+      })
+      const result = await res.json()
       if (!result.success || !result.role || !result.account) {
         setRegError(result.message)
         return
@@ -121,13 +184,15 @@ export default function Home() {
     setLoginUsername('')
     setLoginPassword('')
     setLoginError('')
-    setRegUsername('')
+    setRegPhone('')
+    setRegCode('')
     setRegRealName('')
     setRegPassword('')
     setRegConfirmPassword('')
     setRegInviteCode('')
     setRegError('')
     setRegSuccess(false)
+    setCodeCooldown(0)
     setShowDialog(true)
   }
 
@@ -287,9 +352,9 @@ export default function Home() {
               <TabsContent value="login" className="px-6 pb-6 mt-0">
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    <Label className="text-gray-300 text-sm">用户名</Label>
+                    <Label className="text-gray-300 text-sm">手机号 / 用户名</Label>
                     <Input
-                      placeholder="请输入用户名"
+                      placeholder="请输入手机号"
                       value={loginUsername}
                       onChange={e => { setLoginUsername(e.target.value); setLoginError('') }}
                       onKeyDown={e => e.key === 'Enter' && handleLogin()}
@@ -348,13 +413,35 @@ export default function Home() {
                 ) : (
                   <div className="space-y-4 pt-4">
                     <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">用户名</Label>
+                      <Label className="text-gray-300 text-sm">手机号</Label>
                       <Input
-                        placeholder="请设置用户名（2-20个字符）"
-                        value={regUsername}
-                        onChange={e => { setRegUsername(e.target.value); setRegError('') }}
+                        placeholder="请输入手机号"
+                        value={regPhone}
+                        maxLength={11}
+                        onChange={e => { setRegPhone(e.target.value.replace(/\D/g, '')); setRegError('') }}
                         className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300 text-sm">验证码</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="请输入验证码"
+                          value={regCode}
+                          maxLength={6}
+                          onChange={e => { setRegCode(e.target.value.replace(/\D/g, '')); setRegError('') }}
+                          onKeyDown={e => e.key === 'Enter' && handleRegister()}
+                          className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleSendCode}
+                          disabled={sendCodeLoading || codeCooldown > 0}
+                          className="shrink-0 whitespace-nowrap bg-white/10 border border-white/20 hover:bg-white/20 text-white"
+                        >
+                          {codeCooldown > 0 ? `${codeCooldown}秒后重试` : sendCodeLoading ? '发送中...' : '获取验证码'}
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-gray-300 text-sm">真实姓名 <span className="text-purple-400">*</span></Label>
