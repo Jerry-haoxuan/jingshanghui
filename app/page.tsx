@@ -37,6 +37,7 @@ export default function Home() {
   const [regSuccess, setRegSuccess] = useState(false)
   const [sendCodeLoading, setSendCodeLoading] = useState(false)
   const [codeCooldown, setCodeCooldown] = useState(0) // 倒计时秒数，>0 时按钮禁用
+  const [devCodeHint, setDevCodeHint] = useState('') // 短信未配置时的调试验证码提示，不随输入框打字清空
 
   const router = useRouter()
 
@@ -101,6 +102,7 @@ export default function Home() {
 
   const handleSendCode = async () => {
     setRegError('')
+    setDevCodeHint('')
     if (!/^1[3-9]\d{9}$/.test(regPhone.trim())) {
       setRegError('请输入有效的手机号')
       return
@@ -119,8 +121,8 @@ export default function Home() {
       }
       setCodeCooldown(60)
       if (result.devCode) {
-        // 短信服务未配置时的本地调试提示（生产环境不会出现）
-        setRegError(`（开发调试）短信未配置，验证码：${result.devCode}`)
+        // 短信服务未配置时的本地调试提示（生产环境不会出现），常驻显示，不随输入清空
+        setDevCodeHint(result.devCode)
       }
     } catch {
       setRegError('发送验证码失败，请稍后重试')
@@ -193,6 +195,7 @@ export default function Home() {
     setRegError('')
     setRegSuccess(false)
     setCodeCooldown(0)
+    setDevCodeHint('')
     setShowDialog(true)
   }
 
@@ -442,6 +445,14 @@ export default function Home() {
                           {codeCooldown > 0 ? `${codeCooldown}秒后重试` : sendCodeLoading ? '发送中...' : '获取验证码'}
                         </Button>
                       </div>
+                      {devCodeHint && (
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
+                          <p className="text-sm text-amber-400">
+                            短信服务尚未开通，本次验证码为：
+                            <span className="font-mono font-bold text-base ml-1">{devCodeHint}</span>
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-gray-300 text-sm">真实姓名 <span className="text-purple-400">*</span></Label>
