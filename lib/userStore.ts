@@ -15,37 +15,22 @@ export interface UserAccount {
   createdAt: string
 }
 
-// ========== 内测邀请码（第一批，已发放）==========
-export const BETA_INVITATION_CODES_BATCH1: string[] = [
-  'ECO-INV-X7K2M9PQ',
-  'ECO-INV-A3N8Q5RT',
-  'ECO-INV-B4L7W2SY',
-  'ECO-INV-C9M3T6UZ',
-  'ECO-INV-D2P8V4ZF',
-  'ECO-INV-E5R1Y9FG',
-  'ECO-INV-F8S6G3HJ',
-  'ECO-INV-G1T4J7IK',
-  'ECO-INV-H6U9K2OL',
-  'ECO-INV-I0V3L8NM',
-]
-
-// ========== 内测邀请码（第二批）==========
-export const BETA_INVITATION_CODES_BATCH2: string[] = [
-  'ECO-INV-J4R8N2KT',
-  'ECO-INV-K9P3Q7WS',
-  'ECO-INV-L2S6V4MZ',
-  'ECO-INV-M7T1Y9FU',
-  'ECO-INV-N5U4Z3GB',
-  'ECO-INV-O8W6A2HC',
-  'ECO-INV-P3X9B7ID',
-  'ECO-INV-Q1Y2C5JE',
-  'ECO-INV-R6Z8D4KF',
-  'ECO-INV-S0A3E1LG',
+// ========== 内测邀请码（第三批，此前第一、二批已全部作废）==========
+export const BETA_INVITATION_CODES_BATCH3: string[] = [
+  'ECO-INV-P6KSE8YF',
+  'ECO-INV-VC7XVN82',
+  'ECO-INV-VKNQVUN6',
+  'ECO-INV-BGTVQ9W7',
+  'ECO-INV-EFCEUXY7',
+  'ECO-INV-5HY8JVDP',
+  'ECO-INV-R79VJY4P',
+  'ECO-INV-KVXBBPQ3',
+  'ECO-INV-5VQ63ZKA',
+  'ECO-INV-DPHQ6BQW',
 ]
 
 export const BETA_INVITATION_CODES: string[] = [
-  ...BETA_INVITATION_CODES_BATCH1,
-  ...BETA_INVITATION_CODES_BATCH2,
+  ...BETA_INVITATION_CODES_BATCH3,
 ]
 
 // 管理者专用邀请码
