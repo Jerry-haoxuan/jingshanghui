@@ -167,6 +167,9 @@ export async function sendVerificationCode(phone: string): Promise<SendCodeResul
   return result
 }
 
+// 仅校验验证码是否正确，不会使其失效——调用方应在业务流程（如注册）
+// 真正成功之后再调用 consumeVerificationCode，避免用户填错邀请码等
+// 与验证码无关的信息时，白白浪费一次已经验证通过的验证码。
 export function verifyCode(phone: string, code: string): { success: boolean; message: string } {
   const entry = readEntry(phone)
   if (!entry) {
@@ -176,15 +179,19 @@ export function verifyCode(phone: string, code: string): { success: boolean; mes
     deleteEntry(phone)
     return { success: false, message: '验证码已过期，请重新获取' }
   }
-  entry.attempts += 1
-  if (entry.attempts > 5) {
-    deleteEntry(phone)
-    return { success: false, message: '验证次数过多，请重新获取验证码' }
-  }
   if (entry.code !== code.trim()) {
+    entry.attempts += 1
+    if (entry.attempts > 5) {
+      deleteEntry(phone)
+      return { success: false, message: '验证次数过多，请重新获取验证码' }
+    }
     writeEntry(phone, entry) // 持久化失败次数计数
     return { success: false, message: '验证码错误' }
   }
-  deleteEntry(phone) // 验证成功后立即失效，防止重复使用
   return { success: true, message: '验证成功' }
+}
+
+// 业务流程（如注册）真正完成后调用，使验证码失效，防止重复使用
+export function consumeVerificationCode(phone: string): void {
+  deleteEntry(phone)
 }

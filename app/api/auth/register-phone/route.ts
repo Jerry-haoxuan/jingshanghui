@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { registerUser } from '@/lib/userStore'
-import { verifyCode, isValidChinesePhone } from '@/lib/smsService'
+import { verifyCode, consumeVerificationCode, isValidChinesePhone } from '@/lib/smsService'
 
 // 手机号注册（服务器端执行，确保直接写入云端数据库，而不是浏览器本地存储）
 export async function POST(request: NextRequest) {
@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
     if (!result.success || !result.role || !result.account) {
       return NextResponse.json({ success: false, message: result.message }, { status: 400 })
     }
+
+    // 注册真正成功后才让验证码失效，避免邀请码等其他信息填错时白白浪费验证码
+    consumeVerificationCode(phoneTrimmed)
 
     const response = NextResponse.json({
       success: true,
