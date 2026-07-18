@@ -58,6 +58,8 @@
 - **服务器**: 阿里云 ECS + PM2 + Nginx
 - **图标**: lucide-react
 - **AI集成**: DeepSeek API
+- **文档解析**: mammoth（Word）、pdf-parse（PDF）
+- **短信 & OCR**: 阿里云短信服务、阿里云通用文字识别OCR
 
 ## DeepSeek API配置
 

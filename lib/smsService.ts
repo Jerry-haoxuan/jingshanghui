@@ -4,8 +4,9 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-const ALIYUN_ACCESS_KEY_ID = process.env.ALIYUN_SMS_ACCESS_KEY_ID || ''
-const ALIYUN_ACCESS_KEY_SECRET = process.env.ALIYUN_SMS_ACCESS_KEY_SECRET || ''
+// AccessKey 与 OCR 服务共用（同一个 RAM 用户，见 lib/ocrService.ts）
+const ALIYUN_ACCESS_KEY_ID = process.env.ALIYUN_ACCESS_KEY_ID || ''
+const ALIYUN_ACCESS_KEY_SECRET = process.env.ALIYUN_ACCESS_KEY_SECRET || ''
 const ALIYUN_SIGN_NAME = process.env.ALIYUN_SMS_SIGN_NAME || ''
 const ALIYUN_TEMPLATE_CODE = process.env.ALIYUN_SMS_TEMPLATE_CODE || ''
 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Save, Loader2, Plus, X } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Plus, X, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { DEEPSEEK_CONFIG } from '@/lib/config'
@@ -136,6 +136,12 @@ export default function AddPerson() {
   
   const [supplierInfos, setSupplierInfos] = useState<SupplierInfo[]>([])
   const [customerInfos, setCustomerInfos] = useState<CustomerInfo[]>([])
+
+  // AI自动识别：上传个人/公司简介文件，自动提取并填充上面的表单
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState('')
+  const [extractSuccessMsg, setExtractSuccessMsg] = useState('')
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   // 保存表单数据
   const saveFormData = useCallback(() => {
@@ -291,6 +297,62 @@ export default function AddPerson() {
     }
   }
 
+  // 上传文件后，调用AI识别接口，把识别到的信息批量填充到表单里（不覆盖用户已经手动填写的内容为空的字段）
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = '' // 允许重复选择同一个文件
+
+    setExtracting(true)
+    setExtractError('')
+    setExtractSuccessMsg('')
+
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+
+      const res = await fetch('/api/extract-profile', {
+        method: 'POST',
+        body: uploadData,
+      })
+      const result = await res.json()
+
+      if (!result.success) {
+        setExtractError(result.message || '识别失败，请手动填写')
+        return
+      }
+
+      const profile = result.profile
+      setFormData(prev => ({
+        ...prev,
+        ...Object.fromEntries(
+          Object.entries(profile.formData).filter(([, value]) => value !== '')
+        ),
+        phones: profile.phones?.length ? profile.phones : prev.phones,
+        socialOrganizations: profile.socialOrganizations?.length ? profile.socialOrganizations : prev.socialOrganizations,
+      }))
+      if (profile.companyPositions?.length) {
+        setCompanyPositions(profile.companyPositions)
+      }
+      if (profile.educations?.length) {
+        setEducations(profile.educations)
+      }
+      if (profile.supplierInfos?.length) {
+        setSupplierInfos(profile.supplierInfos)
+      }
+      if (profile.customerInfos?.length) {
+        setCustomerInfos(profile.customerInfos)
+      }
+
+      setExtractSuccessMsg('已自动识别并填充信息，请仔细检查下方各项内容，如有不准确请手动修改后再保存。')
+    } catch (error) {
+      console.error('AI识别出错:', error)
+      setExtractError('识别失败，请检查网络后重试，或手动填写')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
   const handleSubmit = async () => {
     // 验证必填字段
     if (
@@ -427,6 +489,61 @@ export default function AddPerson() {
           </CardHeader>
           
           <CardContent>
+            {/* AI自动识别：上传个人简历/名片/公司简介，自动提取信息填充到下方表单 */}
+            <div className="mb-6 p-4 border-2 border-dashed border-purple-200 rounded-lg bg-purple-50/50">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                    <UploadCloud className="h-4 w-4 text-purple-500" />
+                    上传文件自动填写（可选）
+                  </h4>
+                  <p className="text-sm text-gray-500 mt-1">
+                    支持上传个人简历/名片、公司简介文件，AI会自动识别并填充下方表单，你可以在填充后再检查修改。支持 Word(.docx)、PDF、图片、文本文件。
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".docx,.pdf,.txt,.jpg,.jpeg,.png,.bmp,.webp"
+                    className="hidden"
+                    onChange={handleFileSelected}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={extracting}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-white"
+                  >
+                    {extracting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        识别中...
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        选择文件上传
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {extractSuccessMsg && (
+                <div className="mt-3 flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{extractSuccessMsg}</span>
+                </div>
+              )}
+              {extractError && (
+                <div className="mt-3 flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{extractError}</span>
+                </div>
+              )}
+            </div>
+
             <Tabs defaultValue="manual">
               <TabsList className="grid w-full grid-cols-1">
                 <TabsTrigger value="manual">手动录入</TabsTrigger>
