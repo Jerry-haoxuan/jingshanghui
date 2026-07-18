@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import mammoth from 'mammoth'
 import { recognizeImageText, isOcrConfigured } from '@/lib/ocrService'
 
-// DeepSeek API配置（复用通用的助手Key，与短信/OCR无关）
-const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || ''
+// DeepSeek API配置：复用会员AI助手的Key（信息录入功能对会员/管理员一视同仁，无需分账号）
+const DEEPSEEK_API_KEY =
+  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MEMBER ||
+  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER ||
+  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY ||
+  ''
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
