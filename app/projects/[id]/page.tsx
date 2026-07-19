@@ -26,11 +26,8 @@ import {
   STATUS_COLORS,
   ProjectStage,
   ProjectStatus,
-  updateProject,
-  listMilestones,
 } from '@/lib/projectStore'
 import { getCurrentUser } from '@/lib/session'
-import { listPeopleFromCloud } from '@/lib/cloudStore'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'
 import { getUserRole } from '@/lib/userRole'
@@ -108,8 +105,9 @@ export default function ProjectDetailPage() {
   }, [projectId])
 
   const loadMilestones = useCallback(async () => {
-    const data = await listMilestones(projectId)
-    setMilestones(data)
+    const res = await fetch(`/api/projects/${projectId}/milestones`)
+    const { milestones: data } = await res.json()
+    setMilestones(data ?? [])
   }, [projectId])
 
   useEffect(() => {
@@ -120,7 +118,13 @@ export default function ProjectDetailPage() {
 
     const init = async () => {
       setLoading(true)
-      const allPeople = await listPeopleFromCloud()
+      // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录），
+      // 避免直接在客户端调用需要数据库连接的云端方法
+      const ensureParam = currentUser.personName
+        ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
+        : ''
+      const peopleRes = await fetch(`/api/people${ensureParam}`)
+      const { people: allPeople } = await peopleRes.json() as { people: PersonData[] }
       setPeople(allPeople)
       const me = allPeople.find(p => p.name === currentUser.personName)
       if (me) {

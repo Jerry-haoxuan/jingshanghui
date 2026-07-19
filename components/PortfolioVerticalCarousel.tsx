@@ -1,20 +1,26 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { PORTFOLIO_COMPANIES } from '@/lib/portfolioCompanies'
 
 const SLOT_HEIGHT = 120 // 每行之间的垂直间距（像素），留足空隙避免相邻行文字重叠
 const VISIBLE_RANGE = 4 // 圆环距离超过这个值的公司直接透明隐藏，减少无谓渲染开销
-const SPEED = 0.12 // 每秒滚动的槽位数，数值越小滚动越慢、越丝滑
+const SPEED = 0.12 // 每秒自动滚动的槽位数，数值越小滚动越慢、越丝滑
 const N = PORTFOLIO_COMPANIES.length
 
+const normalize = (x: number) => ((x % N) + N) % N
+
 // 生态商圈页的"已上市企业"竖向滚动展示：一横排一家公司（名称+代码+成就标签），
-// 中间一行大而清晰，上下相邻行半隐身。用 rAF 直接操作 DOM 而非 React state
-// 刷新，避免每帧触发组件重渲染，保证动画足够流畅。
+// 中间一行大而清晰，上下相邻行半隐身。自动持续滚动，同时支持鼠标/触摸按住上下拖动，
+// 拖动结束后自动滚动会从当前位置继续。用 rAF 直接操作 DOM 而非 React state 刷新，
+// 避免每帧触发组件重渲染，保证动画足够流畅。
 export default function PortfolioVerticalCarousel() {
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
   const posRef = useRef(0)
-  const pausedRef = useRef(false)
+  const draggingRef = useRef(false)
+  const dragStartYRef = useRef(0)
+  const dragStartPosRef = useRef(0)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let raf = 0
@@ -23,8 +29,9 @@ export default function PortfolioVerticalCarousel() {
     const tick = (now: number) => {
       const dt = (now - last) / 1000
       last = now
-      if (!pausedRef.current) {
-        posRef.current = (posRef.current + SPEED * dt) % N
+      // 自动滚动持续进行，仅在用户主动拖动时才暂停（由拖动直接控制位置）
+      if (!draggingRef.current) {
+        posRef.current = normalize(posRef.current + SPEED * dt)
       }
       const pos = posRef.current
 
@@ -55,12 +62,35 @@ export default function PortfolioVerticalCarousel() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    draggingRef.current = true
+    dragStartYRef.current = e.clientY
+    dragStartPosRef.current = posRef.current
+    containerRef.current?.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return
+    const deltaY = e.clientY - dragStartYRef.current
+    // 手指/鼠标往上移动 => 内容往上滚动，即位置往前推进
+    posRef.current = normalize(dragStartPosRef.current - deltaY / SLOT_HEIGHT)
+  }
+
+  const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    containerRef.current?.releasePointerCapture(e.pointerId)
+  }
+
   return (
     // 单一底板面板：撑满内容区，边框保持完整；淡出遮罩只加在内层文字容器上
     <div
-      className="relative h-[78vh] min-h-[560px] w-full select-none overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
-      onMouseEnter={() => { pausedRef.current = true }}
-      onMouseLeave={() => { pausedRef.current = false }}
+      ref={containerRef}
+      className="relative h-[78vh] min-h-[560px] w-full cursor-grab select-none touch-none overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm active:cursor-grabbing"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     >
       <div className="absolute inset-0 [-webkit-mask-image:linear-gradient(to_bottom,transparent,black_14%,black_86%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,black_14%,black_86%,transparent)]">
         {PORTFOLIO_COMPANIES.map((company, i) => (

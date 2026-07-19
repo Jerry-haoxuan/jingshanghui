@@ -12,11 +12,9 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/session'
-import { listPeopleFromCloud } from '@/lib/cloudStore'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
-import { batchUpsertMilestones } from '@/lib/projectStore'
 import MilestoneForm, { MilestoneInput } from '@/components/projects/MilestoneForm'
 
 const STEPS = ['项目命名', '邀请企业家', '时间节点']
@@ -46,14 +44,22 @@ export default function NewProjectPage() {
     if (!currentUser) { router.push('/'); return }
 
     setLoadingPeople(true)
-    listPeopleFromCloud().then(async allPeople => {
+    const init = async () => {
+      // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录，
+      // 与"我的商圈"页面保持一致，避免直接在客户端调用需要数据库连接的云端方法）
+      const ensureParam = currentUser.personName
+        ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
+        : ''
+      const res = await fetch(`/api/people${ensureParam}`)
+      const { people: allPeople } = await res.json() as { people: PersonData[] }
+
       const me = allPeople.find(p => p.name === currentUser.personName)
       if (me) {
         setCurrentPersonId(me.id)
         // 加载好友列表
         try {
-          const res = await fetch(`/api/friendships?personId=${me.id}`)
-          const { friends } = await res.json()
+          const friendsRes = await fetch(`/api/friendships?personId=${me.id}`)
+          const { friends } = await friendsRes.json()
           setFriendIds(new Set(friends ?? []))
         } catch {
           setFriendIds(new Set())
@@ -62,7 +68,8 @@ export default function NewProjectPage() {
       // 排除自己
       setPeople(allPeople.filter(p => p.id !== me?.id))
       setLoadingPeople(false)
-    })
+    }
+    init()
   }, [router])
 
   const displayName = (person: PersonData) => {
@@ -114,15 +121,18 @@ export default function NewProjectPage() {
       // 保存里程碑
       const validMilestones = milestones.filter(m => m.planned_date)
       if (validMilestones.length > 0) {
-        await batchUpsertMilestones(
-          validMilestones.map(m => ({
-            project_id: project.id,
-            stage: m.stage,
-            planned_date: m.planned_date,
-            reminder_days: m.reminder_days,
-            notes: m.notes || undefined,
-          }))
-        )
+        await fetch(`/api/projects/${project.id}/milestones`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            milestones: validMilestones.map(m => ({
+              stage: m.stage,
+              planned_date: m.planned_date,
+              reminder_days: m.reminder_days,
+              notes: m.notes || undefined,
+            })),
+          }),
+        })
       }
 
       // 写一条系统日志

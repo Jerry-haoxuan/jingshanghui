@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Plus, FolderOpen, ChevronLeft, Loader2, Trash2 } from 'lucide-react'
 import { Project, ProjectStatus, STATUS_LABELS } from '@/lib/projectStore'
 import { getCurrentUser } from '@/lib/session'
-import { listPeopleFromCloud } from '@/lib/cloudStore'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
@@ -31,13 +30,9 @@ export default function ProjectsPage() {
   const loadData = useCallback(async (personId: string) => {
     setLoading(true)
     try {
-      const [projectsRes, peopleData] = await Promise.all([
-        fetch(`/api/projects?personId=${personId}`),
-        listPeopleFromCloud(),
-      ])
+      const projectsRes = await fetch(`/api/projects?personId=${personId}`)
       const { projects: data } = await projectsRes.json()
       setProjects(data ?? [])
-      setPeople(peopleData)
     } finally {
       setLoading(false)
     }
@@ -49,16 +44,23 @@ export default function ProjectsPage() {
       router.push('/')
       return
     }
-    listPeopleFromCloud().then(allPeople => {
-      const me = allPeople.find(p => p.name === currentUser.personName)
-      if (me) {
-        setCurrentPersonId(me.id)
-        loadData(me.id)
+    // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录），
+    // 避免直接在客户端调用需要数据库连接的云端方法
+    const ensureParam = currentUser.personName
+      ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
+      : ''
+    fetch(`/api/people${ensureParam}`)
+      .then(res => res.json())
+      .then(({ people: allPeople }: { people: PersonData[] }) => {
+        const me = allPeople.find(p => p.name === currentUser.personName)
         setPeople(allPeople)
-      } else {
-        setLoading(false)
-      }
-    })
+        if (me) {
+          setCurrentPersonId(me.id)
+          loadData(me.id)
+        } else {
+          setLoading(false)
+        }
+      })
   }, [loadData, router])
 
   const getPersonById = (id: string) => people.find(p => p.id === id)
