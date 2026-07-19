@@ -13,6 +13,7 @@ import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { getCurrentUser } from '@/lib/session'
+import PortfolioVerticalCarousel from '@/components/PortfolioVerticalCarousel'
 
 export default function DashboardClient() {
   const router = useRouter()
@@ -586,7 +587,12 @@ export default function DashboardClient() {
 
           {/* 顶部标题行 */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">生态商圈</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-800">生态商圈</h1>
+              <span className="hidden sm:inline-block whitespace-nowrap bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 bg-clip-text text-sm font-semibold text-transparent">
+                链接万物，让生意变得简单
+              </span>
+            </div>
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -828,37 +834,9 @@ export default function DashboardClient() {
               const totalFamous = companies.filter(isFamousCompany).length
 
               return (
-                <div className="flex flex-col items-center justify-center min-h-[60vh] select-none">
-                  {/* 炫彩动效样式 */}
-                  <style>{`
-                    @keyframes shimmer {
-                      0%   { background-position: 0% 50% }
-                      50%  { background-position: 100% 50% }
-                      100% { background-position: 0% 50% }
-                    }
-                    .rainbow-text {
-                      background: linear-gradient(
-                        270deg,
-                        #ff6b6b, #ffd93d, #6bcb77, #4d96ff,
-                        #c77dff, #ff6b6b
-                      );
-                      background-size: 400% 400%;
-                      -webkit-background-clip: text;
-                      -webkit-text-fill-color: transparent;
-                      background-clip: text;
-                      animation: shimmer 5s ease infinite;
-                    }
-                  `}</style>
-
-                  {/* 大字标题 */}
-                  <h1 className="rainbow-text text-4xl md:text-5xl lg:text-6xl font-black text-center leading-tight px-4">
-                    链接万物，让生意变得简单
-                  </h1>
-
-                  {/* 副标题 */}
-                  <p className="mt-5 text-gray-400 text-base md:text-lg font-normal tracking-wide text-center">
-                    生态正在建设中，敬请期待
-                  </p>
+                <div className="w-full select-none">
+                  {/* 已投资并成功上市企业：竖向滚动展示，中间大而清晰，上下渐渐缩小变淡 */}
+                  <PortfolioVerticalCarousel />
                 </div>
               )
             })()

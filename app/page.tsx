@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowRight, Network, Users, Building2, Target, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
+import PortfolioMarquee from '@/components/PortfolioMarquee'
 import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
 import { saveCurrentUser, clearCurrentUser, type UserAccount } from '@/lib/session'
 
@@ -285,6 +286,9 @@ export default function Home() {
             </Button>
           )}
         </section>
+
+        {/* 已投资企业上市展示：滚动秀肌肉，建立信任背书 */}
+        <PortfolioMarquee />
 
         {/* Features Section */}
         <section className="container py-20 md:py-32">

@@ -73,4 +73,14 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* 滚动展示条两端渐隐遮罩，让卡片"淡入淡出"而不是硬切断，是无限滚动看起来丝滑的关键 */
+.marquee-fade-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
 } 
