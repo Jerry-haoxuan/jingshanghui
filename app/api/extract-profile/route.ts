@@ -81,7 +81,11 @@ async function extractTextFromFile(file: File): Promise<{ text: string; error?: 
 
   if (fileName.endsWith('.pdf')) {
     // 延迟加载，避免影响其他不使用pdf解析的接口的冷启动速度
+    // pdf-parse 底层依赖 pdfjs 的 worker 文件，Next.js 打包后默认找不到，
+    // 需要先手动设置 worker 路径（见 pdf-parse 官方文档 troubleshooting）
+    const { getPath } = await import('pdf-parse/worker')
     const { PDFParse } = await import('pdf-parse')
+    PDFParse.setWorker(getPath())
     const parser = new PDFParse({ data: buffer })
     const result = await parser.getText()
     await parser.destroy()
