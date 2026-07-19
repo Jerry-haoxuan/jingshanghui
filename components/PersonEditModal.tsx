@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
 import { PersonData, updatePerson } from '@/lib/dataStore'
-import { Plus, X, Save, Loader2 } from 'lucide-react'
+import { Plus, X, Save, Loader2, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
 
 interface PersonEditModalProps {
   person: PersonData | null
@@ -133,9 +133,17 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
   const [supplierInfos, setSupplierInfos] = useState<SupplierInfo[]>([])
   const [customerInfos, setCustomerInfos] = useState<CustomerInfo[]>([])
 
+  // AI自动识别：上传个人/公司简介文件，自动提取并覆盖填充上面的表单
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState('')
+  const [extractSuccessMsg, setExtractSuccessMsg] = useState('')
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
   // 当person变化时更新表单数据
   useEffect(() => {
     if (person) {
+      setExtractError('')
+      setExtractSuccessMsg('')
       setFormData({
         name: person.name || '',
         birthDate: person.birthDate || '',
@@ -526,6 +534,62 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     setCustomerInfos(customerInfos.filter((_, i) => i !== index))
   }
 
+  // 上传文件后，调用AI识别接口，把识别到的信息批量覆盖填充到表单里，方便快速更新资料
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = '' // 允许重复选择同一个文件
+
+    setExtracting(true)
+    setExtractError('')
+    setExtractSuccessMsg('')
+
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+
+      const res = await fetch('/api/extract-profile', {
+        method: 'POST',
+        body: uploadData,
+      })
+      const result = await res.json()
+
+      if (!result.success) {
+        setExtractError(result.message || '识别失败，请手动填写')
+        return
+      }
+
+      const profile = result.profile
+      setFormData(prev => ({
+        ...prev,
+        ...Object.fromEntries(
+          Object.entries(profile.formData).filter(([, value]) => value !== '')
+        ),
+        phones: profile.phones?.length ? profile.phones : prev.phones,
+        socialOrganizations: profile.socialOrganizations?.length ? profile.socialOrganizations : prev.socialOrganizations,
+      }))
+      if (profile.companyPositions?.length) {
+        setCompanyPositions(profile.companyPositions)
+      }
+      if (profile.educations?.length) {
+        setEducations(profile.educations)
+      }
+      if (profile.supplierInfos?.length) {
+        setSupplierInfos(profile.supplierInfos)
+      }
+      if (profile.customerInfos?.length) {
+        setCustomerInfos(profile.customerInfos)
+      }
+
+      setExtractSuccessMsg('已自动识别并填充信息，请仔细检查下方各项内容，如有不准确请手动修改后再保存。')
+    } catch (error) {
+      console.error('AI识别出错:', error)
+      setExtractError('识别失败，请检查网络后重试，或手动填写')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!person) return
 
@@ -671,6 +735,61 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         <DialogHeader>
           <DialogTitle>编辑个人信息 - {person.name}</DialogTitle>
         </DialogHeader>
+
+        {/* AI自动识别：上传个人简历/名片/公司简介，自动提取信息覆盖填充下方表单 */}
+        <div className="mb-2 p-4 border-2 border-dashed border-purple-200 rounded-lg bg-purple-50/50">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                <UploadCloud className="h-4 w-4 text-purple-500" />
+                上传文件自动更新（可选）
+              </h4>
+              <p className="text-sm text-gray-500 mt-1">
+                支持上传个人简历/名片、公司简介文件，AI会自动识别并覆盖填充下方表单，你可以在填充后再检查修改。支持 Word(.docx)、PDF、图片、文本文件。
+              </p>
+            </div>
+            <div className="shrink-0">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".docx,.pdf,.txt,.jpg,.jpeg,.png,.bmp,.webp"
+                className="hidden"
+                onChange={handleFileSelected}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={extracting}
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-white"
+              >
+                {extracting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    识别中...
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    选择文件上传
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+          {extractSuccessMsg && (
+            <div className="mt-3 flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{extractSuccessMsg}</span>
+            </div>
+          )}
+          {extractError && (
+            <div className="mt-3 flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{extractError}</span>
+            </div>
+          )}
+        </div>
 
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
