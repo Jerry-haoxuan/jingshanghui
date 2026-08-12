@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Save, Loader2, Plus, X, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
+import { buttonVariants } from '@/components/ui/button'
+import { ArrowLeft, Save, Loader2, Plus, X, UploadCloud, CheckCircle2, AlertCircle, FileSpreadsheet, Download } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { DEEPSEEK_CONFIG } from '@/lib/config'
@@ -137,11 +138,12 @@ export default function AddPerson() {
   const [supplierInfos, setSupplierInfos] = useState<SupplierInfo[]>([])
   const [customerInfos, setCustomerInfos] = useState<CustomerInfo[]>([])
 
-  // AI自动识别：上传个人/公司简介文件，自动提取并填充上面的表单
+  // AI自动识别 / Excel模板：上传个人/公司简介文件或填好的Excel，自动提取并填充上面的表单
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState('')
   const [extractSuccessMsg, setExtractSuccessMsg] = useState('')
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const excelInputRef = React.useRef<HTMLInputElement>(null)
 
   // 保存表单数据
   const saveFormData = useCallback(() => {
@@ -297,7 +299,33 @@ export default function AddPerson() {
     }
   }
 
-  // 上传文件后，调用AI识别接口，把识别到的信息批量填充到表单里（不覆盖用户已经手动填写的内容为空的字段）
+  // 把识别到的档案（无论来自AI文档识别还是Excel模板）填充到表单里，
+  // 不覆盖用户已经手动填写的内容为空的字段
+  const applyExtractedProfile = (profile: any, successMsg: string) => {
+    setFormData(prev => ({
+      ...prev,
+      ...Object.fromEntries(
+        Object.entries(profile.formData).filter(([, value]) => value !== '')
+      ),
+      phones: profile.phones?.length ? profile.phones : prev.phones,
+      socialOrganizations: profile.socialOrganizations?.length ? profile.socialOrganizations : prev.socialOrganizations,
+    }))
+    if (profile.companyPositions?.length) {
+      setCompanyPositions(profile.companyPositions)
+    }
+    if (profile.educations?.length) {
+      setEducations(profile.educations)
+    }
+    if (profile.supplierInfos?.length) {
+      setSupplierInfos(profile.supplierInfos)
+    }
+    if (profile.customerInfos?.length) {
+      setCustomerInfos(profile.customerInfos)
+    }
+    setExtractSuccessMsg(successMsg)
+  }
+
+  // 上传Word/PDF/图片后，调用AI识别接口，把识别到的信息批量填充到表单里
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -322,32 +350,44 @@ export default function AddPerson() {
         return
       }
 
-      const profile = result.profile
-      setFormData(prev => ({
-        ...prev,
-        ...Object.fromEntries(
-          Object.entries(profile.formData).filter(([, value]) => value !== '')
-        ),
-        phones: profile.phones?.length ? profile.phones : prev.phones,
-        socialOrganizations: profile.socialOrganizations?.length ? profile.socialOrganizations : prev.socialOrganizations,
-      }))
-      if (profile.companyPositions?.length) {
-        setCompanyPositions(profile.companyPositions)
-      }
-      if (profile.educations?.length) {
-        setEducations(profile.educations)
-      }
-      if (profile.supplierInfos?.length) {
-        setSupplierInfos(profile.supplierInfos)
-      }
-      if (profile.customerInfos?.length) {
-        setCustomerInfos(profile.customerInfos)
-      }
-
-      setExtractSuccessMsg('已自动识别并填充信息，请仔细检查下方各项内容，如有不准确请手动修改后再保存。')
+      applyExtractedProfile(result.profile, '已自动识别并填充信息，请仔细检查下方各项内容，如有不准确请手动修改后再保存。')
     } catch (error) {
       console.error('AI识别出错:', error)
       setExtractError('识别失败，请检查网络后重试，或手动填写')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  // 上传填好的Excel模板，解析后把"你自己那一行"（示例行会自动跳过）填充到表单里
+  const handleExcelSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    setExtracting(true)
+    setExtractError('')
+    setExtractSuccessMsg('')
+
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+
+      const res = await fetch('/api/parse-profile-excel', {
+        method: 'POST',
+        body: uploadData,
+      })
+      const result = await res.json()
+
+      if (!result.success) {
+        setExtractError(result.message || 'Excel解析失败，请检查是否使用最新模板并已填写')
+        return
+      }
+
+      applyExtractedProfile(result.profile, '已从Excel中读取到你的信息并填充，请仔细检查下方各项内容，如有不准确请手动修改后再保存。')
+    } catch (error) {
+      console.error('Excel解析出错:', error)
+      setExtractError('解析失败，请检查网络后重试，或手动填写')
     } finally {
       setExtracting(false)
     }
@@ -501,7 +541,7 @@ export default function AddPerson() {
                     支持上传个人简历/名片、公司简介文件，AI会自动识别并填充下方表单，你可以在填充后再检查修改。支持 Word(.docx)、PDF、图片、文本文件。
                   </p>
                 </div>
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-wrap gap-2">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -528,8 +568,45 @@ export default function AddPerson() {
                       </>
                     )}
                   </Button>
+                  <a
+                    href="/api/download-template"
+                    download
+                    className={buttonVariants({ variant: 'outline' }) + ' bg-white'}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    下载Excel模板
+                  </a>
+                  <input
+                    ref={excelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={handleExcelSelected}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={extracting}
+                    onClick={() => excelInputRef.current?.click()}
+                    className="bg-white"
+                  >
+                    {extracting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        识别中...
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        上传填好的Excel
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
+              <p className="text-xs text-gray-400 mt-2">
+                更喜欢填表格？可以先"下载Excel模板"，里面有完整示例（宋江、徐翔）教你怎么填，填完你自己的信息后再"上传填好的Excel"自动识别填充。
+              </p>
               {extractSuccessMsg && (
                 <div className="mt-3 flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />

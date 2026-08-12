@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import mammoth from 'mammoth'
 import { recognizeImageText, isOcrConfigured } from '@/lib/ocrService'
+import { ExtractedProfile, buildEmptyProfile } from '@/lib/profileTypes'
 
 // DeepSeek API配置：复用会员AI助手的Key（信息录入功能对会员/管理员一视同仁，无需分账号）
 const DEEPSEEK_API_KEY =
@@ -12,58 +13,6 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
 const MAX_TEXT_LENGTH = 15000 // 避免超长文档消耗过多token，超出部分截断
-
-// 提取出的结构化数据，字段与 app/add/page.tsx 表单状态一一对应，前端可直接回填
-export interface ExtractedProfile {
-  formData: {
-    name: string
-    birthDate: string
-    email: string
-    hometown: string
-    currentCity: string
-    homeAddress: string
-    companyAddress: string
-    industry: string
-    politicalParty: string
-    hobbies: string
-    skills: string
-    expectations: string
-    workHistory: string
-    additionalInfo: string
-    companyIndustry: string
-    companyScale: string
-    companyPositioning: string
-    companyValue: string
-    companyAchievements: string
-    companyDemands: string
-  }
-  phones: string[]
-  socialOrganizations: string[]
-  companyPositions: { company: string; position: string }[]
-  educations: { level: '本科' | '硕士' | '博士' | 'EMBA'; school: string; major: string; year: string }[]
-  supplierInfos: {
-    materialName: string
-    materialCategory: string
-    supplierName: string
-    industryCategory: string
-    subTitle: string
-    keywords: string
-    keyPerson1: string
-    keyPerson2: string
-    keyPerson3: string
-  }[]
-  customerInfos: {
-    productName: string
-    productCategory: string
-    customerName: string
-    industryCategory: string
-    subTitle: string
-    keywords: string
-    keyPerson1: string
-    keyPerson2: string
-    keyPerson3: string
-  }[]
-}
 
 // 把各种格式的文件统一转换成纯文字，后续无论来源如何，都走同一套AI提取逻辑
 async function extractTextFromFile(file: File): Promise<{ text: string; error?: string }> {
@@ -108,24 +57,6 @@ async function extractTextFromFile(file: File): Promise<{ text: string; error?: 
   }
 
   return { text: '', error: '不支持的文件格式，请上传 Word(.docx)、PDF、图片或文本文件' }
-}
-
-function buildEmptyProfile(): ExtractedProfile {
-  return {
-    formData: {
-      name: '', birthDate: '', email: '', hometown: '', currentCity: '',
-      homeAddress: '', companyAddress: '', industry: '', politicalParty: '',
-      hobbies: '', skills: '', expectations: '', workHistory: '', additionalInfo: '',
-      companyIndustry: '', companyScale: '', companyPositioning: '', companyValue: '',
-      companyAchievements: '', companyDemands: '',
-    },
-    phones: [],
-    socialOrganizations: [],
-    companyPositions: [],
-    educations: [],
-    supplierInfos: [],
-    customerInfos: [],
-  }
 }
 
 const EXTRACTION_PROMPT = `你是一个专业的商圈档案信息提取助手。请从下面这段文字（可能是个人简历、名片、公司简介中的任意一种或混合）中，尽可能提取出人物和企业的结构化信息。
