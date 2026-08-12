@@ -18,16 +18,7 @@ CREATE TABLE IF NOT EXISTS public.user_accounts (
 -- 如果 user_accounts 已存在但缺少 person_name 列，执行下面这行
 ALTER TABLE public.user_accounts ADD COLUMN IF NOT EXISTS person_name VARCHAR(100);
 
--- 2. 好友关系表
-CREATE TABLE IF NOT EXISTS public.friendships (
-  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  person_id_1 VARCHAR(100) NOT NULL,
-  person_id_2 VARCHAR(100) NOT NULL,
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  UNIQUE (person_id_1, person_id_2)
-);
-
--- 3. 项目表
+-- 2. 项目表
 CREATE TABLE IF NOT EXISTS public.projects (
   id                   UUID         PRIMARY KEY,
   name                 VARCHAR(200) NOT NULL,
@@ -42,7 +33,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
--- 4. 项目里程碑表
+-- 3. 项目里程碑表
 CREATE TABLE IF NOT EXISTS public.project_milestones (
   id             UUID        PRIMARY KEY,
   project_id     UUID        NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -54,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.project_milestones (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. 项目日志表
+-- 4. 项目日志表
 CREATE TABLE IF NOT EXISTS public.project_logs (
   id               UUID        PRIMARY KEY,
   project_id       UUID        NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -65,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.project_logs (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6. 项目文件表
+-- 5. 项目文件表
 CREATE TABLE IF NOT EXISTS public.project_files (
   id                      UUID         PRIMARY KEY,
   project_id              UUID         NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -76,7 +67,7 @@ CREATE TABLE IF NOT EXISTS public.project_files (
   created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
--- 7. 项目点评表
+-- 6. 项目点评表
 CREATE TABLE IF NOT EXISTS public.project_reviews (
   id                  UUID         PRIMARY KEY,
   project_id          UUID         NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,

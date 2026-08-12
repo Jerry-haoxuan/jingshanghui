@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit, Network, FolderOpen, Users, ChevronDown, ChevronUp, Cpu, Settings, Sparkles, Layers, Zap, Car, Heart, Globe, TrendingUp, Award } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit, Network, FolderOpen, ChevronDown, ChevronUp, Cpu, Settings, Sparkles, Layers, Zap, Car, Heart, Globe, TrendingUp, Award } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -513,13 +513,6 @@ export default function DashboardClient() {
                 </div>
               )}
             </div>
-            <Link
-              href="/business-circle"
-              className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"
-            >
-              <Users className="h-5 w-5" />
-              {!isSidebarCollapsed && <span>我的商圈</span>}
-            </Link>
             <Link
               href="/projects"
               className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg"

@@ -34,7 +34,6 @@ export default function NewProjectPage() {
   const [selectedPartner, setSelectedPartner] = useState<PersonData | null>(null)
   const [loadingPeople, setLoadingPeople] = useState(false)
   const [currentPersonId, setCurrentPersonId] = useState<string | null>(null)
-  const [friendIds, setFriendIds] = useState<Set<string>>(new Set())
 
   // Step 3
   const [milestones, setMilestones] = useState<MilestoneInput[]>([])
@@ -45,8 +44,8 @@ export default function NewProjectPage() {
 
     setLoadingPeople(true)
     const init = async () => {
-      // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录，
-      // 与"我的商圈"页面保持一致，避免直接在客户端调用需要数据库连接的云端方法）
+      // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录），
+      // 避免直接在客户端调用需要数据库连接的云端方法
       const ensureParam = currentUser.personName
         ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
         : ''
@@ -56,14 +55,6 @@ export default function NewProjectPage() {
       const me = allPeople.find(p => p.name === currentUser.personName)
       if (me) {
         setCurrentPersonId(me.id)
-        // 加载好友列表
-        try {
-          const friendsRes = await fetch(`/api/friendships?personId=${me.id}`)
-          const { friends } = await friendsRes.json()
-          setFriendIds(new Set(friends ?? []))
-        } catch {
-          setFriendIds(new Set())
-        }
       }
       // 排除自己
       setPeople(allPeople.filter(p => p.id !== me?.id))
@@ -77,11 +68,7 @@ export default function NewProjectPage() {
     return deterministicAliasName(person.name)
   }
 
-  // 只显示商圈好友；若无好友则显示全部并提示
-  const friendPeople = people.filter(p => friendIds.has(p.id))
-  const hasFriends = friendPeople.length > 0
-
-  const filteredPeople = (hasFriends ? friendPeople : people).filter(p => {
+  const filteredPeople = people.filter(p => {
     const q = searchQuery.toLowerCase()
     return (
       p.name.toLowerCase().includes(q) ||
@@ -249,29 +236,8 @@ export default function NewProjectPage() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-lg font-bold text-gray-900 mb-1">选择合作企业家</h2>
-                <p className="text-sm text-gray-500">从商圈好友中选择合作对象</p>
+                <p className="text-sm text-gray-500">从全部企业家中选择合作对象</p>
               </div>
-
-              {/* 无好友提示 */}
-              {!loadingPeople && !hasFriends && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-                  <span className="text-amber-500 text-lg shrink-0">⚠️</span>
-                  <div>
-                    <p className="text-sm text-amber-800 font-medium">你的商圈暂无好友</p>
-                    <p className="text-xs text-amber-600 mt-0.5">
-                      只有商圈好友才能互相建立项目。以下显示全部企业家供参考，
-                      建议先前往{' '}
-                      <a href="/business-circle" className="underline font-medium" target="_blank">我的商圈</a>
-                      {' '}添加好友后再立项。
-                    </p>
-                  </div>
-                </div>
-              )}
-              {!loadingPeople && hasFriends && (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-sm text-green-700">
-                  显示你的商圈好友（共 {friendPeople.length} 人）
-                </div>
-              )}
 
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

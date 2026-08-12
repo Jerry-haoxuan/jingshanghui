@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Network, MessageSquare, Send, Bot, Edit, Users, FolderOpen, Brain, ChevronDown, ChevronUp, Sparkles, Globe, ExternalLink, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Network, MessageSquare, Send, Bot, Edit, FolderOpen, Brain, ChevronDown, ChevronUp, Sparkles, Globe, ExternalLink, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
@@ -375,10 +375,6 @@ export default function AIAssistant() {
             <Edit className="h-4 w-4 shrink-0" />
             {!navCollapsed && <span>我的</span>}
           </button>
-          <Link href="/business-circle" className="flex items-center gap-2.5 px-2.5 py-2 hover:bg-gray-100 rounded-lg text-sm text-gray-700">
-            <Users className="h-4 w-4 shrink-0" />
-            {!navCollapsed && <span>我的商圈</span>}
-          </Link>
           <Link href="/projects" className="flex items-center gap-2.5 px-2.5 py-2 hover:bg-gray-100 rounded-lg text-sm text-gray-700">
             <FolderOpen className="h-4 w-4 shrink-0" />
             {!navCollapsed && <span>My Project</span>}
