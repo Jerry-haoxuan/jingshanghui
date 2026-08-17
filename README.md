@@ -73,7 +73,7 @@
 2. **配置环境变量**
    在项目根目录创建 `.env.local` 文件：
    ```
-   NEXT_PUBLIC_DEEPSEEK_API_KEY=your_deepseek_api_key_here
+   DEEPSEEK_API_KEY=your_deepseek_api_key_here
    ```
 
 3. **验证配置**

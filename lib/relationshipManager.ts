@@ -1,6 +1,5 @@
 // 关系网络管理器 - 用于AI自动梳理关系
 import { PersonData, CompanyData } from './dataStore'
-import { DEEPSEEK_CONFIG } from './config'
 
 export interface RelationshipData {
   id: string
@@ -79,76 +78,32 @@ export const analyzeRelationships = async (newPerson: PersonData): Promise<Relat
   
   const allPeople = cloudPeople !== null ? cloudPeople : getPeople()
   const allCompanies = cloudCompanies !== null ? cloudCompanies : getCompanies()
-  
-  // 如果没有配置API密钥，返回基本关系分析
-  if (!DEEPSEEK_CONFIG.apiKey) {
-    return generateBasicRelationships(newPerson, allPeople, allCompanies)
-  }
 
+  // AI关系分析统一走服务器端接口，DeepSeek Key只存在于服务器环境变量中，
+  // 客户端不再持有任何API密钥，避免密钥被打进浏览器JS而被盗用
   try {
-    const prompt = `
-      请分析以下新增人物与现有人物和公司的关系：
-      
-      新增人物：${JSON.stringify(newPerson)}
-      
-      现有人物：${JSON.stringify(allPeople.filter(p => p.id !== newPerson.id))}
-      
-      现有公司：${JSON.stringify(allCompanies)}
-      
-             请分析并返回JSON格式的关系数据，包含：
-       1. 同事关系（相同公司的人）
-       2. 校友关系（相同学校的人）
-       3. 行业伙伴关系（相同行业的人）
-       4. 业务关系（可能的供应商、客户等）
-       
-       返回格式：
-       {
-         "relationships": [
-           {
-             "relatedPersonId": "person_id",
-             "relationshipType": "colleague|schoolmate|industry_partner|business_contact",
-             "strength": 0.8,
-             "description": "关系描述"
-           }
-         ]
-       }
-    `
-
-    const response = await fetch(`${DEEPSEEK_CONFIG.apiUrl}/chat/completions`, {
+    const response = await fetch('/api/analyze-relationships', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_CONFIG.apiKey}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: DEEPSEEK_CONFIG.model,
-        messages: [
-          {
-            role: 'system',
-            content: '你是一个专业的关系网络分析师，擅长分析人物之间的关系。'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
-      })
+        newPerson,
+        allPeople: allPeople.filter(p => p.id !== newPerson.id),
+        allCompanies,
+      }),
     })
 
     if (!response.ok) {
-      throw new Error('AI分析失败')
+      throw new Error('AI分析接口请求失败')
     }
 
     const data = await response.json()
-    const aiResult = data.choices[0].message.content
+    if (!data.relationships) {
+      // 接口返回没有可用结果（比如未配置Key、DeepSeek报错等），降级到基本关系分析
+      return generateBasicRelationships(newPerson, allPeople, allCompanies)
+    }
 
-    // 尝试解析AI返回的JSON
-    const parsedResult = JSON.parse(aiResult)
-    
     // 转换为标准的关系数据格式
-    const relationships: RelationshipData[] = parsedResult.relationships.map((rel: any) => ({
+    const relationships: RelationshipData[] = data.relationships.map((rel: any) => ({
       id: `${newPerson.id}_${rel.relatedPersonId}_${Date.now()}`,
       personId: newPerson.id,
       relatedPersonId: rel.relatedPersonId,

@@ -4,9 +4,8 @@ import { PersonData, CompanyData } from '@/lib/dataStore'
 import { deterministicAliasName, shouldAliasName, findPersonByAliasName, findPeopleByAliasName } from '@/lib/deterministicNameAlias'
 import { getYongxinPortfolio, getCompanyFullProfile, formatCompanyProfile, searchCompany } from '@/lib/tianyancha'
 
-// DeepSeek API配置
-const DEEPSEEK_API_KEY_MANAGER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER || ''
-const DEEPSEEK_API_KEY_MEMBER = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MEMBER || ''
+// DeepSeek API配置：全站统一使用一把服务器端专用Key，不再区分管理员/会员
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 // 博查 (Bocha) 联网搜索 API — 国内搜索引擎，中文结果更优
@@ -668,8 +667,7 @@ ${webSearchSection}
 
     console.log('Calling DeepSeek API with message:', message)
 
-    // 根据角色选择对应的API密钥
-    const apiKey = isMember ? DEEPSEEK_API_KEY_MEMBER : DEEPSEEK_API_KEY_MANAGER
+    const apiKey = DEEPSEEK_API_KEY
 
     // 深度思考模式使用 deepseek-reasoner，普通模式使用 deepseek-chat
     const modelName = useDeepThinking ? 'deepseek-reasoner' : 'deepseek-chat'

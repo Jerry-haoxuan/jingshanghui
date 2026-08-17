@@ -3,12 +3,8 @@ import mammoth from 'mammoth'
 import { recognizeImageText, isOcrConfigured } from '@/lib/ocrService'
 import { ExtractedProfile, buildEmptyProfile } from '@/lib/profileTypes'
 
-// DeepSeek API配置：复用会员AI助手的Key（信息录入功能对会员/管理员一视同仁，无需分账号）
-const DEEPSEEK_API_KEY =
-  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MEMBER ||
-  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY_MANAGER ||
-  process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY ||
-  ''
+// DeepSeek API配置：全站统一使用一把服务器端专用Key，不再区分管理员/会员
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
