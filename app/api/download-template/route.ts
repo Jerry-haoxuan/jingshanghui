@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import * as XLSX from 'xlsx'
+// 用 xlsx-js-style（SheetJS社区版的一个分支）而不是原版 xlsx，
+// 是因为原版免费版不支持写入单元格样式（加粗/背景色），没法把重点内容"标出来"。
+// 读取/解析Excel（/api/parse-profile-excel）不需要样式，继续用原版 xlsx 即可。
+import * as XLSX from 'xlsx-js-style'
+import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_NAMES, EXAMPLE_CUSTOMER_NAMES } from '@/lib/profileTypes'
 
 // 个人与企业信息模板：字段顺序需要和 /api/parse-profile-excel 里的列名一一对应，
 // 改这里的表头文字时务必同步改那边的读取逻辑，否则会读不到数据。
@@ -29,37 +33,21 @@ const MAIN_NOTE_ROW = [
   '可选(多个用逗号分隔)', '可选(多个用逗号分隔)', '可选', '可选', '可选'
 ]
 
-// 示例1：宋江——个体户/贸易类小微企业主的填法，突出"多个社会身份、无高等学历"这种场景
-const EXAMPLE_ROW_1 = [
-  '宋江', '1980-03-12', '13900000001', '', '', 'songjiang@example.com',
-  '山东济南', '山东郓城', '山东省郓城县宋家村1号',
-  '郓城义和贸易有限公司', '创始人兼总经理', '梁山物流有限公司', '董事', '', '', '山东省济南市历下区示例路1号',
-  '其他', '51-100人', '专注区域大宗商品贸易与仓储物流一体化服务', '深耕本地渠道多年，客户信任度高、履约能力强', '累计服务客户200余家，年交易额超5000万元', '希望寻找异地仓储合作伙伴，拓展跨区域物流网络',
-  '群众', '郓城县工商联副会长', '山东青年企业家协会理事', '',
-  '山东大学', '工商管理', '2003',
+// 唯一的示例：小明——用一个虚构的名字演示各种字段（多家公司、多段学历）怎么填。
+// 注意：不能用网站里真实存在的人名（比如以前用过的"宋江""徐翔"），避免和真实用户混淆。
+const EXAMPLE_ROW = [
+  EXAMPLE_PERSON_NAMES[0], '1985-06-15', '13900000000', '', '', 'xiaoming@example.com',
+  '江苏苏州', '江苏南京', '江苏省苏州市示例路1号',
+  '苏州示例科技有限公司', '总经理', '南京示例贸易有限公司', '股东', '', '', '江苏省苏州市工业园区示例大厦8楼',
+  '智能制造', '51-100人', '专注精密零部件研发与生产，服务新能源、半导体等行业客户', '拥有自主研发能力，交付周期短、良率高', '累计服务客户50余家，年产值超3000万元', '希望结识更多下游整机厂客户，同时寻找优质原材料供应商',
+  '中国共产党', '苏州市工商联理事', '', '',
+  '南京大学', '机械工程', '2007',
   '', '', '',
   '', '', '',
-  '复旦大学', '2016',
-  '结交朋友,书法,象棋', '人脉资源整合,渠道谈判', '希望结识更多异地仓储与物流合作伙伴，拓展供应链网络',
-  '2003-2008 山东某国企仓储部；2008-2015 自主创业成立郓城义和贸易；2015至今 兼任梁山物流董事',
-  '为人仗义，人脉资源丰富，热心公益'
-]
-
-// 示例2：徐翔——科技型企业主的填法，突出"多家公司、多段高等学历、完整企业信息"这种场景
-// 注：仅借用姓名做示例占位，公司/履历等信息均为虚构，与真实同名人物无关
-const EXAMPLE_ROW_2 = [
-  '徐翔', '1978-11-01', '13900000002', '021-88889999', '', 'xuxiang@example.com',
-  '上海市', '浙江宁波', '上海市浦东新区示例路2号',
-  '上海远航新材料科技有限公司', '董事长', '宁波徐氏精密制造有限公司', '联合创始人', '', '', '上海市浦东新区示例产业园3号楼',
-  '新材料', '101-500人', '专注新能源电池用高分子复合材料研发与规模化生产', '拥有自主专利工艺，产品良率行业领先，交付周期短', '已进入3家头部电池厂商供应链，年产值超2亿元', '希望对接新能源整车厂及电池厂客户资源，同时寻求B轮融资',
-  '无党派人士', '上海新材料行业协会副理事长', '', '',
-  '浙江大学', '材料科学与工程', '2001',
-  '上海交通大学', '高分子材料', '2004',
-  '', '', '',
-  '长江商学院', '2019',
-  '高尔夫,古董收藏,阅读行业研究报告', '技术工艺研发,产业链资源整合,融资谈判', '希望结识新能源整车及电池厂采购负责人，推进合作与B轮融资对接',
-  '2001-2007 某材料研究所工程师；2007-2013 某上市材料公司技术总监；2013至今 创办上海远航新材料',
-  '技术背景深厚，专注新能源材料赛道多年'
+  '', '',
+  '摄影,健身,阅读', '生产管理,客户谈判', '希望结识更多同行业上下游合作伙伴，拓展业务网络',
+  '2007-2012 某国企工程师；2012-2018 某上市制造企业生产总监；2018至今 创办苏州示例科技',
+  '这是示例数据，请删除本行后填写你自己的真实信息'
 ]
 
 const MAIN_COL_WIDTHS = [
@@ -79,16 +67,13 @@ const MAIN_COL_WIDTHS = [
 const SUPPLIER_HEADERS = ['供应商名称', '采购物料/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '关键人物2', '关键人物3']
 const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选']
 const SUPPLIER_EXAMPLE_ROWS = [
-  ['梁山仓储物流有限公司', '仓储服务', '工业互联网', '区域仓储配送', '仓储,配送', '吴用', '', ''],
-  ['东平木业加工厂', '包装木箱', '智能制造', '定制包装', '包装', '', '', ''],
-  ['宁波高分子原料有限公司', '高分子树脂原料', '新材料', '树脂原料供应', '树脂,原料', '王建国', '', ''],
+  [EXAMPLE_SUPPLIER_NAMES[0], '原材料', '新材料', '原材料供应', '原材料,加工', '张三', '', ''],
 ]
 
 const CUSTOMER_HEADERS = ['客户名称', '销售产品/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '关键人物2', '关键人物3']
 const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选']
 const CUSTOMER_EXAMPLE_ROWS = [
-  ['济南振华建材贸易有限公司', '大宗建材经销', '其他', '区域建材批发', '建材,批发', '', '', ''],
-  ['江苏动力电池科技有限公司', '电池用复合材料', '新能源汽车', '电池材料采购', '电池,材料', '李工', '', ''],
+  [EXAMPLE_CUSTOMER_NAMES[0], '精密零部件', '智能制造', '整机组装采购', '零部件,采购', '李四', '', ''],
 ]
 
 const INDUSTRY_CATEGORIES = [
@@ -104,59 +89,109 @@ const PARTY_OPTIONS = [
 
 const COMPANY_SCALE_OPTIONS = ['1-10人', '11-50人', '51-100人', '101-500人', '501-1000人', '1000人以上']
 
+// ---- 样式定义（xlsx-js-style 用法：给单元格对象加 .s 属性）----
+const STYLE_TITLE = { font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '1D4ED8' } }, alignment: { vertical: 'center' } }
+const STYLE_SECTION = { font: { bold: true, sz: 12, color: { rgb: '1D4ED8' } } }
+const STYLE_WARNING = { font: { bold: true, color: { rgb: 'DC2626' } }, fill: { fgColor: { rgb: 'FEF3C7' } } }
+const STYLE_NORMAL = { font: { sz: 11 }, alignment: { wrapText: true } }
+const STYLE_HEADER_CELL = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2563EB' } }, alignment: { horizontal: 'center', vertical: 'center' } }
+const STYLE_REQUIRED_NOTE = { font: { bold: true, color: { rgb: 'DC2626' }, sz: 10 } }
+const STYLE_OPTIONAL_NOTE = { font: { color: { rgb: '6B7280' }, sz: 10, italic: true } }
+const STYLE_EXAMPLE_ROW = { font: { color: { rgb: '9CA3AF' }, italic: true } }
+
+// 给"填写说明"sheet里的某一行整行套用样式（该行内容只有一列，A列）
+function styleNoteSheetRow(sheet: XLSX.WorkSheet, rowIndex: number, style: any) {
+  const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 })
+  if (sheet[cellRef]) sheet[cellRef].s = style
+}
+
+// 给数据表（个人信息/供应商/客户）的表头行、说明行、示例行整行套样式
+function styleDataSheetRow(sheet: XLSX.WorkSheet, rowIndex: number, colCount: number, style: any) {
+  for (let c = 0; c < colCount; c++) {
+    const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c })
+    if (sheet[cellRef]) sheet[cellRef].s = style
+  }
+}
+
+// 说明行里"必填"单独标红加粗，其余"可选..."用灰色斜体，比整行统一样式更醒目
+function styleNoteRowByContent(sheet: XLSX.WorkSheet, rowIndex: number, noteRow: string[]) {
+  noteRow.forEach((text, c) => {
+    const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c })
+    if (!sheet[cellRef]) return
+    sheet[cellRef].s = text === '必填' ? STYLE_REQUIRED_NOTE : STYLE_OPTIONAL_NOTE
+  })
+}
+
 export async function GET() {
   try {
     const workbook = XLSX.utils.book_new()
 
-    // ---- Sheet 1：个人与企业信息（含2行完整示例：宋江、徐翔）----
-    const mainSheet = XLSX.utils.aoa_to_sheet([MAIN_HEADERS, MAIN_NOTE_ROW, EXAMPLE_ROW_1, EXAMPLE_ROW_2])
+    // ---- Sheet 1：填写说明（放在最前面，第一眼就能看到，重点内容加粗标红/高亮）----
+    const helpRows: string[] = [
+      '精尚慧个人信息导入模板 - 填写说明',
+      '',
+      '⚠️ 请先看这里，再去填表，能帮你省很多事：',
+      '① 打开后面的"个人与企业信息"表，第3行是示例（小明），照着它的格式在下面新增一行，填你自己的真实信息，然后删除"小明"这一行。',
+      '② 必填项只有4个：姓名、电话1、公司1、企业所属行业。其余字段都可以留空，不影响使用。',
+      '③ 每次上传只会导入"你自己"这一条信息，不会把表格里的其他行也导进来，所以不用担心示例数据被误当成你的信息。',
+      '④ 即使忘记删除"小明"这一示例行，系统上传时也会自动识别并跳过，不会混入你的数据——但还是建议手动删掉，保持表格干净。',
+      '',
+      '② 怎么填"上游供应商" / "下游客户"表（可选，不填不影响其他信息导入）：',
+      '这两张表和"个人与企业信息"表一样，每一行代表一个供应商/客户；你有几个主要的，就填几行，同样删除示例行、只保留你自己的数据。',
+      '',
+      '③ 日期格式：出生年月日请填 YYYY-MM-DD，例如 1990-01-15。',
+      '④ 多个值用逗号分隔的字段：个人爱好、擅长能力、关键词，例如：摄影,旅行,阅读。',
+      '',
+      '⑤ "行业大类"可选值参考（企业所属行业、供应商/客户行业大类均可参考此列表，没有完全匹配的可填"其他"）：',
+      INDUSTRY_CATEGORIES.join('、'),
+      '',
+      '⑥ "企业规模"可选值参考：',
+      COMPANY_SCALE_OPTIONS.join('、'),
+      '',
+      '⑦ "党派"可选值参考：',
+      PARTY_OPTIONS.join('、'),
+      '',
+      '技术支持：请联系平台管理员',
+    ]
+    const helpSheet = XLSX.utils.aoa_to_sheet(helpRows.map(r => [r]))
+    helpSheet['!cols'] = [{ wch: 110 }]
+    // 标题行
+    styleNoteSheetRow(helpSheet, 0, STYLE_TITLE)
+    helpSheet['!rows'] = helpRows.map((_, i) => (i === 0 ? { hpt: 26 } : { hpt: 18 }))
+    // 重点提醒整段（第2行"⚠️请先看这里"）用醒目的黄底红字
+    styleNoteSheetRow(helpSheet, 2, STYLE_WARNING)
+    // ①②③④ 四条最关键的操作提示，同样标红加粗
+    ;[3, 4, 5, 6].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_WARNING))
+    // 剩余小节标题（②③④⑤⑥⑦开头的行）用蓝色加粗，跟正文区分开
+    helpRows.forEach((text, i) => {
+      if (/^[②③④⑤⑥⑦]/.test(text)) styleNoteSheetRow(helpSheet, i, STYLE_SECTION)
+    })
+    XLSX.utils.book_append_sheet(workbook, helpSheet, '填写说明')
+
+    // ---- Sheet 2：个人与企业信息（含1行示例：小明）----
+    const mainSheet = XLSX.utils.aoa_to_sheet([MAIN_HEADERS, MAIN_NOTE_ROW, EXAMPLE_ROW])
     mainSheet['!cols'] = MAIN_COL_WIDTHS
+    mainSheet['!rows'] = [{ hpt: 22 }]
+    styleDataSheetRow(mainSheet, 0, MAIN_HEADERS.length, STYLE_HEADER_CELL)
+    styleNoteRowByContent(mainSheet, 1, MAIN_NOTE_ROW)
+    styleDataSheetRow(mainSheet, 2, MAIN_HEADERS.length, STYLE_EXAMPLE_ROW)
     XLSX.utils.book_append_sheet(workbook, mainSheet, '个人与企业信息')
 
-    // ---- Sheet 2：上游供应商（可多行，每行一个供应商）----
+    // ---- Sheet 3：上游供应商（可多行，每行一个供应商）----
     const supplierSheet = XLSX.utils.aoa_to_sheet([SUPPLIER_HEADERS, SUPPLIER_NOTE_ROW, ...SUPPLIER_EXAMPLE_ROWS])
     supplierSheet['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+    styleDataSheetRow(supplierSheet, 0, SUPPLIER_HEADERS.length, STYLE_HEADER_CELL)
+    styleNoteRowByContent(supplierSheet, 1, SUPPLIER_NOTE_ROW)
+    SUPPLIER_EXAMPLE_ROWS.forEach((_, i) => styleDataSheetRow(supplierSheet, 2 + i, SUPPLIER_HEADERS.length, STYLE_EXAMPLE_ROW))
     XLSX.utils.book_append_sheet(workbook, supplierSheet, '上游供应商')
 
-    // ---- Sheet 3：下游客户（可多行，每行一个客户）----
+    // ---- Sheet 4：下游客户（可多行，每行一个客户）----
     const customerSheet = XLSX.utils.aoa_to_sheet([CUSTOMER_HEADERS, CUSTOMER_NOTE_ROW, ...CUSTOMER_EXAMPLE_ROWS])
     customerSheet['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+    styleDataSheetRow(customerSheet, 0, CUSTOMER_HEADERS.length, STYLE_HEADER_CELL)
+    styleNoteRowByContent(customerSheet, 1, CUSTOMER_NOTE_ROW)
+    CUSTOMER_EXAMPLE_ROWS.forEach((_, i) => styleDataSheetRow(customerSheet, 2 + i, CUSTOMER_HEADERS.length, STYLE_EXAMPLE_ROW))
     XLSX.utils.book_append_sheet(workbook, customerSheet, '下游客户')
-
-    // ---- Sheet 4：填写说明 ----
-    const helpData = [
-      ['精尚慧个人信息导入模板 - 填写说明'],
-      [''],
-      ['① 怎么填"个人与企业信息"表：'],
-      ['第3、4行是示例（宋江、徐翔），照着它们的格式在下面新增一行，填你自己的信息。'],
-      ['必填项：姓名、电话1、公司1、企业所属行业，其余都可以留空。'],
-      [''],
-      ['② 怎么填"上游供应商" / "下游客户"表（可选）：'],
-      ['这两张表和上面的示例一样，每一行代表一个供应商/客户；你有几个主要供应商或客户，就填几行。'],
-      ['不需要填的话，删掉示例行、保持表格空白即可，不影响其他信息导入。'],
-      [''],
-      ['③ 填完以后：'],
-      ['建议删除示例行（姓名/供应商名称/客户名称是"宋江""徐翔"或示例公司名的那几行），只保留你自己的数据。'],
-      ['即使忘记删，系统上传时也会自动识别并跳过这些示例行，不会混入你的数据。'],
-      ['每次上传只会导入"你自己"这一条信息，不会批量导入表格里的其他人。'],
-      [''],
-      ['④ 日期格式：出生年月日请填 YYYY-MM-DD，例如 1990-01-15。'],
-      ['⑤ 多个值用逗号分隔的字段：个人爱好、擅长能力、关键词，例如：摄影,旅行,阅读。'],
-      [''],
-      ['⑥ "行业大类"可选值参考（企业所属行业、供应商/客户行业大类均可参考此列表，没有完全匹配的可填"其他"）：'],
-      [INDUSTRY_CATEGORIES.join('、')],
-      [''],
-      ['⑦ "企业规模"可选值参考：'],
-      [COMPANY_SCALE_OPTIONS.join('、')],
-      [''],
-      ['⑧ "党派"可选值参考：'],
-      [PARTY_OPTIONS.join('、')],
-      [''],
-      ['技术支持：请联系平台管理员'],
-    ]
-    const helpSheet = XLSX.utils.aoa_to_sheet(helpData)
-    helpSheet['!cols'] = [{ wch: 100 }]
-    XLSX.utils.book_append_sheet(workbook, helpSheet, '填写说明')
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
 

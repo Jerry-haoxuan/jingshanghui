@@ -604,7 +604,7 @@ export default function AddPerson() {
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-2">
-                更喜欢填表格？可以先"下载Excel模板"，里面有完整示例（宋江、徐翔）教你怎么填，填完你自己的信息后再"上传填好的Excel"自动识别填充。
+                更喜欢填表格？可以先"下载Excel模板"，第一页是填写说明，第二页有完整示例（小明）教你怎么填，填完你自己的信息后再"上传填好的Excel"自动识别填充。
               </p>
               {extractSuccessMsg && (
                 <div className="mt-3 flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">

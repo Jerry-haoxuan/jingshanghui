@@ -72,6 +72,7 @@ export function buildEmptyProfile(): ExtractedProfile {
 // Excel 模板里用来"演示怎么填"的示例数据，姓名/公司名固定为下面这些值。
 // 模板生成（/api/download-template）和模板解析（/api/parse-profile-excel）都引用同一份常量，
 // 确保"生成的示例"和"解析时自动跳过的示例"两边永远保持一致，不会因为改了模板忘改解析而对不上。
-export const EXAMPLE_PERSON_NAMES = ['宋江', '徐翔']
-export const EXAMPLE_SUPPLIER_NAMES = ['梁山仓储物流有限公司', '东平木业加工厂', '宁波高分子原料有限公司']
-export const EXAMPLE_CUSTOMER_NAMES = ['济南振华建材贸易有限公司', '江苏动力电池科技有限公司']
+// 注意：示例姓名不能用网站里真实存在的人名（如"宋江""徐翔"），避免和真实用户混淆，故统一用"小明"占位。
+export const EXAMPLE_PERSON_NAMES = ['小明']
+export const EXAMPLE_SUPPLIER_NAMES = ['示例供应商有限公司']
+export const EXAMPLE_CUSTOMER_NAMES = ['示例客户有限公司']

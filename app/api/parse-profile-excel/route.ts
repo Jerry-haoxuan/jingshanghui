@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // 跳过说明行（姓名列写着"必填"）和示例行（宋江、徐翔），取第一条真实数据；
+    // 跳过说明行（姓名列写着"必填"）和示例行（小明），取第一条真实数据；
     // 一次上传只导入这一个人，不会把表里其他行也导进来
     const skipNames = new Set(['必填', ...EXAMPLE_PERSON_NAMES])
     const realRow = mainRows.find(row => {
