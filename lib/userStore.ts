@@ -29,8 +29,15 @@ export const BETA_INVITATION_CODES_BATCH3: string[] = [
   'ECO-INV-DPHQ6BQW',
 ]
 
+// 面试官/作品集演示专用邀请码，单独一批，方便和真实内测用户的邀请码区分管理
+export const INTERVIEWER_DEMO_CODES: string[] = [
+  'ECO-INV-G4ZOUW5T',
+  'ECO-INV-24KWR0CV',
+]
+
 export const BETA_INVITATION_CODES: string[] = [
   ...BETA_INVITATION_CODES_BATCH3,
+  ...INTERVIEWER_DEMO_CODES,
 ]
 
 // 管理者专用邀请码
