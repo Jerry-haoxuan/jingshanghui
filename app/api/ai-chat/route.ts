@@ -89,6 +89,122 @@ function extractCompanyNamesToSearch(
   return found
 }
 
+// 通用公司名候选提取：不依赖库内已有名单，靠常见公司后缀词做规则识别，
+// 用于支持"库外任意企业"的查询——识别出的候选名会交给天眼查模糊搜索去做精确纠错/确认，
+// 所以这里的规则不需要100%精准，只需要覆盖大多数常见命名方式即可。
+const COMPANY_NAME_SUFFIXES = [
+  '集团股份有限公司', '控股集团有限公司', '科技股份有限公司', '股份有限公司',
+  '有限责任公司', '集团有限公司', '控股有限公司', '科技有限公司', '投资有限公司',
+  '实业有限公司', '贸易有限公司', '有限公司', '合伙企业', '事务所', '研究院',
+  '控股集团', '控股', '集团', '科技', '实业', '置业', '贸易', '银行',
+]
+const COMPANY_NAME_PATTERN = new RegExp(
+  `[\\u4e00-\\u9fa5A-Za-z0-9（）()·]{2,20}(?:${COMPANY_NAME_SUFFIXES.join('|')})`,
+  'g'
+)
+
+function extractCandidateCompanyNames(message: string): string[] {
+  const matches = message.match(COMPANY_NAME_PATTERN) || []
+  // 去重 + 过滤过短的噪音匹配（比如仅命中"XX集团"两三个字）
+  return Array.from(new Set(matches)).filter(name => name.length >= 4).slice(0, 5)
+}
+
+// 简单的中文关键词重叠判断：取较短字符串的所有2字子串，看是否出现在较长字符串里。
+// 用于粗略判断"行业是否相近""地域是否相近""业务品类是否相关"，不追求精确NLP分词，
+// 只作为轻量的启发式信号供匹配打分使用。
+function hasKeywordOverlap(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false
+  const clean = (s: string) => s.replace(/[（）()、，,\s]/g, '')
+  const sa = clean(a)
+  const sb = clean(b)
+  if (sa.length < 2 || sb.length < 2) return false
+  const [shorter, longer] = sa.length <= sb.length ? [sa, sb] : [sb, sa]
+  for (let i = 0; i <= shorter.length - 2; i++) {
+    if (longer.includes(shorter.slice(i, i + 2))) return true
+  }
+  return false
+}
+
+// 为每一家被查证到的外部公司，在平台内部人物库中按"行业相近／供应链契合／地域相近"三个维度打分，
+// 推荐最合适的对接人选——这是"慧慧AI"从"只分析永鑫方舟被投企业"升级为"覆盖任意企业+平台撮合"的核心逻辑。
+function buildInternalMatchSection(
+  tycProfiles: { name: string; profile: Awaited<ReturnType<typeof getCompanyFullProfile>> }[],
+  peopleData: PersonData[],
+  companyData: CompanyData[],
+  aliasNameFn: (name: string) => string,
+  aliasMode: boolean,
+  isYongxinPortfolioCompany: (name: string) => boolean
+): string {
+  const sections: string[] = []
+
+  for (const { name: externalName, profile } of tycProfiles) {
+    // 天眼查完全没查到工商信息（说明这是一个查无实据的公司/或名字提取有误），跳过匹配，
+    // 交给系统提示词里"两个渠道都查不到才能说暂未检索到"的兜底逻辑去处理
+    if (!profile?.basic) continue
+
+    const basic = profile.basic
+    const tag = isYongxinPortfolioCompany(externalName) ? '永鑫方舟被投企业·自己人' : '外部企业'
+
+    const scored: { person: PersonData; score: number; reasons: string[] }[] = []
+
+    for (const person of peopleData) {
+      let score = 0
+      const reasons: string[] = []
+
+      if (hasKeywordOverlap(person.industry, basic.industry)) {
+        score += 2
+        reasons.push(`行业相近（${person.industry} ↔ ${basic.industry}）`)
+      }
+
+      const relatedCompany = companyData.find(c => c.name === person.company)
+      if (relatedCompany) {
+        const supplyKeywords: { field: string; value: string }[] = [
+          ...(relatedCompany.supplierInfos || []).flatMap(s => [
+            { field: '供应品类', value: s.industryCategory },
+            { field: '供应品类', value: s.subTitle },
+            { field: '供应品类', value: s.materialName },
+          ]),
+          ...(relatedCompany.customerInfos || []).flatMap(cu => [
+            { field: '客户品类', value: cu.industryCategory },
+            { field: '客户品类', value: cu.subTitle },
+            { field: '客户品类', value: cu.productName },
+          ]),
+        ].filter(kw => kw.value)
+
+        const matched = supplyKeywords.find(
+          kw => hasKeywordOverlap(kw.value, basic.industry) || hasKeywordOverlap(kw.value, basic.businessScope)
+        )
+        if (matched) {
+          score += 3
+          reasons.push(`供应链契合（${relatedCompany.name} 的${matched.field}"${matched.value}"与该公司业务相关）`)
+        }
+      }
+
+      if (hasKeywordOverlap(person.currentCity, basic.regLocation)) {
+        score += 1
+        reasons.push(`地域相近（${person.currentCity} ↔ ${basic.regLocation}）`)
+      }
+
+      if (score > 0) scored.push({ person, score, reasons })
+    }
+
+    scored.sort((a, b) => b.score - a.score)
+    const top = scored.slice(0, 3)
+
+    if (top.length > 0) {
+      const lines = top.map(({ person, reasons }) => {
+        const displayName = aliasMode ? aliasNameFn(person.name) : `${person.name} [${aliasNameFn(person.name)}]`
+        return `- ${displayName}（${person.position} @ ${person.company}）：${reasons.join('；')}`
+      })
+      sections.push(`【${externalName}（${tag}）- 平台内推荐对接人选】\n${lines.join('\n')}`)
+    } else {
+      sections.push(`【${externalName}（${tag}）】暂未在平台内匹配到明显相关的人脉（行业/供应链/地域均无重叠），可作为新的拓展方向记录，不代表该公司信息查不到。`)
+    }
+  }
+
+  return sections.join('\n\n')
+}
+
 // 苏州永鑫方舟在天眼查公开网站的公司主页（无需API Key，可通过博查抓取）
 const YONGXIN_TYC_URL = 'https://www.tianyancha.com/company/2347363028'
 
@@ -384,10 +500,16 @@ export async function POST(request: NextRequest) {
     let tycSection = ''       // 天眼查数据块
     let didWebSearch = false
 
-    const mentionedCompanies = extractCompanyNamesToSearch(message, allCompanyNamesArray)
+    // 合并两路候选：①库内已有公司名（精确匹配） ②通用规则提取的库外公司名候选
+    // 库外候选是否真实存在，交给下面的天眼查模糊搜索去确认，这里只负责"提取可能性"
+    const libraryMentionedCompanies = extractCompanyNamesToSearch(message, allCompanyNamesArray)
+    const candidateMentionedCompanies = extractCandidateCompanyNames(message)
+    const mentionedCompanies = Array.from(
+      new Set([...libraryMentionedCompanies, ...candidateMentionedCompanies])
+    ).slice(0, 5)
 
     // 并行执行三路数据获取
-    const [tycPortfolioResult, bochaPortfolioResult, bochaQueryResult, tycCompaniesResult] = await Promise.all([
+    const [tycPortfolioResult, bochaPortfolioResult, bochaQueryResult, tycProfilesResult] = await Promise.all([
 
       // ① 天眼查：拉取永鑫方舟官方对外投资组合（权威数据源）
       getYongxinPortfolio(),
@@ -425,16 +547,15 @@ export async function POST(request: NextRequest) {
           })()
         : Promise.resolve({ searchSummary: '', sources: [] }),
 
-      // ④ 天眼查：对用户消息中提到的公司查询详细档案
+      // ④ 天眼查：对用户消息中提到的公司查询详细档案（保留结构化数据，供后面做"内部人脉匹配"打分用）
       (async () => {
         if (mentionedCompanies.length === 0) return []
-        const profiles = await Promise.all(
+        return Promise.all(
           mentionedCompanies.slice(0, 3).map(async name => {
             const profile = await getCompanyFullProfile(name)
-            return formatCompanyProfile(name, profile)
+            return { name, profile }
           })
         )
-        return profiles.filter(Boolean)
       })(),
     ])
 
@@ -445,10 +566,29 @@ export async function POST(request: NextRequest) {
     }
 
     // 整合天眼查被提及公司档案
-    if (tycCompaniesResult.length > 0) {
-      tycSection += '\n【天眼查 - 相关企业详情】\n' + tycCompaniesResult.join('\n') + '\n'
+    const formattedTycProfiles = tycProfilesResult
+      .map(({ name, profile }) => formatCompanyProfile(name, profile))
+      .filter(Boolean)
+    if (formattedTycProfiles.length > 0) {
+      tycSection += '\n【天眼查 - 相关企业详情】\n' + formattedTycProfiles.join('\n') + '\n'
       didWebSearch = true
     }
+
+    // 判断这次查到的公司里，哪些是永鑫方舟的被投企业（"自己人"标签，优先展示但不作为唯一范围）
+    const yongxinPortfolioNames = new Set(tycPortfolioResult.investments.map(inv => inv.name))
+    const isYongxinPortfolioCompany = (name: string) =>
+      Array.from(yongxinPortfolioNames).some(pn => pn === name || pn.includes(name) || name.includes(pn))
+
+    // 内部人脉匹配：为每一家被查证到的外部公司，按"行业相近／供应链契合／地域相近"三个维度
+    // 在平台自己的人物库里打分排序，推荐最合适的对接人选
+    const internalMatchSection = buildInternalMatchSection(
+      tycProfilesResult,
+      peopleData,
+      companyData,
+      aliasNameFn,
+      aliasMode,
+      isYongxinPortfolioCompany
+    )
 
     // 整合 Bocha 搜索结果
     if (bochaPortfolioResult.summary) {
@@ -465,26 +605,27 @@ export async function POST(request: NextRequest) {
     // ===== 天眼查 + 联网搜索阶段结束 =====
 
     // 增强的系统提示词
-    const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你的核心定位是：**基于${BASE_FUND}投资圈的智能分析助理**。
+    const systemPrompt = `你是精尚慧平台的AI助理"慧慧"。你的核心定位是：**覆盖任意企业的商业情报与人脉撮合助理**。
 
 ## 你的身份与定位
-- 你服务于 ${BASE_FUND} 的生态体系
-- 数据库中录入的所有人物和企业，均为该基金的投资版图相关方（被投企业、合作方、关键人物等）
-- 你的一切分析、搜索、推荐，都应围绕这个投资圈展开
-- 当用户询问任何公司或人物时，优先从"是否与永鑫方舟投资圈相关"的角度切入
+- 精尚慧是一个能够分析【任意企业】的商业情报与人脉撮合平台，不局限于单一投资机构
+- ${BASE_FUND}（永鑫方舟）是平台的核心资源方：其被投企业在平台内标注为"自己人"，享有更详细、更优先的数据展示（持股比例、投资金额等独家信息）
+- 但你的分析能力绝不止步于永鑫方舟投资圈——无论用户问到哪家公司，你都要像专业的商业分析师一样尽力查证、分析，绝不能因为"不是永鑫方舟被投企业"就拒绝分析或说查不到
+- 精尚慧数据库里沉淀的人物和企业，是平台自己的核心人脉资源池，可以用来匹配、推荐给任何被问到的外部公司
 
 ## 你的能力
-1. 基于永鑫方舟投资版图，分析被投企业之间的联系与协同机会
-2. 帮助用户查找投资圈内的人脉关系
-3. 结合最新联网信息，对被投企业做深度分析
-4. 给出专业的投后管理和商务合作建议
-5. 发现投资圈内的上下游供应链整合机会
+1. 对任意公司名称，综合天眼查工商数据 + 联网搜索，给出该公司的定位、业务、股权等分析
+2. 判断该公司是否为永鑫方舟被投企业，若是则补充独家投资数据
+3. 结合行业、供应链品类、地域三个维度，从平台内部人脉库中匹配、推荐最合适的对接人选
+4. 帮助用户查找平台内部的人脉关系
+5. 给出专业的商务合作、供应链整合建议
 
-## 回答策略（严格按此优先级）
-① 首先在精尚慧数据库（${allCompaniesList.length}家公司、${peopleData.length}位人物）中检索，这些都是永鑫方舟投资圈的相关方
-② 结合联网搜索到的永鑫方舟投资组合信息，补充背景知识
-③ 如果库内没有该信息，参考联网搜索到的公开信息回答，并说明"该信息来自网络，需进一步核实"
-④ 回答时要明确区分哪些信息来自库内、哪些来自永鑫方舟投资版图搜索、哪些来自通用网络搜索
+## 回答策略（严格按此优先级，且必须"正向确认"）
+① 只要天眼查企业查证、或联网搜索，任一渠道查到了与用户所问公司相似度较高的结果，就必须用肯定语气回答"查到了/已确认是XX公司"，【绝对禁止】说"未找到""没有这家公司的信息""库内没有该公司"这类否定表达
+② 分析时依次结合：库内数据（若该公司恰好在平台库内）> 天眼查权威工商数据 > 永鑫方舟投资版图信息（若为被投企业）> 通用联网搜索信息
+③ 只有当天眼查和联网搜索【两个渠道都完全查不到任何相似结果】时（例如公司名严重拼写错误、纯属虚构），才可以委婉表示"目前检索到的信息比较有限"，但依然要说明你已经尝试了哪些渠道去查证，而不是简单地说没找到
+④ 回答时要明确区分哪些信息来自平台库内、哪些来自天眼查、哪些来自永鑫方舟投资版图、哪些来自通用联网搜索，让用户清楚信息的可信度层级
+⑤ 分析完一家外部公司后，主动结合下方"平台内推荐对接人选"部分的信息，推荐最相关的人选并说明匹配理由（行业相近/供应链契合/地域相近）；如果该部分显示"暂未匹配到"，就明确说"平台内暂无明显相关人脉，可作为新的拓展方向"，而不是说这家公司查不到
 
 回答风格：
 - 友好亲切，像朋友一样对话
@@ -647,6 +788,17 @@ ${webSearchSection}
 - 如果库内没有，可以用联网搜索的信息来回答，注明"根据网络公开信息"
 - 优先分析该信息与永鑫方舟投资圈的关联性
 ===== 联网搜索结果结束 =====
+` : ''}
+
+${internalMatchSection ? `
+===== 平台内推荐对接人选（系统自动匹配打分）=====
+针对本次被查证到的公司，系统已按"行业相近／供应链契合／地域相近"三个维度，在平台人物库中自动匹配打分，结果如下：
+${internalMatchSection}
+
+使用规则：
+- 回答涉及某家外部公司时，主动引用这里对应的推荐结果，说明具体匹配理由
+- 如果显示"暂未匹配到"，说明的是"平台内暂无相关人脉"，绝不能理解成"这家公司查不到"
+===== 平台内推荐对接人选结束 =====
 ` : ''}`
 
     // 构建对话历史
