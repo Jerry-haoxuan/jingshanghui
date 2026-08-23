@@ -9,7 +9,6 @@ import Link from 'next/link'
 import { getPeople, getCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
 import { getPersonRelationships } from '@/lib/relationshipManager'
-import { forceAnalyzeAllRelationships } from '@/lib/relationshipManager'
 import { deterministicAliasName } from '@/lib/deterministicNameAlias'
 import { isMember, isManager } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -28,8 +27,6 @@ export default function PersonDetail() {
   const [isClient, setIsClient] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editFormData, setEditFormData] = useState<PersonData | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [viewingOwnCard, setViewingOwnCard] = useState(false)
   
   // 获取显示名称（如果是查看自己的卡片，显示真实信息）
@@ -40,38 +37,18 @@ export default function PersonDetail() {
     return deterministicAliasName(realName)
   }
 
-  // 重新分析关系的函数
-  const handleAnalyzeRelationships = async () => {
-    setIsAnalyzing(true)
+  // 仅为当前这一个人补充关系分析，在后台异步执行，不阻塞页面展示、不影响其他人的关系数据
+  const analyzeThisPersonInBackground = async (targetPerson: PersonData) => {
     try {
-      console.log('[PersonDetail] 开始分析关系...')
-      await forceAnalyzeAllRelationships()
-      
-      // 重新从云端加载数据
-      const cloudPeople = await loadPeopleFromCloudIfAvailable()
-      const people = cloudPeople !== null ? cloudPeople : getPeople()
-      
-      // 重新加载关系数据
-      const { loadRelationshipsFromCloud } = await import('@/lib/relationshipManager')
-      await loadRelationshipsFromCloud()
-      
-      const foundPerson = people.find(p => p.id === params.id)
-      if (foundPerson) {
-        setPerson(foundPerson)
-        // 重新加载关系数据来生成图谱
-        const { loadRelationshipsFromCloud: reloadRelationships } = await import('@/lib/relationshipManager')
-        const updatedRelationships = await reloadRelationships()
-        // 传入云端数据生成图谱
-        const cloudComps = await loadCompaniesFromCloudIfAvailable()
-        setGraphData(generateGraphData(foundPerson, updatedRelationships || undefined, people, cloudComps || undefined))
-        console.log('[PersonDetail] 关系分析完成，图谱已更新')
-        alert('✅ 关系分析完成！已生成并保存到云端。')
-      }
+      const { updateRelationshipNetwork, loadRelationshipsFromCloud } = await import('@/lib/relationshipManager')
+      await updateRelationshipNetwork(targetPerson)
+      const refreshedRelationships = await loadRelationshipsFromCloud()
+      const latestPeople = (await loadPeopleFromCloudIfAvailable()) || getPeople()
+      const latestComps = await loadCompaniesFromCloudIfAvailable().catch(() => null)
+      setGraphData(generateGraphData(targetPerson, refreshedRelationships || undefined, latestPeople, latestComps || undefined))
+      console.log('[PersonDetail] 后台关系补充分析完成')
     } catch (error) {
-      console.error('[PersonDetail] 关系分析失败:', error)
-      alert('❌ 关系分析失败: ' + (error as Error).message)
-    } finally {
-      setIsAnalyzing(false)
+      console.error('[PersonDetail] 后台关系补充分析失败:', error)
     }
   }
 
@@ -341,27 +318,19 @@ export default function PersonDetail() {
           const cloudRelationships = await loadRelationshipsFromCloud()
           console.log('[PersonDetail] 云端关系数据:', cloudRelationships?.length || 0, '条')
           
-          // 检查是否存在关系数据
-          const relationships = getPersonRelationships(foundPerson.id)
-          if (relationships.length === 0) {
-            console.log('未找到关系数据，正在自动分析生成...')
-            // 自动分析并生成关系数据
-            try {
-              await forceAnalyzeAllRelationships()
-              // 重新加载关系数据
-              const newCloudRelationships = await loadRelationshipsFromCloud()
-              console.log('[PersonDetail] 自动生成关系数据:', newCloudRelationships?.length || 0, '条')
-            } catch (error) {
-              console.error('[PersonDetail] 自动分析关系失败:', error)
-            }
-          } else {
-            console.log('[PersonDetail] 找到', relationships.length, '条关系')
-          }
-          // 使用云端加载的关系数据生成图谱
-          // 传入云端数据生成图谱
+          // 先用当前已有的关系数据渲染页面，不等待AI分析，避免长时间卡在加载动画
           const cloudComps = await loadCompaniesFromCloudIfAvailable()
           setGraphData(generateGraphData(foundPerson, cloudRelationships || undefined, people, cloudComps || undefined))
           setIsLoading(false)
+          
+          // 如果这个人还没有关系数据，在后台异步补充分析（只分析这一个人，不会影响/清空其他人的关系数据）
+          const relationships = getPersonRelationships(foundPerson.id)
+          if (relationships.length === 0) {
+            console.log('未找到关系数据，后台异步补充分析...')
+            analyzeThisPersonInBackground(foundPerson)
+          } else {
+            console.log('[PersonDetail] 找到', relationships.length, '条关系')
+          }
         } else {
           // 尝试将参数转换为字符串匹配
           const foundPersonStr = people.find(p => String(p.id) === String(params.id))
@@ -380,6 +349,10 @@ export default function PersonDetail() {
             const cloudComps = await loadCompaniesFromCloudIfAvailable()
             setGraphData(generateGraphData(foundPersonStr, strRelationships || undefined, people, cloudComps || undefined))
             setIsLoading(false)
+            
+            if (getPersonRelationships(foundPersonStr.id).length === 0) {
+              analyzeThisPersonInBackground(foundPersonStr)
+            }
           } else if (attempts < maxAttempts) {
             console.log('未找到人物，1秒后重试...')
             setTimeout(tryLoadData, 1000)
@@ -474,38 +447,6 @@ export default function PersonDetail() {
   }
 
   // 刷新关系图谱数据
-  const refreshGraphData = async () => {
-    setIsRefreshing(true)
-    try {
-      console.log('[PersonDetail] 开始刷新关系数据...')
-      
-      // 从云端重新加载数据
-      const cloudPeople = await loadPeopleFromCloudIfAvailable()
-      const people = cloudPeople !== null ? cloudPeople : getPeople()
-      
-      // 重新加载关系数据
-      const { loadRelationshipsFromCloud } = await import('@/lib/relationshipManager')
-      const cloudRelationships = await loadRelationshipsFromCloud()
-      console.log('[PersonDetail] 从云端加载了', cloudRelationships?.length || 0, '条关系')
-      
-      const foundPerson = people.find(p => p.id === params.id)
-      if (foundPerson) {
-        setPerson(foundPerson)
-        // 使用云端加载的关系数据生成图谱
-        const cloudComps = await loadCompaniesFromCloudIfAvailable()
-        setGraphData(generateGraphData(foundPerson, cloudRelationships || undefined, cloudPeople || people, cloudComps || undefined))
-        console.log('[PersonDetail] 关系数据已刷新')
-      }
-      setRefreshKey(prev => prev + 1)
-    } catch (error) {
-      console.error('[PersonDetail] 刷新失败:', error)
-      alert('❌ 刷新失败: ' + (error as Error).message)
-      setRefreshKey(prev => prev + 1)
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
   // 处理编辑保存
   const handleEditSave = async (updatedPerson: PersonData) => {
     // 更新本地状态

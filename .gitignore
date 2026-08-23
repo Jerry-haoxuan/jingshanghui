@@ -27,6 +27,9 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# 个人求职作品集素材（含网站截图、面试体验邀请码等），不属于网站代码，不进仓库
+/portfolio/
+
 # vercel
 .vercel
 
