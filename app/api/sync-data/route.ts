@@ -54,8 +54,11 @@ export async function POST(request: NextRequest) {
     if (action === 'download-cloud-to-local') {
       // 从云端下载数据到本地
       try {
-        const cloudPeople = await listPeopleFromCloud()
-        const cloudCompanies = await listCompaniesFromCloud()
+        // 两张表互不依赖，并行查询而不是排队等待，减少一次往返延迟
+        const [cloudPeople, cloudCompanies] = await Promise.all([
+          listPeopleFromCloud(),
+          listCompaniesFromCloud(),
+        ])
         
         console.log('[Sync API] 从云端下载数据:', {
           peopleCount: cloudPeople.length,

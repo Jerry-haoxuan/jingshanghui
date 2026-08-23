@@ -15,16 +15,14 @@ export interface RelationshipData {
 
 const RELATIONSHIPS_KEY = 'ecosystem_relationships'
 
-// 从云端加载关系数据（如果可用）
+// 从云端加载关系数据——必须走服务器接口 /api/relationships，不能在客户端直接判断
+// "是否已配置云端"（DATABASE_URL 只在服务器端可用，浏览器里永远读不到，直接判断会一直误判为未配置）
 export const loadRelationshipsFromCloud = async (): Promise<RelationshipData[] | null> => {
   try {
-    const { isSupabaseReady } = await import('./supabaseClient')
-    if (!isSupabaseReady) {
-      console.log('[RelationshipManager] Supabase未配置，使用本地数据')
-      return null
-    }
-    const { listRelationshipsFromCloud } = await import('./cloudStore')
-    const relationships = await listRelationshipsFromCloud()
+    const response = await fetch('/api/relationships')
+    if (!response.ok) return null
+    const data = await response.json()
+    const relationships: RelationshipData[] = Array.isArray(data?.relationships) ? data.relationships : []
     console.log('[RelationshipManager] 从云端加载关系数据:', relationships.length, '条')
     // 同时缓存到本地
     if (typeof window !== 'undefined') {
@@ -44,7 +42,7 @@ export const getRelationships = (): RelationshipData[] => {
   return data ? JSON.parse(data) : []
 }
 
-// 保存关系数据（同步到本地和云端）
+// 保存关系数据（同步到本地和云端）——云端同步同样必须走服务器接口，理由同上
 export const saveRelationships = (relationships: RelationshipData[]) => {
   if (typeof window === 'undefined') return
   
@@ -54,13 +52,12 @@ export const saveRelationships = (relationships: RelationshipData[]) => {
   // 异步同步到云端
   ;(async () => {
     try {
-      const { isSupabaseReady } = await import('./supabaseClient')
-      if (!isSupabaseReady) {
-        console.log('[RelationshipManager] Supabase未配置，仅保存到本地')
-        return
-      }
-      const { batchUpsertRelationshipsToCloud } = await import('./cloudStore')
-      await batchUpsertRelationshipsToCloud(relationships)
+      const response = await fetch('/api/relationships', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relationships }),
+      })
+      if (!response.ok) throw new Error('保存失败')
       console.log('[RelationshipManager] 关系数据已同步到云端')
     } catch (error) {
       console.error('[RelationshipManager] 关系数据云端同步失败:', error)
