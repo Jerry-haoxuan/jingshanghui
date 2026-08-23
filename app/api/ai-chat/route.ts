@@ -103,10 +103,84 @@ const COMPANY_NAME_PATTERN = new RegExp(
   'g'
 )
 
+// 真实公司名（专有名词）几乎不会包含这些助词/疑问词，用来过滤掉"重金属回收的公司"
+// 这类描述性短语——它表达的是一种"需求/行业"，不是一个具体公司名，不能拿去当公司名查天眼查
+const GENERIC_PHRASE_MARKERS = ['的', '了', '吗', '呢', '啊', '什么', '哪', '谁', '怎么', '如何', '想', '要', '找', '需要', '一家', '这种', '那种']
+
 function extractCandidateCompanyNames(message: string): string[] {
   const matches = message.match(COMPANY_NAME_PATTERN) || []
-  // 去重 + 过滤过短的噪音匹配（比如仅命中"XX集团"两三个字）
-  return Array.from(new Set(matches)).filter(name => name.length >= 4).slice(0, 5)
+  // 去重 + 过滤过短的噪音匹配（比如仅命中"XX集团"两三个字）+ 过滤含助词的描述性短语（非真实公司名）
+  return Array.from(new Set(matches))
+    .filter(name => name.length >= 4)
+    .filter(name => !GENERIC_PHRASE_MARKERS.some(marker => name.includes(marker)))
+    .slice(0, 5)
+}
+
+// 把结构化字段（行业/品类/关键词/产品等）按常见分隔符切成短词，用于和用户原话做"字面命中"比对，
+// 而不是让AI凭公司名字或印象去联想相关性——保证"内部资源是否相关"这个判断有据可查。
+function splitKeywordTokens(text?: string | null): string[] {
+  if (!text) return []
+  return text
+    .split(/[、，,\s／\/;；\-·]+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 2)
+}
+
+// 针对"我想找XX方面的公司/资源"这类【描述需求/行业，而非点名具体公司】的提问，
+// 直接在库内公司的真实结构化字段（行业、供应商/客户品类、关键词、产品）里找字面命中，
+// 命中才算"验证过的匹配"——严禁AI仅凭公司名字听起来像（比如看到"循环科技"就联想成"资源回收"）来判断相关性。
+function buildVerifiedIndustryMatchSection(
+  message: string,
+  peopleData: PersonData[],
+  companyData: CompanyData[],
+  aliasNameFn: (name: string) => string,
+  aliasMode: boolean
+): string {
+  const matches: { company: CompanyData; hits: string[] }[] = []
+
+  for (const company of companyData) {
+    const fields: { label: string; value?: string | null }[] = [
+      { label: '行业', value: company.industry },
+      ...(company.products || []).map(p => ({ label: '产品', value: p })),
+      ...(company.supplierInfos || []).flatMap(s => [
+        { label: '供应品类', value: s.industryCategory },
+        { label: '供应品类', value: s.subTitle },
+        { label: '供应品类关键词', value: s.materialName },
+        { label: '供应品类关键词', value: s.keywords },
+      ]),
+      ...(company.customerInfos || []).flatMap(cu => [
+        { label: '客户品类', value: cu.industryCategory },
+        { label: '客户品类', value: cu.subTitle },
+        { label: '客户品类关键词', value: cu.productName },
+        { label: '客户品类关键词', value: cu.keywords },
+      ]),
+    ]
+
+    const hits = new Set<string>()
+    for (const field of fields) {
+      if (!field.value) continue
+      for (const token of splitKeywordTokens(field.value)) {
+        if (message.includes(token)) {
+          hits.add(`${field.label}"${token}"`)
+        }
+      }
+    }
+    if (hits.size > 0) {
+      matches.push({ company, hits: Array.from(hits) })
+    }
+  }
+
+  if (matches.length === 0) return ''
+
+  const lines = matches.slice(0, 5).map(({ company, hits }) => {
+    const contactPerson = peopleData.find(p => p.company === company.name)
+    const contactText = contactPerson
+      ? `，可联系 ${aliasMode ? aliasNameFn(contactPerson.name) : `${contactPerson.name} [${aliasNameFn(contactPerson.name)}]`}（${contactPerson.position}）`
+      : ''
+    return `- ${company.name}：命中字段 ${hits.join('、')}${contactText}`
+  })
+
+  return lines.join('\n')
 }
 
 // 简单的中文关键词重叠判断：取较短字符串的所有2字子串，看是否出现在较长字符串里。
@@ -590,6 +664,16 @@ export async function POST(request: NextRequest) {
       isYongxinPortfolioCompany
     )
 
+    // 针对"我想找XX方面的公司/资源"这类描述需求而非点名具体公司的提问，
+    // 直接在库内结构化字段里找字面命中——判断"相关不相关"必须有据可查，不能靠AI凭名字联想
+    const verifiedIndustryMatchSection = buildVerifiedIndustryMatchSection(
+      message,
+      peopleData,
+      companyData,
+      aliasNameFn,
+      aliasMode
+    )
+
     // 整合 Bocha 搜索结果
     if (bochaPortfolioResult.summary) {
       fundPortfolioSection = bochaPortfolioResult.summary
@@ -621,11 +705,22 @@ export async function POST(request: NextRequest) {
 5. 给出专业的商务合作、供应链整合建议
 
 ## 回答策略（严格按此优先级，且必须"正向确认"）
-① 只要天眼查企业查证、或联网搜索，任一渠道查到了与用户所问公司相似度较高的结果，就必须用肯定语气回答"查到了/已确认是XX公司"，【绝对禁止】说"未找到""没有这家公司的信息""库内没有该公司"这类否定表达
-② 分析时依次结合：库内数据（若该公司恰好在平台库内）> 天眼查权威工商数据 > 永鑫方舟投资版图信息（若为被投企业）> 通用联网搜索信息
-③ 只有当天眼查和联网搜索【两个渠道都完全查不到任何相似结果】时（例如公司名严重拼写错误、纯属虚构），才可以委婉表示"目前检索到的信息比较有限"，但依然要说明你已经尝试了哪些渠道去查证，而不是简单地说没找到
-④ 回答时要明确区分哪些信息来自平台库内、哪些来自天眼查、哪些来自永鑫方舟投资版图、哪些来自通用联网搜索，让用户清楚信息的可信度层级
+① 只要天眼查企业查证、或平台联网检索，任一渠道查到了与用户所问公司相似度较高的结果，就必须用肯定语气回答"查到了/已确认是XX公司"，【绝对禁止】说"未找到""没有这家公司的信息""库内没有该公司"这类否定表达
+② 分析时依次结合：库内数据（若该公司恰好在平台库内）> 天眼查权威工商数据 > 永鑫方舟投资版图信息（若为被投企业）> 平台联网检索到的信息
+③ 只有当天眼查和联网检索【两个渠道都完全查不到任何相似结果】时（例如公司名严重拼写错误、纯属虚构），才可以委婉表示"目前检索到的信息比较有限"，但依然要说明你已经尝试了哪些渠道去查证，而不是简单地说没找到
+④ 【内部使用，不体现在回复措辞里】你自己判断信息可信度时可以区分：库内数据 > 天眼查 > 永鑫方舟投资版图 > 平台联网检索，但对外统一按下方"对外表述规则"来表达，不要向用户暴露这个分层说法
 ⑤ 分析完一家外部公司后，主动结合下方"平台内推荐对接人选"部分的信息，推荐最相关的人选并说明匹配理由（行业相近/供应链契合/地域相近）；如果该部分显示"暂未匹配到"，就明确说"平台内暂无明显相关人脉，可作为新的拓展方向"，而不是说这家公司查不到
+
+## 对外表述规则（新增强制要求，务必遵守）
+- 不管信息实际来自天眼查、平台联网检索还是平台数据库，对用户统一说"精尚慧平台为您检索到……"/"平台数据显示……"，绝对不能出现"我上网搜索到""这是网络公开信息，建议您自行核实""根据网络搜索结果"这类说法——这些表述会让用户觉得信息不可靠、缺乏底气
+- 天眼查数据可以专门点出来增强可信度，比如"经天眼查权威数据确认"，这是加分项，鼓励使用
+- 即使某条信息实际来自平台的联网检索渠道，也要用专业、有把握的语气呈现，把"精尚慧平台"作为你对外唯一的信息来源界面，绝不提"网络/联网/上网"等字眼
+
+## 判断"内部资源是否相关"的铁律（新增强制要求，务必遵守）
+- 当用户描述的是一种【需求/行业/品类】（例如"我想找重金属回收的公司""有没有做新能源电池的资源"），而不是点名某一家具体公司时，你判断"平台内哪些公司/人物与此相关"，唯一依据是下方"平台内已验证的关键词匹配"部分——这些匹配都是从公司/供应商/客户的真实结构化字段（行业、品类、关键词、产品）里，逐字命中用户问题中的词得到的，是有据可查的
+- 【严禁】仅凭公司名字或印象去联想相关性——比如看到某公司名字里有"循环科技"，就联想成"做资源回收"；公司名字本身不能作为判断业务相关性的依据，必须有该公司的行业/业务描述字段作为证据
+- 如果"平台内已验证的关键词匹配"部分是空的，就诚实告知"平台库内暂未匹配到直接相关的资源"，然后再展开你通过其他渠道查到的信息作为补充参考，不要为了显得"有料"而牵强附会
+- 当用户点名了一家具体公司时（不是描述需求），相关性判断则依据天眼查该公司的行业/经营范围字段，参见"平台内推荐对接人选"部分的匹配逻辑，同样不能凭公司名字猜
 
 回答风格：
 - 友好亲切，像朋友一样对话
@@ -765,33 +860,32 @@ ${tycSection}
 ` : ''}
 
 ${fundPortfolioSection ? `
-===== 苏州永鑫方舟投资版图（联网搜索）=====
-数据来源包含天眼查公开页面：${YONGXIN_TYC_URL}
-以下是从网络搜索到的关于 ${BASE_FUND} 的投资组合信息：
+===== 苏州永鑫方舟投资版图（平台检索，内部标注来源含天眼查公开页面：${YONGXIN_TYC_URL}）=====
+以下是平台为你检索到的关于 ${BASE_FUND} 的投资组合信息：
 ${fundPortfolioSection}
 
 使用规则：
-- 优先引用天眼查公开页面的数据，引用时注明"据天眼查公开信息"
-- 其他来源注明"根据网络公开信息"
+- 优先引用天眼查数据，可注明"据天眼查数据"
+- 其他来源统一说"精尚慧平台为您检索到"，【不要】出现"网络公开信息""网上搜索"等字眼
 ===== 苏州永鑫方舟投资版图结束 =====
 ` : ''}
 
 ${webSearchSection ? `
-===== 针对本次问题的联网搜索结果 =====
-以下是结合永鑫方舟视角，针对用户当前问题搜索到的最新信息：
+===== 平台为你检索到的相关信息（内部渠道：联网检索，对外禁止提及"网络/联网"字样）=====
+以下是结合永鑫方舟视角，针对用户当前问题检索到的最新信息：
 ${webSearchSection}
 
 引用来源：${webSearchSources.slice(0, 5).join(' | ')}
 
 使用规则：
-- 如果库内已有相关数据，以库内为准，联网搜索仅作补充
-- 如果库内没有，可以用联网搜索的信息来回答，注明"根据网络公开信息"
+- 如果库内已有相关数据，以库内为准，这里的信息仅作补充
+- 如果库内没有，可以直接用这里的信息来回答，统一表述为"精尚慧平台为您检索到"，绝不说"网络公开信息""网上搜到的"之类的话，保持专业、有把握的语气
 - 优先分析该信息与永鑫方舟投资圈的关联性
-===== 联网搜索结果结束 =====
+===== 平台检索信息结束 =====
 ` : ''}
 
 ${internalMatchSection ? `
-===== 平台内推荐对接人选（系统自动匹配打分）=====
+===== 平台内推荐对接人选（系统自动匹配打分，针对用户点名的具体公司）=====
 针对本次被查证到的公司，系统已按"行业相近／供应链契合／地域相近"三个维度，在平台人物库中自动匹配打分，结果如下：
 ${internalMatchSection}
 
@@ -799,7 +893,25 @@ ${internalMatchSection}
 - 回答涉及某家外部公司时，主动引用这里对应的推荐结果，说明具体匹配理由
 - 如果显示"暂未匹配到"，说明的是"平台内暂无相关人脉"，绝不能理解成"这家公司查不到"
 ===== 平台内推荐对接人选结束 =====
-` : ''}`
+` : ''}
+
+${verifiedIndustryMatchSection ? `
+===== 平台内已验证的关键词匹配（针对用户描述的需求/行业，逐字命中结构化字段得出）=====
+用户这次问的是一种需求/行业，而不是具体公司名。以下是系统在库内公司的真实业务字段（行业/品类/关键词/产品）中，逐字比对用户原话找到的命中结果：
+${verifiedIndustryMatchSection}
+
+使用规则：
+- 这是判断"平台内哪些资源与用户需求相关"的唯一依据，回答时必须以此为准，不能凭公司名字或印象另外联想
+- 如果要推荐这里列出的公司/人物，直接引用命中的字段作为理由（例如"因为其登记的供应品类关键词包含XX"）
+===== 平台内已验证的关键词匹配结束 =====
+` : `
+===== 平台内已验证的关键词匹配 =====
+本次未在库内公司的真实业务字段中找到与用户描述需求直接匹配的记录。
+使用规则：
+- 如果用户这次问的是需求/行业（而不是具体公司名），必须诚实说明"平台库内暂未匹配到直接相关的资源"，再展开你查到的其他信息作为参考
+- 绝对不能凭某个库内公司的名字听起来相关（比如名字里有相似字眼）就说它是匹配的
+===== 平台内已验证的关键词匹配结束 =====
+`}`
 
     // 构建对话历史
     const messages = [
