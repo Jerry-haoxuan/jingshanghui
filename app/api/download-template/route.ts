@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 // 是因为原版免费版不支持写入单元格样式（加粗/背景色），没法把重点内容"标出来"。
 // 读取/解析Excel（/api/parse-profile-excel）不需要样式，继续用原版 xlsx 即可。
 import * as XLSX from 'xlsx-js-style'
-import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_NAMES, EXAMPLE_CUSTOMER_NAMES } from '@/lib/profileTypes'
+import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS } from '@/lib/profileTypes'
 
 // 个人与企业信息模板：字段顺序需要和 /api/parse-profile-excel 里的列名一一对应，
 // 改这里的表头文字时务必同步改那边的读取逻辑，否则会读不到数据。
@@ -67,13 +67,15 @@ const MAIN_COL_WIDTHS = [
 const SUPPLIER_HEADERS = ['供应商名称', '采购物料/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '关键人物2', '关键人物3']
 const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选']
 const SUPPLIER_EXAMPLE_ROWS = [
-  [EXAMPLE_SUPPLIER_NAMES[0], '原材料', '新材料', '原材料供应', '原材料,加工', '张三', '', ''],
+  (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3 }) =>
+    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3])(EXAMPLE_SUPPLIER_ROWS[0]),
 ]
 
 const CUSTOMER_HEADERS = ['客户名称', '销售产品/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '关键人物2', '关键人物3']
 const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选']
 const CUSTOMER_EXAMPLE_ROWS = [
-  [EXAMPLE_CUSTOMER_NAMES[0], '精密零部件', '智能制造', '整机组装采购', '零部件,采购', '李四', '', ''],
+  (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3 }) =>
+    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3])(EXAMPLE_CUSTOMER_ROWS[0]),
 ]
 
 const INDUSTRY_CATEGORIES = [

@@ -3,9 +3,10 @@ import * as XLSX from 'xlsx'
 import {
   ExtractedProfile,
   buildEmptyProfile,
+  ExampleRowShape,
   EXAMPLE_PERSON_NAMES,
-  EXAMPLE_SUPPLIER_NAMES,
-  EXAMPLE_CUSTOMER_NAMES,
+  EXAMPLE_SUPPLIER_ROWS,
+  EXAMPLE_CUSTOMER_ROWS,
 } from '@/lib/profileTypes'
 
 // 表头文字必须和 /api/download-template 里生成的列名完全一致，改一边记得改另一边
@@ -43,6 +44,26 @@ function readSheetRows(workbook: XLSX.WorkBook, sheetName: string): Record<strin
   const sheet = workbook.Sheets[sheetName]
   if (!sheet) return []
   return XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }) as Record<string, unknown>[]
+}
+
+// 供应商/客户示例行用"整行精确匹配"才算示例（不是只看名字），
+// 因为示例里可能用了真实存在的公司名（比如"中际旭创"），只按名字过滤会把
+// 别的用户填的同名真实数据也误跳过；只有连行业、核心业务、关键词、关键人物都
+// 和示例一模一样才会被跳过，正常真实数据几乎不可能完全撞上。
+function isExactExampleRow(
+  row: { name: string; extra: string; industryCategory: string; subTitle: string; keywords: string; keyPerson1: string; keyPerson2: string; keyPerson3: string },
+  examples: ExampleRowShape[]
+): boolean {
+  return examples.some(ex =>
+    ex.name === row.name &&
+    ex.extra === row.extra &&
+    ex.industryCategory === row.industryCategory &&
+    ex.subTitle === row.subTitle &&
+    ex.keywords === row.keywords &&
+    ex.keyPerson1 === row.keyPerson1 &&
+    ex.keyPerson2 === row.keyPerson2 &&
+    ex.keyPerson3 === row.keyPerson3
+  )
 }
 
 function parseMainRow(row: Record<string, unknown>): ExtractedProfile {
@@ -135,17 +156,11 @@ export async function POST(request: NextRequest) {
     const profile = parseMainRow(realRow)
 
     // 供应商/客户：两张表都是可选的，没有对应工作表或没填都不算错误
-    const skipSuppliers = new Set(['必填', ...EXAMPLE_SUPPLIER_NAMES])
     const supplierRows = readSheetRows(workbook, SUPPLIER_SHEET_NAME)
     profile.supplierInfos = supplierRows
-      .filter(row => {
-        const name = str(row['供应商名称'])
-        return name && !skipSuppliers.has(name)
-      })
       .map(row => ({
-        materialName: str(row['采购物料/类别']),
-        materialCategory: '',
-        supplierName: str(row['供应商名称']),
+        name: str(row['供应商名称']),
+        extra: str(row['采购物料/类别']),
         industryCategory: str(row['行业大类']),
         subTitle: str(row['核心业务类别']),
         keywords: str(row['关键词']),
@@ -153,24 +168,42 @@ export async function POST(request: NextRequest) {
         keyPerson2: str(row['关键人物2']),
         keyPerson3: str(row['关键人物3']),
       }))
+      .filter(row => row.name !== '必填' && row.name && !isExactExampleRow(row, EXAMPLE_SUPPLIER_ROWS))
+      .map(row => ({
+        materialName: row.extra,
+        materialCategory: '',
+        supplierName: row.name,
+        industryCategory: row.industryCategory,
+        subTitle: row.subTitle,
+        keywords: row.keywords,
+        keyPerson1: row.keyPerson1,
+        keyPerson2: row.keyPerson2,
+        keyPerson3: row.keyPerson3,
+      }))
 
-    const skipCustomers = new Set(['必填', ...EXAMPLE_CUSTOMER_NAMES])
     const customerRows = readSheetRows(workbook, CUSTOMER_SHEET_NAME)
     profile.customerInfos = customerRows
-      .filter(row => {
-        const name = str(row['客户名称'])
-        return name && !skipCustomers.has(name)
-      })
       .map(row => ({
-        productName: str(row['销售产品/类别']),
-        productCategory: '',
-        customerName: str(row['客户名称']),
+        name: str(row['客户名称']),
+        extra: str(row['销售产品/类别']),
         industryCategory: str(row['行业大类']),
         subTitle: str(row['核心业务类别']),
         keywords: str(row['关键词']),
         keyPerson1: str(row['关键人物1']),
         keyPerson2: str(row['关键人物2']),
         keyPerson3: str(row['关键人物3']),
+      }))
+      .filter(row => row.name !== '必填' && row.name && !isExactExampleRow(row, EXAMPLE_CUSTOMER_ROWS))
+      .map(row => ({
+        productName: row.extra,
+        productCategory: '',
+        customerName: row.name,
+        industryCategory: row.industryCategory,
+        subTitle: row.subTitle,
+        keywords: row.keywords,
+        keyPerson1: row.keyPerson1,
+        keyPerson2: row.keyPerson2,
+        keyPerson3: row.keyPerson3,
       }))
 
     return NextResponse.json({ success: true, profile })
