@@ -37,6 +37,20 @@ export default function PersonDetail() {
     return deterministicAliasName(realName)
   }
 
+  // 判断这个人是否填过任何有分析价值的资料（公司/职位/行业/学校等）。
+  // 像"注册了手机号但从没填过信息"的空壳档案，AI分析永远只会得到0条结果，
+  // 如果不做这个判断，每次打开页面都会因为"关系数为0"而重新触发一次AI调用，白白浪费费用。
+  const hasSubstantiveProfileData = (p: PersonData): boolean => {
+    return Boolean(
+      (p.company && p.company.trim()) ||
+      (p.position && p.position.trim()) ||
+      (p.industry && p.industry.trim()) ||
+      (p.school && p.school.trim()) ||
+      (Array.isArray(p.allCompanies) && p.allCompanies.length > 0) ||
+      (Array.isArray(p.educations) && p.educations.length > 0)
+    )
+  }
+
   // 仅为当前这一个人补充关系分析，在后台异步执行，不阻塞页面展示、不影响其他人的关系数据
   const analyzeThisPersonInBackground = async (targetPerson: PersonData) => {
     try {
@@ -325,7 +339,7 @@ export default function PersonDetail() {
           
           // 如果这个人还没有关系数据，在后台异步补充分析（只分析这一个人，不会影响/清空其他人的关系数据）
           const relationships = getPersonRelationships(foundPerson.id)
-          if (relationships.length === 0) {
+          if (relationships.length === 0 && hasSubstantiveProfileData(foundPerson)) {
             console.log('未找到关系数据，后台异步补充分析...')
             analyzeThisPersonInBackground(foundPerson)
           } else {
@@ -350,7 +364,7 @@ export default function PersonDetail() {
             setGraphData(generateGraphData(foundPersonStr, strRelationships || undefined, people, cloudComps || undefined))
             setIsLoading(false)
             
-            if (getPersonRelationships(foundPersonStr.id).length === 0) {
+            if (getPersonRelationships(foundPersonStr.id).length === 0 && hasSubstantiveProfileData(foundPersonStr)) {
               analyzeThisPersonInBackground(foundPersonStr)
             }
           } else if (attempts < maxAttempts) {
