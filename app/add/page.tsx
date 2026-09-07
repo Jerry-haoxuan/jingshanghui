@@ -36,8 +36,11 @@ interface SupplierInfo {
   subTitle: string          // 核心业务类别（用户输入）
   keywords: string
   keyPerson1: string
+  keyPerson1Position: string // 关键人物1职位
   keyPerson2: string
+  keyPerson2Position: string // 关键人物2职位
   keyPerson3: string
+  keyPerson3Position: string // 关键人物3职位
 }
 
 interface CustomerInfo {
@@ -48,8 +51,11 @@ interface CustomerInfo {
   subTitle: string          // 核心业务类别（用户输入）
   keywords: string
   keyPerson1: string
+  keyPerson1Position: string // 关键人物1职位
   keyPerson2: string
+  keyPerson2Position: string // 关键人物2职位
   keyPerson3: string
+  keyPerson3Position: string // 关键人物3职位
 }
 
 // 党派选项
@@ -103,6 +109,7 @@ export default function AddPerson() {
     name: '',
     birthDate: '',
     phones: [''],
+    wechatId: '',
     email: '',
     hometown: '',
     currentCity: '',
@@ -417,6 +424,7 @@ export default function AddPerson() {
         allCompanies: companyPositions,
         phones: formData.phones.filter(phone => phone.trim() !== ''),
         phone: formData.phones[0],
+        wechatId: formData.wechatId,
         email: formData.email,
         hometown: formData.hometown,
         currentCity: formData.currentCity,
@@ -447,6 +455,8 @@ export default function AddPerson() {
         if (mainCompany) {
           const suppliers = supplierInfos.map(s => s.supplierName).filter(Boolean)
           const customers = customerInfos.map(c => c.customerName).filter(Boolean)
+          const validSupplierInfos = supplierInfos.filter(s => s.supplierName.trim() !== '')
+          const validCustomerInfos = customerInfos.filter(c => c.customerName.trim() !== '')
           const products = (formData.companyPositioning || '').split(/[\n、,，]/).map(s => s.trim()).filter(Boolean)
           const companyData = {
             name: mainCompany,
@@ -459,6 +469,9 @@ export default function AddPerson() {
             demands: formData.companyDemands || undefined,
             suppliers,
             customers,
+            // 之前这里漏了这两个字段，导致关键人物/职位等详细信息填了也不会真正保存下来
+            supplierInfos: validSupplierInfos,
+            customerInfos: validCustomerInfos,
             additionalInfo: ''
           }
           addOrUpdateCompany(companyData as any)
@@ -817,8 +830,11 @@ export default function AddPerson() {
                             subTitle: '',
                             keywords: '', 
                             keyPerson1: '', 
+                            keyPerson1Position: '',
                             keyPerson2: '', 
-                            keyPerson3: '' 
+                            keyPerson2Position: '',
+                            keyPerson3: '',
+                            keyPerson3Position: '',
                           }])}
                         >
                           <Plus className="h-4 w-4 mr-1" />
@@ -882,6 +898,31 @@ export default function AddPerson() {
                               />
                             </div>
                           </div>
+                          <div className="mt-3">
+                            <Label className="text-xs text-gray-600 mb-1 block">关键人物（可选，知道的话建议填上，方便后续对接）</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                              {([1, 2, 3] as const).map(n => (
+                                <div key={n} className="flex gap-2">
+                                  <Input
+                                    value={(supplier as any)[`keyPerson${n}`]}
+                                    onChange={(e) => setSupplierInfos(prev => prev.map((s, i) =>
+                                      i === index ? { ...s, [`keyPerson${n}`]: e.target.value } : s
+                                    ))}
+                                    placeholder={`关键人物${n}姓名`}
+                                    className="flex-1"
+                                  />
+                                  <Input
+                                    value={(supplier as any)[`keyPerson${n}Position`]}
+                                    onChange={(e) => setSupplierInfos(prev => prev.map((s, i) =>
+                                      i === index ? { ...s, [`keyPerson${n}Position`]: e.target.value } : s
+                                    ))}
+                                    placeholder="职位"
+                                    className="w-24"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -902,8 +943,11 @@ export default function AddPerson() {
                             subTitle: '',
                             keywords: '', 
                             keyPerson1: '', 
+                            keyPerson1Position: '',
                             keyPerson2: '', 
-                            keyPerson3: '' 
+                            keyPerson2Position: '',
+                            keyPerson3: '',
+                            keyPerson3Position: '',
                           }])}
                         >
                           <Plus className="h-4 w-4 mr-1" />
@@ -967,6 +1011,31 @@ export default function AddPerson() {
                               />
                             </div>
                           </div>
+                          <div className="mt-3">
+                            <Label className="text-xs text-gray-600 mb-1 block">关键人物（可选，知道的话建议填上，方便后续对接）</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                              {([1, 2, 3] as const).map(n => (
+                                <div key={n} className="flex gap-2">
+                                  <Input
+                                    value={(customer as any)[`keyPerson${n}`]}
+                                    onChange={(e) => setCustomerInfos(prev => prev.map((c, i) =>
+                                      i === index ? { ...c, [`keyPerson${n}`]: e.target.value } : c
+                                    ))}
+                                    placeholder={`关键人物${n}姓名`}
+                                    className="flex-1"
+                                  />
+                                  <Input
+                                    value={(customer as any)[`keyPerson${n}Position`]}
+                                    onChange={(e) => setCustomerInfos(prev => prev.map((c, i) =>
+                                      i === index ? { ...c, [`keyPerson${n}Position`]: e.target.value } : c
+                                    ))}
+                                    placeholder="职位"
+                                    className="w-24"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1009,6 +1078,16 @@ export default function AddPerson() {
                           )}
                         </div>
                       ))}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="wechatId">微信号</Label>
+                      <Input
+                        id="wechatId"
+                        name="wechatId"
+                        value={formData.wechatId}
+                        onChange={handleInputChange}
+                        placeholder="可选"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">邮箱</Label>

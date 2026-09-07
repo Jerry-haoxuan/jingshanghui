@@ -4,6 +4,7 @@ export interface ExtractedProfile {
   formData: {
     name: string
     birthDate: string
+    wechatId: string // 微信号（原"电话3"位置改成了这个字段，见老板修改的真实示例版模板）
     email: string
     hometown: string
     currentCity: string
@@ -35,8 +36,11 @@ export interface ExtractedProfile {
     subTitle: string
     keywords: string
     keyPerson1: string
+    keyPerson1Position: string
     keyPerson2: string
+    keyPerson2Position: string
     keyPerson3: string
+    keyPerson3Position: string
   }[]
   customerInfos: {
     productName: string
@@ -46,15 +50,18 @@ export interface ExtractedProfile {
     subTitle: string
     keywords: string
     keyPerson1: string
+    keyPerson1Position: string
     keyPerson2: string
+    keyPerson2Position: string
     keyPerson3: string
+    keyPerson3Position: string
   }[]
 }
 
 export function buildEmptyProfile(): ExtractedProfile {
   return {
     formData: {
-      name: '', birthDate: '', email: '', hometown: '', currentCity: '',
+      name: '', birthDate: '', wechatId: '', email: '', hometown: '', currentCity: '',
       homeAddress: '', companyAddress: '', industry: '', politicalParty: '',
       hobbies: '', skills: '', expectations: '', workHistory: '', additionalInfo: '',
       companyIndustry: '', companyScale: '', companyPositioning: '', companyValue: '',
@@ -81,7 +88,7 @@ export const EXAMPLE_PERSON_NAMES = ['小明', '徐翔']
 // 上游供应商/下游客户的示例行改成"整行精确匹配"才跳过（而不是只看名字），
 // 是因为徐翔示例版模板里用了真实公司名（比如"中际旭创"），这些是客观存在的真实企业，
 // 以后完全可能有别的用户也把它填成自己真实的客户/供应商。如果只按名字过滤，会把
-// 别人真实的数据也误跳过；改成"名字+行业+核心业务+关键词+关键人物"全部一致才跳过，
+// 别人真实的数据也误跳过；改成"名字+行业+核心业务+关键词+关键人物+职位"全部一致才跳过，
 // 只有恰好把示例原封不动抄一遍才会被过滤，正常真实数据几乎不可能完全撞上。
 export interface ExampleRowShape {
   name: string
@@ -90,22 +97,23 @@ export interface ExampleRowShape {
   subTitle: string
   keywords: string
   keyPerson1: string
+  keyPerson1Position: string
   keyPerson2: string
+  keyPerson2Position: string
   keyPerson3: string
+  keyPerson3Position: string
 }
 
 export const EXAMPLE_SUPPLIER_ROWS: ExampleRowShape[] = [
   // 网站默认模板（小明版）用的通用占位示例
-  { name: '示例供应商有限公司', extra: '原材料', industryCategory: '新材料', subTitle: '原材料供应', keywords: '原材料,加工', keyPerson1: '张三', keyPerson2: '', keyPerson3: '' },
-  // 徐翔真实示例版模板：他所在的永鑫方舟的真实上游资源
-  { name: '苏州工业园区国际科技园', extra: '', industryCategory: '其他', subTitle: '产业园', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' },
+  { name: '示例供应商有限公司', extra: '原材料', industryCategory: '新材料', subTitle: '原材料供应', keywords: '原材料,加工', keyPerson1: '张三', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' },
+  // 徐翔真实示例版模板：他所在永鑫方舟的真实上游资源（老板修改后的真实数据版本）
+  { name: '苏州工业园区国际科技园', extra: '租赁办公室', industryCategory: '其他', subTitle: '产业园', keywords: '国资产业园', keyPerson1: '张峰', keyPerson1Position: '董事长', keyPerson2: '吴琦', keyPerson2Position: '招商经理', keyPerson3: '', keyPerson3Position: '' },
 ]
 
 export const EXAMPLE_CUSTOMER_ROWS: ExampleRowShape[] = [
   // 网站默认模板（小明版）用的通用占位示例
-  { name: '示例客户有限公司', extra: '精密零部件', industryCategory: '智能制造', subTitle: '整机组装采购', keywords: '零部件,采购', keyPerson1: '李四', keyPerson2: '', keyPerson3: '' },
-  // 徐翔真实示例版模板：他所在的永鑫方舟真实投后企业客户（节选3家）
-  { name: '中际旭创股份有限公司', extra: '', industryCategory: '人工智能', subTitle: '光通讯模组', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' },
-  { name: '苏州鼎纳自动化技术有限公司', extra: '', industryCategory: '智能制造', subTitle: '视觉检测', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' },
-  { name: '苏州东微半导体股份有限公司', extra: '', industryCategory: '半导体', subTitle: '芯片设计', keywords: '', keyPerson1: '', keyPerson2: '', keyPerson3: '' },
+  { name: '示例客户有限公司', extra: '精密零部件', industryCategory: '智能制造', subTitle: '整机组装采购', keywords: '零部件,采购', keyPerson1: '李四', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' },
+  // 徐翔真实示例版模板：永鑫方舟真实投后企业客户（老板改成只保留中际旭创这一条，信息填得更完整）
+  { name: '中际旭创股份有限公司', extra: '光模块', industryCategory: '人工智能', subTitle: '人工智能', keywords: '谷歌英伟达供应商', keyPerson1: '刘圣', keyPerson1Position: '董事长', keyPerson2: '丁海', keyPerson2Position: '副总裁', keyPerson3: '郑学哲', keyPerson3Position: '研究院院长' },
 ]

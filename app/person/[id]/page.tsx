@@ -630,7 +630,7 @@ export default function PersonDetail() {
               )}
 
               {/* 联系方式 */}
-              {(person?.phones && person.phones.length > 0) || person?.phone || person?.email ? (
+              {(person?.phones && person.phones.length > 0) || person?.phone || person?.email || (person as any)?.wechatId ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Phone className="h-5 w-5 text-gray-600" />
@@ -667,6 +667,25 @@ export default function PersonDetail() {
                           </Button>
                         ) : (
                           <p className="text-sm font-medium text-gray-900">{person.phone}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 微信号 */}
+                    {(person as any)?.wechatId && (
+                      <div>
+                        <p className="text-xs text-gray-500">微信号</p>
+                        {(isMember() && !viewingOwnCard) ? (
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800"
+                            onClick={() => setShowContactDialog(true)}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            查看联系方式
+                          </Button>
+                        ) : (
+                          <p className="text-sm font-medium text-gray-900">{(person as any).wechatId}</p>
                         )}
                       </div>
                     )}

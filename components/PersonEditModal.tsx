@@ -39,8 +39,11 @@ interface SupplierInfo {
   subTitle: string
   keywords: string
   keyPerson1: string
+  keyPerson1Position: string
   keyPerson2: string
+  keyPerson2Position: string
   keyPerson3: string
+  keyPerson3Position: string
 }
 
 interface CustomerInfo {
@@ -51,8 +54,11 @@ interface CustomerInfo {
   subTitle: string
   keywords: string
   keyPerson1: string
+  keyPerson1Position: string
   keyPerson2: string
+  keyPerson2Position: string
   keyPerson3: string
+  keyPerson3Position: string
 }
 
 // 党派选项
@@ -101,6 +107,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     name: '',
     birthDate: '',
     phones: [''],
+    wechatId: '',
     email: '',
     hometown: '',
     currentCity: '',
@@ -149,6 +156,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         name: person.name || '',
         birthDate: person.birthDate || '',
         phones: person.phones && person.phones.length > 0 ? person.phones : [''],
+        wechatId: (person as any).wechatId || '',
         email: person.email || '',
         hometown: person.hometown || '',
         currentCity: person.currentCity || '',
@@ -221,158 +229,71 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             )
             
             if (companyData) {
-              console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.suppliers?.length || 0, '客户:', companyData.customers?.length || 0)
-              
-              // 转换供应商数据：支持旧格式（字符串数组）和新格式（对象数组）
-              if (companyData.suppliers && companyData.suppliers.length > 0) {
-                console.log('[PersonEditModal] 原始供应商数据:', companyData.suppliers)
-                const convertedSuppliers = companyData.suppliers.map((s: any, idx: number) => {
-                  console.log(`[PersonEditModal] 供应商 ${idx + 1} 类型:`, typeof s, '值:', s)
-                  
-                  // 如果是JSON字符串，先解析
-                  if (typeof s === 'string') {
-                    try {
-                      const parsed = JSON.parse(s)
-                      if (typeof parsed === 'object' && parsed.supplierName) {
-                        // 是JSON字符串，解析后使用
-                        return {
-                          materialName: parsed.materialName || '',
-                          materialCategory: parsed.materialCategory || '',
-                          supplierName: parsed.supplierName || '',
-                          industryCategory: parsed.industryCategory || '',
-                          subTitle: parsed.subTitle || '',
-                          keywords: parsed.keywords || '',
-                          keyPerson1: parsed.keyPerson1 || '',
-                          keyPerson2: parsed.keyPerson2 || '',
-                          keyPerson3: parsed.keyPerson3 || ''
-                        }
-                      }
-                    } catch (e) {
-                      // 不是JSON，当作普通字符串（供应商名称）
-                      console.log(`[PersonEditModal] 供应商 ${idx + 1} 是普通字符串`)
-                    }
-                    // 旧格式：字符串（供应商名称）
-                    return {
-                      materialName: '',
-                      materialCategory: '',
-                      supplierName: s,
-                      industryCategory: '',
-                      subTitle: '',
-                      keywords: '',
-                      keyPerson1: '',
-                      keyPerson2: '',
-                      keyPerson3: ''
-                    }
-                  } else if (typeof s === 'object' && s !== null) {
-                    // 新格式：对象（确保所有字段都存在）
-                    return {
-                      materialName: s.materialName || '',
-                      materialCategory: s.materialCategory || '',
-                      supplierName: s.supplierName || '',
-                      industryCategory: s.industryCategory || '',
-                      subTitle: s.subTitle || '',
-                      keywords: s.keywords || '',
-                      keyPerson1: s.keyPerson1 || '',
-                      keyPerson2: s.keyPerson2 || '',
-                      keyPerson3: s.keyPerson3 || ''
-                    }
-                  } else {
-                    // 未知格式，返回空对象
-                    console.warn(`[PersonEditModal] 未知的供应商数据格式:`, s)
-                    return {
-                      materialName: '',
-                      materialCategory: '',
-                      supplierName: '',
-                      industryCategory: '',
-                      subTitle: '',
-                      keywords: '',
-                      keyPerson1: '',
-                      keyPerson2: '',
-                      keyPerson3: ''
-                    }
+              console.log('[PersonEditModal] 找到匹配企业:', companyData.name, '供应商:', companyData.supplierInfos?.length || companyData.suppliers?.length || 0, '客户:', companyData.customerInfos?.length || companyData.customers?.length || 0)
+
+              // 供应商：优先用结构化的 supplierInfos（含关键人物/职位），
+              // 之前这里只读 companyData.suppliers（纯名称数组/旧JSON字符串），
+              // 会导致已经填过的关键人物、职位等详细信息在编辑弹窗里丢失显示。
+              // 兼容三种历史格式：1) supplierInfos结构化对象数组 2) suppliers里的JSON字符串 3) suppliers纯名称字符串
+              const normalizeSupplier = (s: any): SupplierInfo => {
+                if (typeof s === 'string') {
+                  try {
+                    const parsed = JSON.parse(s)
+                    if (typeof parsed === 'object' && parsed.supplierName) return normalizeSupplier(parsed)
+                  } catch (e) { /* 不是JSON，当普通名称字符串处理 */ }
+                  return { materialName: '', materialCategory: '', supplierName: s, industryCategory: '', subTitle: '', keywords: '', keyPerson1: '', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' }
+                }
+                if (typeof s === 'object' && s !== null) {
+                  return {
+                    materialName: s.materialName || '',
+                    materialCategory: s.materialCategory || '',
+                    supplierName: s.supplierName || '',
+                    industryCategory: s.industryCategory || '',
+                    subTitle: s.subTitle || '',
+                    keywords: s.keywords || '',
+                    keyPerson1: s.keyPerson1 || '',
+                    keyPerson1Position: s.keyPerson1Position || '',
+                    keyPerson2: s.keyPerson2 || '',
+                    keyPerson2Position: s.keyPerson2Position || '',
+                    keyPerson3: s.keyPerson3 || '',
+                    keyPerson3Position: s.keyPerson3Position || '',
                   }
-                })
-                console.log('[PersonEditModal] 转换后的供应商数据:', convertedSuppliers)
-                setSupplierInfos(convertedSuppliers)
-              } else {
-                setSupplierInfos([])
+                }
+                return { materialName: '', materialCategory: '', supplierName: '', industryCategory: '', subTitle: '', keywords: '', keyPerson1: '', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' }
               }
-              
-              // 转换客户数据：支持旧格式（字符串数组）和新格式（对象数组）
-              if (companyData.customers && companyData.customers.length > 0) {
-                console.log('[PersonEditModal] 原始客户数据:', companyData.customers)
-                const convertedCustomers = companyData.customers.map((c: any, idx: number) => {
-                  console.log(`[PersonEditModal] 客户 ${idx + 1} 类型:`, typeof c, '值:', c)
-                  
-                  // 如果是JSON字符串，先解析
-                  if (typeof c === 'string') {
-                    try {
-                      const parsed = JSON.parse(c)
-                      if (typeof parsed === 'object' && parsed.customerName) {
-                        // 是JSON字符串，解析后使用
-                        return {
-                          productName: parsed.productName || '',
-                          productCategory: parsed.productCategory || '',
-                          customerName: parsed.customerName || '',
-                          industryCategory: parsed.industryCategory || '',
-                          subTitle: parsed.subTitle || '',
-                          keywords: parsed.keywords || '',
-                          keyPerson1: parsed.keyPerson1 || '',
-                          keyPerson2: parsed.keyPerson2 || '',
-                          keyPerson3: parsed.keyPerson3 || ''
-                        }
-                      }
-                    } catch (e) {
-                      // 不是JSON，当作普通字符串（客户名称）
-                      console.log(`[PersonEditModal] 客户 ${idx + 1} 是普通字符串`)
-                    }
-                    // 旧格式：字符串（客户名称）
-                    return {
-                      productName: '',
-                      productCategory: '',
-                      customerName: c,
-                      industryCategory: '',
-                      subTitle: '',
-                      keywords: '',
-                      keyPerson1: '',
-                      keyPerson2: '',
-                      keyPerson3: ''
-                    }
-                  } else if (typeof c === 'object' && c !== null) {
-                    // 新格式：对象（确保所有字段都存在）
-                    return {
-                      productName: c.productName || '',
-                      productCategory: c.productCategory || '',
-                      customerName: c.customerName || '',
-                      industryCategory: c.industryCategory || '',
-                      subTitle: c.subTitle || '',
-                      keywords: c.keywords || '',
-                      keyPerson1: c.keyPerson1 || '',
-                      keyPerson2: c.keyPerson2 || '',
-                      keyPerson3: c.keyPerson3 || ''
-                    }
-                  } else {
-                    // 未知格式，返回空对象
-                    console.warn(`[PersonEditModal] 未知的客户数据格式:`, c)
-                    return {
-                      productName: '',
-                      productCategory: '',
-                      customerName: '',
-                      industryCategory: '',
-                      subTitle: '',
-                      keywords: '',
-                      keyPerson1: '',
-                      keyPerson2: '',
-                      keyPerson3: ''
-                    }
+              const supplierSource = (companyData.supplierInfos && companyData.supplierInfos.length > 0) ? companyData.supplierInfos : companyData.suppliers
+              setSupplierInfos(supplierSource && supplierSource.length > 0 ? supplierSource.map(normalizeSupplier) : [])
+
+              // 客户：同上，优先用结构化的 customerInfos
+              const normalizeCustomer = (c: any): CustomerInfo => {
+                if (typeof c === 'string') {
+                  try {
+                    const parsed = JSON.parse(c)
+                    if (typeof parsed === 'object' && parsed.customerName) return normalizeCustomer(parsed)
+                  } catch (e) { /* 不是JSON，当普通名称字符串处理 */ }
+                  return { productName: '', productCategory: '', customerName: c, industryCategory: '', subTitle: '', keywords: '', keyPerson1: '', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' }
+                }
+                if (typeof c === 'object' && c !== null) {
+                  return {
+                    productName: c.productName || '',
+                    productCategory: c.productCategory || '',
+                    customerName: c.customerName || '',
+                    industryCategory: c.industryCategory || '',
+                    subTitle: c.subTitle || '',
+                    keywords: c.keywords || '',
+                    keyPerson1: c.keyPerson1 || '',
+                    keyPerson1Position: c.keyPerson1Position || '',
+                    keyPerson2: c.keyPerson2 || '',
+                    keyPerson2Position: c.keyPerson2Position || '',
+                    keyPerson3: c.keyPerson3 || '',
+                    keyPerson3Position: c.keyPerson3Position || '',
                   }
-                })
-                console.log('[PersonEditModal] 转换后的客户数据:', convertedCustomers)
-                setCustomerInfos(convertedCustomers)
-              } else {
-                setCustomerInfos([])
+                }
+                return { productName: '', productCategory: '', customerName: '', industryCategory: '', subTitle: '', keywords: '', keyPerson1: '', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' }
               }
-              
+              const customerSource = (companyData.customerInfos && companyData.customerInfos.length > 0) ? companyData.customerInfos : companyData.customers
+              setCustomerInfos(customerSource && customerSource.length > 0 ? customerSource.map(normalizeCustomer) : [])
+
               // 填充企业信息字段到表单
               setFormData(prev => ({
                 ...prev,
@@ -507,8 +428,11 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       subTitle: '',
       keywords: '',
       keyPerson1: '',
+      keyPerson1Position: '',
       keyPerson2: '',
-      keyPerson3: ''
+      keyPerson2Position: '',
+      keyPerson3: '',
+      keyPerson3Position: '',
     }])
   }
 
@@ -526,8 +450,11 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       subTitle: '',
       keywords: '',
       keyPerson1: '',
+      keyPerson1Position: '',
       keyPerson2: '',
-      keyPerson3: ''
+      keyPerson2Position: '',
+      keyPerson3: '',
+      keyPerson3Position: '',
     }])
   }
 
@@ -649,6 +576,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
         birthDate: formData.birthDate,
         phones: formData.phones.filter(phone => phone.trim() !== ''),
         phone: formData.phones[0], // 主要电话
+        wechatId: formData.wechatId,
         email: formData.email,
         hometown: formData.hometown,
         currentCity: formData.currentCity,
@@ -718,6 +646,10 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
           const validCustomers = customerInfos.filter(c => c.customerName.trim() !== '')
           
           // 构建企业更新数据
+          // 注意：之前这里把结构化对象数组（含关键人物/职位）错误地塞进了 suppliers/customers
+          // （这两个字段本意是"纯名称字符串数组"），改成分别写入正确的字段：
+          // suppliers/customers 存名称数组（兼容旧的按名称展示的地方），
+          // supplierInfos/customerInfos 存完整结构化信息（含关键人物、职位）。
           const companyUpdateData = {
             name: mainCompany,
             industry: formData.companyIndustry || '',
@@ -727,8 +659,10 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             value: formData.companyValue,
             achievements: formData.companyAchievements,
             demands: formData.companyDemands,
-            suppliers: validSuppliers,
-            customers: validCustomers,
+            suppliers: validSuppliers.map(s => s.supplierName),
+            customers: validCustomers.map(c => c.customerName),
+            supplierInfos: validSuppliers,
+            customerInfos: validCustomers,
             additionalInfo: ''
           }
           
@@ -932,15 +866,26 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
               </Button>
             </div>
 
-            <div>
-              <Label htmlFor="email">邮箱</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="wechatId">微信号</Label>
+                <Input
+                  id="wechatId"
+                  name="wechatId"
+                  value={formData.wechatId}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">邮箱</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1202,6 +1147,31 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                         />
                       </div>
                     </div>
+                    <div className="mt-2">
+                      <Label className="text-xs text-gray-600 mb-1 block">关键人物（可选）</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {([1, 2, 3] as const).map(n => (
+                          <div key={n} className="flex gap-1">
+                            <Input
+                              value={(supplier as any)[`keyPerson${n}`]}
+                              onChange={(e) => setSupplierInfos(prev => prev.map((s, i) =>
+                                i === index ? { ...s, [`keyPerson${n}`]: e.target.value } : s
+                              ))}
+                              placeholder={`关键人物${n}`}
+                              className="text-sm h-9"
+                            />
+                            <Input
+                              value={(supplier as any)[`keyPerson${n}Position`]}
+                              onChange={(e) => setSupplierInfos(prev => prev.map((s, i) =>
+                                i === index ? { ...s, [`keyPerson${n}Position`]: e.target.value } : s
+                              ))}
+                              placeholder="职位"
+                              className="text-sm h-9 w-20"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1269,6 +1239,31 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                           placeholder="例如：芯片封装、AI算法、云计算"
                           className="text-sm h-9"
                         />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <Label className="text-xs text-gray-600 mb-1 block">关键人物（可选）</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {([1, 2, 3] as const).map(n => (
+                          <div key={n} className="flex gap-1">
+                            <Input
+                              value={(customer as any)[`keyPerson${n}`]}
+                              onChange={(e) => setCustomerInfos(prev => prev.map((c, i) =>
+                                i === index ? { ...c, [`keyPerson${n}`]: e.target.value } : c
+                              ))}
+                              placeholder={`关键人物${n}`}
+                              className="text-sm h-9"
+                            />
+                            <Input
+                              value={(customer as any)[`keyPerson${n}Position`]}
+                              onChange={(e) => setCustomerInfos(prev => prev.map((c, i) =>
+                                i === index ? { ...c, [`keyPerson${n}Position`]: e.target.value } : c
+                              ))}
+                              placeholder="职位"
+                              className="text-sm h-9 w-20"
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

@@ -784,9 +784,11 @@ ${companyData.map((c: CompanyData) => {
   let supplierSection = ''
   if (c.supplierInfos && c.supplierInfos.length > 0) {
     supplierSection = `- 上游供应商（共${c.supplierInfos.length}家，含详细信息）：\n` +
-      c.supplierInfos.map((s, i) =>
-        `  ${i + 1}. ${s.supplierName}｜行业：${s.industryCategory}｜核心业务：${s.subTitle}${s.materialName ? `｜采购品类：${s.materialName}` : ''}${s.keywords ? `｜关键词：${s.keywords}` : ''}${s.keyPerson1 ? `｜关键人：${s.keyPerson1}${s.keyPerson2 ? '、' + s.keyPerson2 : ''}${s.keyPerson3 ? '、' + s.keyPerson3 : ''}` : ''}`
-      ).join('\n')
+      c.supplierInfos.map((s, i) => {
+        const fmtPerson = (name?: string, position?: string) => name ? `${name}${position ? `(${position})` : ''}` : ''
+        const people = [fmtPerson(s.keyPerson1, s.keyPerson1Position), fmtPerson(s.keyPerson2, s.keyPerson2Position), fmtPerson(s.keyPerson3, s.keyPerson3Position)].filter(Boolean).join('、')
+        return `  ${i + 1}. ${s.supplierName}｜行业：${s.industryCategory}｜核心业务：${s.subTitle}${s.materialName ? `｜采购品类：${s.materialName}` : ''}${s.keywords ? `｜关键词：${s.keywords}` : ''}${people ? `｜关键人：${people}` : ''}`
+      }).join('\n')
   } else if (c.suppliers && c.suppliers.length > 0) {
     supplierSection = `- 上游供应商（共${c.suppliers.length}家）：${c.suppliers.join('、')}`
   }
@@ -795,9 +797,11 @@ ${companyData.map((c: CompanyData) => {
   let customerSection = ''
   if (c.customerInfos && c.customerInfos.length > 0) {
     customerSection = `- 下游客户（共${c.customerInfos.length}家，含详细信息）：\n` +
-      c.customerInfos.map((cu, i) =>
-        `  ${i + 1}. ${cu.customerName}｜行业：${cu.industryCategory}｜核心业务：${cu.subTitle}${cu.productName ? `｜产品：${cu.productName}` : ''}${cu.keywords ? `｜关键词：${cu.keywords}` : ''}${cu.keyPerson1 ? `｜关键人：${cu.keyPerson1}${cu.keyPerson2 ? '、' + cu.keyPerson2 : ''}${cu.keyPerson3 ? '、' + cu.keyPerson3 : ''}` : ''}`
-      ).join('\n')
+      c.customerInfos.map((cu, i) => {
+        const fmtPerson = (name?: string, position?: string) => name ? `${name}${position ? `(${position})` : ''}` : ''
+        const people = [fmtPerson(cu.keyPerson1, cu.keyPerson1Position), fmtPerson(cu.keyPerson2, cu.keyPerson2Position), fmtPerson(cu.keyPerson3, cu.keyPerson3Position)].filter(Boolean).join('、')
+        return `  ${i + 1}. ${cu.customerName}｜行业：${cu.industryCategory}｜核心业务：${cu.subTitle}${cu.productName ? `｜产品：${cu.productName}` : ''}${cu.keywords ? `｜关键词：${cu.keywords}` : ''}${people ? `｜关键人：${people}` : ''}`
+      }).join('\n')
   } else if (c.customers && c.customers.length > 0) {
     customerSection = `- 下游客户（共${c.customers.length}家）：${c.customers.join('、')}`
   }

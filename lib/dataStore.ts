@@ -8,6 +8,7 @@ export interface PersonData {
   allCompanies?: { company: string; position: string }[] // 所有公司职位
   phones?: string[] // 多个电话
   phone?: string // 主要电话（兼容性）
+  wechatId?: string // 微信号
   email?: string
   politicalParty?: string // 党派
   socialOrganizations?: string[] // 社会组织身份
@@ -53,8 +54,11 @@ export interface CompanyData {
     subTitle: string;          // 核心业务类别
     keywords: string; 
     keyPerson1: string; 
+    keyPerson1Position?: string; // 关键人物1职位
     keyPerson2: string; 
-    keyPerson3: string 
+    keyPerson2Position?: string; // 关键人物2职位
+    keyPerson3: string; 
+    keyPerson3Position?: string; // 关键人物3职位
   }[] // 供应商明细
   customerInfos?: { 
     productName: string; 
@@ -64,8 +68,11 @@ export interface CompanyData {
     subTitle: string;          // 核心业务类别
     keywords: string; 
     keyPerson1: string; 
+    keyPerson1Position?: string; // 关键人物1职位
     keyPerson2: string; 
-    keyPerson3: string 
+    keyPerson2Position?: string; // 关键人物2职位
+    keyPerson3: string; 
+    keyPerson3Position?: string; // 关键人物3职位
   }[] // 客户明细
 }
 

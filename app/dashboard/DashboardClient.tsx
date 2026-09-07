@@ -316,7 +316,7 @@ export default function DashboardClient() {
     const XLSX = await import('xlsx')
 
     const header = [
-      '姓名', '出生年月日', '电话1', '电话2', '电话3', '邮箱',
+      '姓名', '出生年月日', '电话1', '电话2', '微信号', '邮箱',
       '公司1', '职位1', '公司2', '职位2', '公司3', '职位3', '行业',
       '党派', '社会组织1', '社会组织2', '社会组织3',
       '现居地', '家乡',
@@ -333,7 +333,7 @@ export default function DashboardClient() {
       const phoneList = Array.isArray(p.phones) ? p.phones : []
       const primaryPhone = p.phone || phoneList[0] || ''
       const phone2 = phoneList[1] || ''
-      const phone3 = phoneList[2] || ''
+      const wechatId = (p as any).wechatId || ''
 
       const company1 = p.company || ''
       const position1 = p.position || ''
@@ -359,7 +359,7 @@ export default function DashboardClient() {
       const emba3 = embas[2]
 
       return [
-        p.name || '', p.birthDate || '', primaryPhone, phone2, phone3, p.email || '',
+        p.name || '', p.birthDate || '', primaryPhone, phone2, wechatId, p.email || '',
         company1, position1, company2, position2, company3, position3, p.industry || '',
         p.politicalParty || '', social1, social2, social3,
         p.currentCity || '', p.hometown || '',
@@ -403,30 +403,30 @@ export default function DashboardClient() {
     wsMain['!cols'] = mainHeader.map(() => ({ wch: 20 }))
     XLSX.utils.book_append_sheet(wb, wsMain, '企业信息')
 
-    const supplierHeader = ['企业名称', '原材料名称', '原材料类别', '供应商名称', '关键词', '关键人物1', '关键人物2', '关键人物3']
+    const supplierHeader = ['企业名称', '原材料名称', '原材料类别', '供应商名称', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
     const supplierRows: any[] = []
     companies.forEach(c => {
       const infos = Array.isArray(c.supplierInfos) ? c.supplierInfos : []
       if (infos.length === 0) {
         const names = Array.isArray(c.suppliers) ? c.suppliers : []
-        names.forEach(n => supplierRows.push([c.name || '', '', '', n, '', '', '', '']))
+        names.forEach(n => supplierRows.push([c.name || '', '', '', n, '', '', '', '', '', '', '']))
       } else {
-        infos.forEach(info => supplierRows.push([c.name || '', info.materialName || '', info.materialCategory || '', info.supplierName || '', info.keywords || '', info.keyPerson1 || '', info.keyPerson2 || '', info.keyPerson3 || '']))
+        infos.forEach(info => supplierRows.push([c.name || '', info.materialName || '', info.materialCategory || '', info.supplierName || '', info.keywords || '', info.keyPerson1 || '', (info as any).keyPerson1Position || '', info.keyPerson2 || '', (info as any).keyPerson2Position || '', info.keyPerson3 || '', (info as any).keyPerson3Position || '']))
       }
     })
     const wsSup = XLSX.utils.aoa_to_sheet([supplierHeader, ...supplierRows])
     wsSup['!cols'] = supplierHeader.map(() => ({ wch: 20 }))
     XLSX.utils.book_append_sheet(wb, wsSup, '上游供应商明细')
 
-    const customerHeader = ['企业名称', '产品名称', '产品类别', '客户名称', '关键词', '关键人物1', '关键人物2', '关键人物3']
+    const customerHeader = ['企业名称', '产品名称', '产品类别', '客户名称', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
     const customerRows: any[] = []
     companies.forEach(c => {
       const infos = Array.isArray(c.customerInfos) ? c.customerInfos : []
       if (infos.length === 0) {
         const names = Array.isArray(c.customers) ? c.customers : []
-        names.forEach(n => customerRows.push([c.name || '', '', '', n, '', '', '', '']))
+        names.forEach(n => customerRows.push([c.name || '', '', '', n, '', '', '', '', '', '', '']))
       } else {
-        infos.forEach(info => customerRows.push([c.name || '', info.productName || '', info.productCategory || '', info.customerName || '', info.keywords || '', info.keyPerson1 || '', info.keyPerson2 || '', info.keyPerson3 || '']))
+        infos.forEach(info => customerRows.push([c.name || '', info.productName || '', info.productCategory || '', info.customerName || '', info.keywords || '', info.keyPerson1 || '', (info as any).keyPerson1Position || '', info.keyPerson2 || '', (info as any).keyPerson2Position || '', info.keyPerson3 || '', (info as any).keyPerson3Position || '']))
       }
     })
     const wsCus = XLSX.utils.aoa_to_sheet([customerHeader, ...customerRows])

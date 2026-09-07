@@ -7,8 +7,9 @@ import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS } fr
 
 // 个人与企业信息模板：字段顺序需要和 /api/parse-profile-excel 里的列名一一对应，
 // 改这里的表头文字时务必同步改那边的读取逻辑，否则会读不到数据。
+// 注意：原来"电话3"这一列已经按老板的修改意见改成了"微信号"（位置不变，还是第5列）。
 const MAIN_HEADERS = [
-  '姓名', '出生年月日', '电话1', '电话2', '电话3', '邮箱',
+  '姓名', '出生年月日', '电话1', '电话2', '微信号', '邮箱',
   '现居地', '家乡', '家庭详细地址',
   '公司1', '职位1', '公司2', '职位2', '公司3', '职位3', '公司地址',
   '企业所属行业', '企业规模', '企业定位（我们是做什么的）', '企业价值（为什么选择我们）', '企业关键成就', '企业诉求',
@@ -36,7 +37,7 @@ const MAIN_NOTE_ROW = [
 // 唯一的示例：小明——用一个虚构的名字演示各种字段（多家公司、多段学历）怎么填。
 // 注意：不能用网站里真实存在的人名（比如以前用过的"宋江""徐翔"），避免和真实用户混淆。
 const EXAMPLE_ROW = [
-  EXAMPLE_PERSON_NAMES[0], '1985-06-15', '13900000000', '', '', 'xiaoming@example.com',
+  EXAMPLE_PERSON_NAMES[0], '1985-06-15', '13900000000', '', 'xiaoming_szkj', 'xiaoming@example.com',
   '江苏苏州', '江苏南京', '江苏省苏州市示例路1号',
   '苏州示例科技有限公司', '总经理', '南京示例贸易有限公司', '股东', '', '', '江苏省苏州市工业园区示例大厦8楼',
   '智能制造', '51-100人', '专注精密零部件研发与生产，服务新能源、半导体等行业客户', '拥有自主研发能力，交付周期短、良率高', '累计服务客户50余家，年产值超3000万元', '希望结识更多下游整机厂客户，同时寻找优质原材料供应商',
@@ -51,7 +52,7 @@ const EXAMPLE_ROW = [
 ]
 
 const MAIN_COL_WIDTHS = [
-  10, 14, 12, 12, 12, 20,
+  10, 14, 12, 12, 16, 20,
   10, 10, 26,
   22, 14, 22, 14, 16, 12, 26,
   14, 16, 30, 30, 30, 30,
@@ -64,18 +65,26 @@ const MAIN_COL_WIDTHS = [
 ].map(w => ({ wch: w }))
 
 // 上游供应商 / 下游客户：一行代表一个供应商/客户，比在主表里塞多列更适合"有几个填几行"的场景
-const SUPPLIER_HEADERS = ['供应商名称', '采购物料/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '关键人物2', '关键人物3']
-const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选']
+// 关键人物1/2/3 每个后面都加了一列"职位"，方便AI匹配/展示时知道该联系哪个层级的人。
+// 注意：这3个"职位"表头文字是重复的，解析那边（/api/parse-profile-excel）按"列位置"读取，
+// 不是按表头文字读取，所以重复表头不会互相覆盖，但改列顺序时务必同步改那边的下标。
+const SUPPLIER_HEADERS = ['供应商名称', '采购物料/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
+const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '', '可选', '', '可选', '']
 const SUPPLIER_EXAMPLE_ROWS = [
-  (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3 }) =>
-    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3])(EXAMPLE_SUPPLIER_ROWS[0]),
+  (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position }) =>
+    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position])(EXAMPLE_SUPPLIER_ROWS[0]),
 ]
 
-const CUSTOMER_HEADERS = ['客户名称', '销售产品/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '关键人物2', '关键人物3']
-const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选']
+const CUSTOMER_HEADERS = ['客户名称', '销售产品/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
+const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '', '可选', '', '可选', '']
 const CUSTOMER_EXAMPLE_ROWS = [
-  (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3 }) =>
-    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson2, keyPerson3])(EXAMPLE_CUSTOMER_ROWS[0]),
+  (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position }) =>
+    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position])(EXAMPLE_CUSTOMER_ROWS[0]),
+]
+
+const SUPPLIER_CUSTOMER_COL_WIDTHS = [
+  { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 },
+  { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
 ]
 
 const INDUSTRY_CATEGORIES = [
@@ -139,7 +148,7 @@ export async function GET() {
       '④ 即使忘记删除"小明"这一示例行，系统上传时也会自动识别并跳过，不会混入你的数据——但还是建议手动删掉，保持表格干净。',
       '',
       '② 怎么填"上游供应商" / "下游客户"表（可选，不填不影响其他信息导入）：',
-      '这两张表和"个人与企业信息"表一样，每一行代表一个供应商/客户；你有几个主要的，就填几行，同样删除示例行、只保留你自己的数据。',
+      '这两张表和"个人与企业信息"表一样，每一行代表一个供应商/客户；你有几个主要的，就填几行，同样删除示例行、只保留你自己的数据。每个关键人物后面都跟着一列"职位"，如果知道对方职位建议一并填上，方便后续对接。',
       '',
       '③ 日期格式：出生年月日请填 YYYY-MM-DD，例如 1990-01-15。',
       '④ 多个值用逗号分隔的字段：个人爱好、擅长能力、关键词，例如：摄影,旅行,阅读。',
@@ -181,7 +190,7 @@ export async function GET() {
 
     // ---- Sheet 3：上游供应商（可多行，每行一个供应商）----
     const supplierSheet = XLSX.utils.aoa_to_sheet([SUPPLIER_HEADERS, SUPPLIER_NOTE_ROW, ...SUPPLIER_EXAMPLE_ROWS])
-    supplierSheet['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+    supplierSheet['!cols'] = SUPPLIER_CUSTOMER_COL_WIDTHS
     styleDataSheetRow(supplierSheet, 0, SUPPLIER_HEADERS.length, STYLE_HEADER_CELL)
     styleNoteRowByContent(supplierSheet, 1, SUPPLIER_NOTE_ROW)
     SUPPLIER_EXAMPLE_ROWS.forEach((_, i) => styleDataSheetRow(supplierSheet, 2 + i, SUPPLIER_HEADERS.length, STYLE_EXAMPLE_ROW))
@@ -189,7 +198,7 @@ export async function GET() {
 
     // ---- Sheet 4：下游客户（可多行，每行一个客户）----
     const customerSheet = XLSX.utils.aoa_to_sheet([CUSTOMER_HEADERS, CUSTOMER_NOTE_ROW, ...CUSTOMER_EXAMPLE_ROWS])
-    customerSheet['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+    customerSheet['!cols'] = SUPPLIER_CUSTOMER_COL_WIDTHS
     styleDataSheetRow(customerSheet, 0, CUSTOMER_HEADERS.length, STYLE_HEADER_CELL)
     styleNoteRowByContent(customerSheet, 1, CUSTOMER_NOTE_ROW)
     CUSTOMER_EXAMPLE_ROWS.forEach((_, i) => styleDataSheetRow(customerSheet, 2 + i, CUSTOMER_HEADERS.length, STYLE_EXAMPLE_ROW))

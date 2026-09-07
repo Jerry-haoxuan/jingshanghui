@@ -40,20 +40,60 @@ function normalizeDate(v: unknown): string {
   return s
 }
 
+// 主表按"表头文字"读取——主表所有表头都是唯一的，用列名读最直观。
 function readSheetRows(workbook: XLSX.WorkBook, sheetName: string): Record<string, unknown>[] {
   const sheet = workbook.Sheets[sheetName]
   if (!sheet) return []
   return XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }) as Record<string, unknown>[]
 }
 
+// 供应商/客户表按"列位置"读取，而不是按表头文字读取。
+// 原因：这两张表里关键人物1/2/3后面各跟一列"职位"，3个"职位"表头文字是一样的，
+// 如果按表头文字转 JSON（sheet_to_json 默认行为），同名的表头会互相覆盖，导致只剩最后一个
+// "职位"的值、前两个丢失。改成先按二维数组读取整张表，再用固定下标取值，就不会有这个问题。
+// 列顺序（0-based下标）：0供应商/客户名称 1采购物料或销售产品 2行业大类 3核心业务类别 4关键词
+// 5关键人物1 6职位 7关键人物2 8职位 9关键人物3 10职位
+const SC_COL = {
+  name: 0, extra: 1, industryCategory: 2, subTitle: 3, keywords: 4,
+  keyPerson1: 5, keyPerson1Position: 6, keyPerson2: 7, keyPerson2Position: 8, keyPerson3: 9, keyPerson3Position: 10,
+} as const
+
+function readSheetRowsAsArrays(workbook: XLSX.WorkBook, sheetName: string): unknown[][] {
+  const sheet = workbook.Sheets[sheetName]
+  if (!sheet) return []
+  // header:1 => 每行原样返回成数组（不按表头文字转对象），跳过表头行(0)和说明行(1)，从第3行起才是数据
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false }) as unknown[][]
+  return rows.slice(2)
+}
+
+type SupplierCustomerRow = {
+  name: string; extra: string; industryCategory: string; subTitle: string; keywords: string
+  keyPerson1: string; keyPerson1Position: string
+  keyPerson2: string; keyPerson2Position: string
+  keyPerson3: string; keyPerson3Position: string
+}
+
+function parseSupplierCustomerRow(raw: unknown[]): SupplierCustomerRow {
+  return {
+    name: str(raw[SC_COL.name]),
+    extra: str(raw[SC_COL.extra]),
+    industryCategory: str(raw[SC_COL.industryCategory]),
+    subTitle: str(raw[SC_COL.subTitle]),
+    keywords: str(raw[SC_COL.keywords]),
+    keyPerson1: str(raw[SC_COL.keyPerson1]),
+    keyPerson1Position: str(raw[SC_COL.keyPerson1Position]),
+    keyPerson2: str(raw[SC_COL.keyPerson2]),
+    keyPerson2Position: str(raw[SC_COL.keyPerson2Position]),
+    keyPerson3: str(raw[SC_COL.keyPerson3]),
+    keyPerson3Position: str(raw[SC_COL.keyPerson3Position]),
+  }
+}
+
 // 供应商/客户示例行用"整行精确匹配"才算示例（不是只看名字），
 // 因为示例里可能用了真实存在的公司名（比如"中际旭创"），只按名字过滤会把
-// 别的用户填的同名真实数据也误跳过；只有连行业、核心业务、关键词、关键人物都
+// 别的用户填的同名真实数据也误跳过；只有连行业、核心业务、关键词、关键人物、职位都
 // 和示例一模一样才会被跳过，正常真实数据几乎不可能完全撞上。
-function isExactExampleRow(
-  row: { name: string; extra: string; industryCategory: string; subTitle: string; keywords: string; keyPerson1: string; keyPerson2: string; keyPerson3: string },
-  examples: ExampleRowShape[]
-): boolean {
+function isExactExampleRow(row: SupplierCustomerRow, examples: ExampleRowShape[]): boolean {
   return examples.some(ex =>
     ex.name === row.name &&
     ex.extra === row.extra &&
@@ -61,8 +101,11 @@ function isExactExampleRow(
     ex.subTitle === row.subTitle &&
     ex.keywords === row.keywords &&
     ex.keyPerson1 === row.keyPerson1 &&
+    ex.keyPerson1Position === row.keyPerson1Position &&
     ex.keyPerson2 === row.keyPerson2 &&
-    ex.keyPerson3 === row.keyPerson3
+    ex.keyPerson2Position === row.keyPerson2Position &&
+    ex.keyPerson3 === row.keyPerson3 &&
+    ex.keyPerson3Position === row.keyPerson3Position
   )
 }
 
@@ -71,6 +114,7 @@ function parseMainRow(row: Record<string, unknown>): ExtractedProfile {
 
   profile.formData.name = str(row['姓名'])
   profile.formData.birthDate = normalizeDate(row['出生年月日'])
+  profile.formData.wechatId = str(row['微信号'])
   profile.formData.email = str(row['邮箱'])
   profile.formData.hometown = str(row['家乡'])
   profile.formData.currentCity = str(row['现居地'])
@@ -89,7 +133,8 @@ function parseMainRow(row: Record<string, unknown>): ExtractedProfile {
   profile.formData.companyAchievements = str(row['企业关键成就'])
   profile.formData.companyDemands = str(row['企业诉求'])
 
-  profile.phones = [row['电话1'], row['电话2'], row['电话3']].map(str).filter(Boolean)
+  // 原来这里有"电话3"，现在这一列已经改成"微信号"（见上面 wechatId），所以只剩电话1/2两个。
+  profile.phones = [row['电话1'], row['电话2']].map(str).filter(Boolean)
   profile.socialOrganizations = [row['社会组织1'], row['社会组织2'], row['社会组织3']].map(str).filter(Boolean)
 
   const companyPairs: [unknown, unknown][] = [
@@ -138,7 +183,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // 跳过说明行（姓名列写着"必填"）和示例行（小明），取第一条真实数据；
+    // 跳过说明行（姓名列写着"必填"）和示例行（小明/徐翔），取第一条真实数据；
     // 一次上传只导入这一个人，不会把表里其他行也导进来
     const skipNames = new Set(['必填', ...EXAMPLE_PERSON_NAMES])
     const realRow = mainRows.find(row => {
@@ -156,18 +201,8 @@ export async function POST(request: NextRequest) {
     const profile = parseMainRow(realRow)
 
     // 供应商/客户：两张表都是可选的，没有对应工作表或没填都不算错误
-    const supplierRows = readSheetRows(workbook, SUPPLIER_SHEET_NAME)
+    const supplierRows = readSheetRowsAsArrays(workbook, SUPPLIER_SHEET_NAME).map(parseSupplierCustomerRow)
     profile.supplierInfos = supplierRows
-      .map(row => ({
-        name: str(row['供应商名称']),
-        extra: str(row['采购物料/类别']),
-        industryCategory: str(row['行业大类']),
-        subTitle: str(row['核心业务类别']),
-        keywords: str(row['关键词']),
-        keyPerson1: str(row['关键人物1']),
-        keyPerson2: str(row['关键人物2']),
-        keyPerson3: str(row['关键人物3']),
-      }))
       .filter(row => row.name !== '必填' && row.name && !isExactExampleRow(row, EXAMPLE_SUPPLIER_ROWS))
       .map(row => ({
         materialName: row.extra,
@@ -177,22 +212,15 @@ export async function POST(request: NextRequest) {
         subTitle: row.subTitle,
         keywords: row.keywords,
         keyPerson1: row.keyPerson1,
+        keyPerson1Position: row.keyPerson1Position,
         keyPerson2: row.keyPerson2,
+        keyPerson2Position: row.keyPerson2Position,
         keyPerson3: row.keyPerson3,
+        keyPerson3Position: row.keyPerson3Position,
       }))
 
-    const customerRows = readSheetRows(workbook, CUSTOMER_SHEET_NAME)
+    const customerRows = readSheetRowsAsArrays(workbook, CUSTOMER_SHEET_NAME).map(parseSupplierCustomerRow)
     profile.customerInfos = customerRows
-      .map(row => ({
-        name: str(row['客户名称']),
-        extra: str(row['销售产品/类别']),
-        industryCategory: str(row['行业大类']),
-        subTitle: str(row['核心业务类别']),
-        keywords: str(row['关键词']),
-        keyPerson1: str(row['关键人物1']),
-        keyPerson2: str(row['关键人物2']),
-        keyPerson3: str(row['关键人物3']),
-      }))
       .filter(row => row.name !== '必填' && row.name && !isExactExampleRow(row, EXAMPLE_CUSTOMER_ROWS))
       .map(row => ({
         productName: row.extra,
@@ -202,8 +230,11 @@ export async function POST(request: NextRequest) {
         subTitle: row.subTitle,
         keywords: row.keywords,
         keyPerson1: row.keyPerson1,
+        keyPerson1Position: row.keyPerson1Position,
         keyPerson2: row.keyPerson2,
+        keyPerson2Position: row.keyPerson2Position,
         keyPerson3: row.keyPerson3,
+        keyPerson3Position: row.keyPerson3Position,
       }))
 
     return NextResponse.json({ success: true, profile })

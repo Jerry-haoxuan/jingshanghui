@@ -18,6 +18,7 @@ type DbPerson = {
   is_followed: boolean | null
   phone: string | null
   phones: any | null
+  wechat_id: string | null
   email: string | null
   political_party: string | null
   social_organizations: any | null
@@ -62,6 +63,7 @@ const mapDbPersonToApp = (row: DbPerson): PersonData => ({
   allCompanies: (row.all_companies as PersonData['allCompanies']) ?? undefined,
   phones: (row.phones as string[] | undefined) ?? undefined,
   phone: row.phone ?? undefined,
+  wechatId: row.wechat_id ?? undefined,
   email: row.email ?? undefined,
   politicalParty: row.political_party ?? undefined,
   socialOrganizations: (row.social_organizations as string[] | undefined) ?? undefined,
@@ -97,6 +99,7 @@ const mapAppPersonToDb = (p: PersonData): DbPerson => ({
   is_followed: Boolean(p.isFollowed),
   phone: p.phone ?? null,
   phones: p.phones ?? null,
+  wechat_id: (p as any).wechatId ?? null,
   email: p.email ?? null,
   political_party: p.politicalParty ?? null,
   social_organizations: p.socialOrganizations ?? null,
@@ -158,20 +161,20 @@ export async function upsertPersonToCloud(person: PersonData): Promise<void> {
   if (!isSupabaseReady) return
   const row = mapAppPersonToDb(person)
   await pool.query(
-    `INSERT INTO public.people (id, name, company, position, tags, current_city, hometown, home_address, company_address, industry, is_followed, phone, phones, email, political_party, social_organizations, hobbies, skills, expectations, educations, work_history, additional_info, all_companies, birth_date, school, products)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+    `INSERT INTO public.people (id, name, company, position, tags, current_city, hometown, home_address, company_address, industry, is_followed, phone, phones, wechat_id, email, political_party, social_organizations, hobbies, skills, expectations, educations, work_history, additional_info, all_companies, birth_date, school, products)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
      ON CONFLICT (id) DO UPDATE SET
        name=EXCLUDED.name, company=EXCLUDED.company, position=EXCLUDED.position, tags=EXCLUDED.tags,
        current_city=EXCLUDED.current_city, hometown=EXCLUDED.hometown, home_address=EXCLUDED.home_address,
        company_address=EXCLUDED.company_address, industry=EXCLUDED.industry, is_followed=EXCLUDED.is_followed,
-       phone=EXCLUDED.phone, phones=EXCLUDED.phones, email=EXCLUDED.email, political_party=EXCLUDED.political_party,
+       phone=EXCLUDED.phone, phones=EXCLUDED.phones, wechat_id=EXCLUDED.wechat_id, email=EXCLUDED.email, political_party=EXCLUDED.political_party,
        social_organizations=EXCLUDED.social_organizations, hobbies=EXCLUDED.hobbies, skills=EXCLUDED.skills,
        expectations=EXCLUDED.expectations, educations=EXCLUDED.educations, work_history=EXCLUDED.work_history,
        additional_info=EXCLUDED.additional_info, all_companies=EXCLUDED.all_companies, birth_date=EXCLUDED.birth_date,
        school=EXCLUDED.school, products=EXCLUDED.products`,
     [row.id, row.name, row.company, row.position, row.tags, row.current_city, row.hometown,
      row.home_address, row.company_address, row.industry, row.is_followed, row.phone,
-     row.phones ? JSON.stringify(row.phones) : null, row.email, row.political_party,
+     row.phones ? JSON.stringify(row.phones) : null, row.wechat_id, row.email, row.political_party,
      row.social_organizations ? JSON.stringify(row.social_organizations) : null,
      row.hobbies, row.skills, row.expectations,
      row.educations ? JSON.stringify(row.educations) : null,
