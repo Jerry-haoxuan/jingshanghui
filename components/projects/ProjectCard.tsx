@@ -8,7 +8,7 @@ import {
   STATUS_LABELS,
   STATUS_COLORS,
   ProjectStage,
-} from '@/lib/projectStore'
+} from '@/lib/projectTypes'
 
 interface ProjectCardProps {
   project: Project

@@ -13,93 +13,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
-import { addPerson, getCompanies, addOrUpdateCompany } from '@/lib/dataStore'
+import { addPerson, addOrUpdateCompany } from '@/lib/dataStore'
 import { updateRelationshipNetwork } from '@/lib/relationshipManager'
+import { INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS, type CompanyPosition, type Education, type SupplierInfo, type CustomerInfo } from '@/lib/profileTypes'
 
-interface CompanyPosition {
-  company: string
-  position: string
-}
-
-interface Education {
-  level: '本科' | '硕士' | '博士' | 'EMBA'
-  school: string
-  major?: string
-  year?: string
-}
-
-interface SupplierInfo {
-  materialName: string
-  materialCategory: string
-  supplierName: string
-  industryCategory: string  // 行业大类（下拉选择）
-  subTitle: string          // 核心业务类别（用户输入）
-  keywords: string
-  keyPerson1: string
-  keyPerson1Position: string // 关键人物1职位
-  keyPerson2: string
-  keyPerson2Position: string // 关键人物2职位
-  keyPerson3: string
-  keyPerson3Position: string // 关键人物3职位
-}
-
-interface CustomerInfo {
-  productName: string
-  productCategory: string
-  customerName: string
-  industryCategory: string  // 行业大类（下拉选择）
-  subTitle: string          // 核心业务类别（用户输入）
-  keywords: string
-  keyPerson1: string
-  keyPerson1Position: string // 关键人物1职位
-  keyPerson2: string
-  keyPerson2Position: string // 关键人物2职位
-  keyPerson3: string
-  keyPerson3Position: string // 关键人物3职位
-}
-
-// 党派选项
-const politicalParties = [
-  '中国共产党',
-  '中国国民党革命委员会',
-  '中国民主同盟',
-  '中国民主建国会',
-  '中国民主促进会',
-  '中国农工民主党',
-  '中国致公党',
-  '九三学社',
-  '台湾民主自治同盟',
-  '无党派人士',
-  '群众'
-]
-
-// 行业大类选项
-const industryCategories = [
-  '半导体',
-  '人工智能',
-  '新能源',
-  '生物医药',
-  '智能制造',
-  '新材料',
-  '航空航天',
-  '信息技术',
-  '互联网',
-  '金融科技',
-  '股权投资',
-  '电子商务',
-  '物联网',
-  '云计算',
-  '大数据',
-  '区块链',
-  '新能源汽车',
-  '智能硬件',
-  '工业互联网',
-  '电子加工装配',
-  '医疗器械',
-  '其他'
-]
-
-export default function AddPerson() {
+// 信息录入表单（个人 + 关联企业）。由 /data-input 页面挂载。
+export default function AddPersonForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [aiProcessing, setAiProcessing] = useState(false)
@@ -133,6 +52,11 @@ export default function AddPerson() {
     companySuppliers: '',
     companyCustomers: ''
   })
+
+  // 企业规模选项：老数据里可能存着不在标准档位中的值（如 "0-50人"），追加进来保证编辑时仍能正常显示
+  const scaleOptions = formData.companyScale && !COMPANY_SCALE_OPTIONS.includes(formData.companyScale)
+    ? [...COMPANY_SCALE_OPTIONS, formData.companyScale]
+    : COMPANY_SCALE_OPTIONS
   
   const [companyPositions, setCompanyPositions] = useState<CompanyPosition[]>([
     { company: '', position: '' }
@@ -618,7 +542,7 @@ export default function AddPerson() {
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-2">
-                更喜欢填表格？可以先"下载Excel模板"，第一页是填写说明，第二页有完整示例（小明）教你怎么填，填完你自己的信息后再"上传填好的Excel"自动识别填充。
+                更喜欢填表格？可以先「下载Excel模板」，第一页是填写说明，第二页有完整示例教你怎么填，填完你自己的信息后再「上传填好的Excel」自动识别填充。
               </p>
               {extractSuccessMsg && (
                 <div className="mt-3 flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
@@ -679,7 +603,7 @@ export default function AddPerson() {
                         className="w-full px-3 py-2 border rounded-md"
                       >
                         <option value="">请选择</option>
-                        {politicalParties.map(party => (
+                        {PARTY_OPTIONS.map(party => (
                           <option key={party} value={party}>{party}</option>
                         ))}
                       </select>
@@ -755,12 +679,8 @@ export default function AddPerson() {
                           className="w-full px-3 py-2 border rounded-md"
                         >
                           <option value="">请选择企业规模</option>
-                          <option value="1-10人">1-10人</option>
-                          <option value="11-50人">11-50人</option>
-                          <option value="51-100人">51-100人</option>
-                          <option value="101-500人">101-500人</option>
-                          <option value="501-1000人">501-1000人</option>
-                          <option value="1000人以上">1000人以上</option>
+
+                          {scaleOptions.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </div>
                     </div>
@@ -883,7 +803,7 @@ export default function AddPerson() {
                                 className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               >
                                 <option value="">请选择行业大类</option>
-                                {industryCategories.map((category) => (
+                                {INDUSTRY_CATEGORIES.map((category) => (
                                   <option key={category} value={category}>{category}</option>
                                 ))}
                               </select>
@@ -996,7 +916,7 @@ export default function AddPerson() {
                                 className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               >
                                 <option value="">请选择行业大类</option>
-                                {industryCategories.map((category) => (
+                                {INDUSTRY_CATEGORIES.map((category) => (
                                   <option key={category} value={category}>{category}</option>
                                 ))}
                               </select>

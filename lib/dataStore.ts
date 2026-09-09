@@ -1,4 +1,6 @@
 // 数据存储管理
+import type { SupplierInfo, CustomerInfo } from './profileTypes'
+
 export interface PersonData {
   id: string
   name: string
@@ -46,34 +48,8 @@ export interface CompanyData {
   customers?: string[] // 下游客户
   // 下述字段来自企业录入页面的新表单项，用于更完整的导出
   demands?: string // 企业诉求
-  supplierInfos?: { 
-    materialName: string; 
-    materialCategory: string; 
-    supplierName: string; 
-    industryCategory: string;  // 行业大类
-    subTitle: string;          // 核心业务类别
-    keywords: string; 
-    keyPerson1: string; 
-    keyPerson1Position?: string; // 关键人物1职位
-    keyPerson2: string; 
-    keyPerson2Position?: string; // 关键人物2职位
-    keyPerson3: string; 
-    keyPerson3Position?: string; // 关键人物3职位
-  }[] // 供应商明细
-  customerInfos?: { 
-    productName: string; 
-    productCategory: string; 
-    customerName: string; 
-    industryCategory: string;  // 行业大类
-    subTitle: string;          // 核心业务类别
-    keywords: string; 
-    keyPerson1: string; 
-    keyPerson1Position?: string; // 关键人物1职位
-    keyPerson2: string; 
-    keyPerson2Position?: string; // 关键人物2职位
-    keyPerson3: string; 
-    keyPerson3Position?: string; // 关键人物3职位
-  }[] // 客户明细
+  supplierInfos?: SupplierInfo[]
+  customerInfos?: CustomerInfo[]
 }
 
 const PEOPLE_KEY = 'ecosystem_people'
@@ -216,41 +192,6 @@ export const loadCompaniesFromCloudIfAvailable = async (): Promise<CompanyData[]
   }
 }
 
-// 重置为默认数据（用于调试和修复数据问题）
-export const resetToDefaultData = (): void => {
-  if (typeof window === 'undefined') return
-  
-  console.log('重置为默认数据')
-  const defaultPeople = getDefaultPeople()
-  const defaultCompanies = getDefaultCompanies()
-  
-  localStorage.setItem(PEOPLE_KEY, JSON.stringify(defaultPeople))
-  localStorage.setItem(COMPANIES_KEY, JSON.stringify(defaultCompanies))
-  
-  console.log('数据重置完成:', defaultPeople.length, '个人物,', defaultCompanies.length, '个企业')
-}
-
-// 清除所有数据（让用户从空白开始）
-export const clearAllData = (): void => {
-  if (typeof window === 'undefined') return
-  
-  console.log('清除所有数据')
-  localStorage.removeItem(PEOPLE_KEY)
-  localStorage.removeItem(COMPANIES_KEY)
-  
-  console.log('所有数据已清除')
-}
-
-// 检查是否有保存的数据
-export const hasStoredData = (): boolean => {
-  if (typeof window === 'undefined') return false
-  
-  const peopleData = localStorage.getItem(PEOPLE_KEY)
-  const companiesData = localStorage.getItem(COMPANIES_KEY)
-  
-  return !!(peopleData || companiesData)
-}
-
 // 保存人物数据
 export const savePeople = (people: PersonData[]) => {
   if (typeof window === 'undefined') return
@@ -329,17 +270,6 @@ export const addPerson = (personData: Omit<PersonData, 'id' | 'tags' | 'location
     isFollowed: false
   }
   
-  // 注释掉自动创建企业卡片的逻辑，防止个人信息录入和企业信息录入打岔
-  // if (personData.company && !getCompanies().find(c => c.name === personData.company)) {
-  //   addCompany({
-  //     name: personData.company,
-  //     industry: personData.industry || '待分类',
-  //     scale: '未知',
-  //     products: personData.products ? [personData.products] : [],
-  //     additionalInfo: ''
-  //   })
-  // }
-  
   people.push(newPerson)
   savePeople(people)
   return newPerson
@@ -368,9 +298,8 @@ export const updatePerson = (id: string, updatedData: Partial<PersonData>): Pers
   return updatedPerson
 }
 
-// 添加新公司
-// 公司名称标准化函数
-const normalizeCompanyName = (name: string): string => {
+// 公司名称标准化函数（PersonEditModal 等处复用，保证去重口径一致）
+export const normalizeCompanyName = (name: string): string => {
   return name.trim()
     .replace(/\s+/g, ' ') // 多个空格替换为单个空格
     .replace(/[（(].*?[）)]/g, '') // 移除括号内容，避免"XX有限公司(总部)"和"XX有限公司"被认为是不同公司
@@ -419,61 +348,6 @@ export const addOrUpdateCompany = (companyData: Omit<CompanyData, 'id'>) => {
     companies.push(newCompany)
     saveCompanies(companies)
     return newCompany
-  }
-}
-
-// 保持向后兼容
-export const addCompany = (companyData: Omit<CompanyData, 'id'>) => {
-  console.warn('[dataStore] addCompany已过时，推荐使用addOrUpdateCompany避免重复')
-  return addOrUpdateCompany(companyData)
-}
-
-// 企业去重清理函数 - 处理已存在的重复企业
-export const deduplicateCompanies = () => {
-  const companies = getCompanies()
-  const deduplicatedMap = new Map<string, CompanyData>()
-  
-  console.log('[dataStore] 开始企业去重，原有企业数量:', companies.length)
-  
-  companies.forEach(company => {
-    const normalizedName = normalizeCompanyName(company.name)
-    
-    if (deduplicatedMap.has(normalizedName)) {
-      // 如果已存在，智能合并信息
-      const existing = deduplicatedMap.get(normalizedName)!
-      const merged: CompanyData = {
-        ...existing,
-        // 使用更完整的名称
-        name: company.name.length > existing.name.length ? company.name : existing.name,
-        industry: company.industry || existing.industry,
-        scale: company.scale || existing.scale,
-        products: [...(existing.products || []), ...(company.products || [])].filter((v, i, arr) => arr.indexOf(v) === i),
-        positioning: company.positioning || existing.positioning,
-        value: company.value || existing.value,
-        achievements: company.achievements || existing.achievements,
-        demands: company.demands || existing.demands,
-        suppliers: [...(existing.suppliers || []), ...(company.suppliers || [])].filter((v, i, arr) => arr.indexOf(v) === i),
-        customers: [...(existing.customers || []), ...(company.customers || [])].filter((v, i, arr) => arr.indexOf(v) === i),
-        supplierInfos: company.supplierInfos || existing.supplierInfos,
-        customerInfos: company.customerInfos || existing.customerInfos,
-        additionalInfo: company.additionalInfo || existing.additionalInfo,
-        isFollowed: existing.isFollowed || company.isFollowed,
-      }
-      deduplicatedMap.set(normalizedName, merged)
-      console.log('[dataStore] 合并重复企业:', existing.name, '+', company.name, '→', merged.name)
-    } else {
-      deduplicatedMap.set(normalizedName, company)
-    }
-  })
-  
-  const deduplicatedCompanies = Array.from(deduplicatedMap.values())
-  console.log('[dataStore] 去重完成，企业数量:', companies.length, '→', deduplicatedCompanies.length)
-  
-  saveCompanies(deduplicatedCompanies)
-  return {
-    original: companies.length,
-    deduplicated: deduplicatedCompanies.length,
-    removed: companies.length - deduplicatedCompanies.length
   }
 }
 

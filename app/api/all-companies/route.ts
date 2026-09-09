@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
-import pool from '@/lib/db'
+import pool, { isDbReady } from '@/lib/db'
 import { randomUUID } from 'crypto'
-
-const isSupabaseReady = Boolean(process.env.DATABASE_URL)
 
 // ── 行业关键词推断（与 dashboard 保持一致）─────────────────────
 const INDUSTRY_KW: [string, string[]][] = [
@@ -32,7 +30,7 @@ function inferIndustry(name: string, fallbackIndustry: string): string {
 
 // ── GET：预览待导入企业 ──────────────────────────────────────────
 export async function GET() {
-  if (!isSupabaseReady) return NextResponse.json({ error: '数据库未配置' }, { status: 500 })
+  if (!isDbReady) return NextResponse.json({ error: '数据库未配置' }, { status: 500 })
 
   const [{ rows: companies }, { rows: people }] = await Promise.all([
     pool.query('SELECT name FROM public.companies'),
@@ -65,7 +63,7 @@ export async function GET() {
 
 // ── POST：执行批量导入 ───────────────────────────────────────────
 export async function POST() {
-  if (!isSupabaseReady) return NextResponse.json({ error: '数据库未配置' }, { status: 500 })
+  if (!isDbReady) return NextResponse.json({ error: '数据库未配置' }, { status: 500 })
 
   const [{ rows: companies }, { rows: people }] = await Promise.all([
     pool.query('SELECT name FROM public.companies'),

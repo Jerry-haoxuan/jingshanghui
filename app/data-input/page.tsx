@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { User, ArrowLeft } from 'lucide-react'
-import AddPerson from '@/app/add/page'
+import AddPersonForm from '@/components/AddPersonForm'
 
 export default function DataInputChoice() {
   const router = useRouter()
@@ -30,7 +30,7 @@ export default function DataInputChoice() {
             <CardDescription>在这里一次性录入个人与关联企业信息</CardDescription>
           </CardHeader>
           <CardContent>
-            <AddPerson />
+            <AddPersonForm />
           </CardContent>
         </Card>
       </div>

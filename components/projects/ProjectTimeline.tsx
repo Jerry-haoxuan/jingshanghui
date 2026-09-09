@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react'
 import { Send, Bot, User, AlertCircle, Upload, RefreshCw } from 'lucide-react'
-import { ProjectLog, LogType } from '@/lib/projectStore'
+import { ProjectLog, LogType } from '@/lib/projectTypes'
 
 interface ProjectTimelineProps {
   logs: ProjectLog[]

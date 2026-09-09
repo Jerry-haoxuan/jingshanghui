@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Bot, Lightbulb, AlertTriangle, RefreshCw } from 'lucide-react'
-import { Project, STAGE_LABELS, ProjectStage } from '@/lib/projectStore'
+import { Project, STAGE_LABELS, ProjectStage } from '@/lib/projectTypes'
 
 interface AiPanelProps {
   project: Project

@@ -2,31 +2,17 @@
 
 import React from 'react'
 import { CompanyData } from '@/lib/dataStore'
+import type { SupplierInfo, CustomerInfo } from '@/lib/profileTypes'
 import { ArrowDown, ArrowUp, Building2 } from 'lucide-react'
 
-interface SupplierInfo {
-  materialName?: string
-  materialCategory?: string
-  supplierName: string
-  industryCategory?: string
-  subTitle?: string
-  keywords?: string
-  keyPerson1?: string
-  keyPerson2?: string
-  keyPerson3?: string
-}
-
-interface CustomerInfo {
-  productName?: string
-  productCategory?: string
-  customerName: string
-  industryCategory?: string
-  subTitle?: string
-  keywords?: string
-  keyPerson1?: string
-  keyPerson2?: string
-  keyPerson3?: string
-}
+const emptySupplier = (supplierName: string): SupplierInfo => ({
+  materialName: '', materialCategory: '', supplierName, industryCategory: '', subTitle: '', keywords: '',
+  keyPerson1: '', keyPerson2: '', keyPerson3: '',
+})
+const emptyCustomer = (customerName: string): CustomerInfo => ({
+  productName: '', productCategory: '', customerName, industryCategory: '', subTitle: '', keywords: '',
+  keyPerson1: '', keyPerson2: '', keyPerson3: '',
+})
 
 interface SupplyChainDiagramProps {
   company: CompanyData
@@ -45,7 +31,7 @@ export function SupplyChainDiagram({ company, suppliers = [], customers = [] }: 
           try {
             const parsed = JSON.parse(item)
             return {
-              supplierName: parsed.supplierName || parsed.name || item,
+              ...emptySupplier(parsed.supplierName || parsed.name || item),
               industryCategory: parsed.industryCategory || '',
               subTitle: parsed.subTitle || '',
               materialName: parsed.materialName || '',
@@ -53,15 +39,13 @@ export function SupplyChainDiagram({ company, suppliers = [], customers = [] }: 
               keywords: parsed.keywords || '',
               keyPerson1: parsed.keyPerson1 || '',
               keyPerson2: parsed.keyPerson2 || '',
-              keyPerson3: parsed.keyPerson3 || ''
+              keyPerson3: parsed.keyPerson3 || '',
             }
           } catch {
-            // 解析失败，当作普通名称
-            return { supplierName: item }
+            return emptySupplier(item)
           }
         }
-        // 普通字符串，当作名称
-        return { supplierName: item }
+        return emptySupplier(item)
       }
       return item as SupplierInfo
     })
@@ -76,7 +60,7 @@ export function SupplyChainDiagram({ company, suppliers = [], customers = [] }: 
           try {
             const parsed = JSON.parse(item)
             return {
-              customerName: parsed.customerName || parsed.name || item,
+              ...emptyCustomer(parsed.customerName || parsed.name || item),
               industryCategory: parsed.industryCategory || '',
               subTitle: parsed.subTitle || '',
               productName: parsed.productName || '',
@@ -84,15 +68,13 @@ export function SupplyChainDiagram({ company, suppliers = [], customers = [] }: 
               keywords: parsed.keywords || '',
               keyPerson1: parsed.keyPerson1 || '',
               keyPerson2: parsed.keyPerson2 || '',
-              keyPerson3: parsed.keyPerson3 || ''
+              keyPerson3: parsed.keyPerson3 || '',
             }
           } catch {
-            // 解析失败，当作普通名称
-            return { customerName: item }
+            return emptyCustomer(item)
           }
         }
-        // 普通字符串，当作名称
-        return { customerName: item }
+        return emptyCustomer(item)
       }
       return item as CustomerInfo
     })

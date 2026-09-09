@@ -11,6 +11,7 @@ import { AutocompleteInput } from '@/components/AutocompleteInput'
 import { cities, universities, industries } from '@/lib/locationData'
 import { PersonData, updatePerson } from '@/lib/dataStore'
 import { Plus, X, Save, Loader2, UploadCloud, CheckCircle2, AlertCircle, FileSpreadsheet, Download } from 'lucide-react'
+import { INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS, type CompanyPosition, type Education, type SupplierInfo, type CustomerInfo } from '@/lib/profileTypes'
 
 interface PersonEditModalProps {
   person: PersonData | null
@@ -18,89 +19,6 @@ interface PersonEditModalProps {
   onOpenChange: (open: boolean) => void
   onSave: (updatedPerson: PersonData) => void
 }
-
-interface CompanyPosition {
-  company: string
-  position: string
-}
-
-interface Education {
-  level: '本科' | '硕士' | '博士' | 'EMBA'
-  school: string
-  major?: string
-  year?: string
-}
-
-interface SupplierInfo {
-  materialName: string
-  materialCategory: string
-  supplierName: string
-  industryCategory: string
-  subTitle: string
-  keywords: string
-  keyPerson1: string
-  keyPerson1Position: string
-  keyPerson2: string
-  keyPerson2Position: string
-  keyPerson3: string
-  keyPerson3Position: string
-}
-
-interface CustomerInfo {
-  productName: string
-  productCategory: string
-  customerName: string
-  industryCategory: string
-  subTitle: string
-  keywords: string
-  keyPerson1: string
-  keyPerson1Position: string
-  keyPerson2: string
-  keyPerson2Position: string
-  keyPerson3: string
-  keyPerson3Position: string
-}
-
-// 党派选项
-const politicalParties = [
-  '中国共产党',
-  '中国国民党革命委员会',
-  '中国民主同盟',
-  '中国民主建国会',
-  '中国民主促进会',
-  '中国农工民主党',
-  '中国致公党',
-  '九三学社',
-  '台湾民主自治同盟',
-  '无党派人士',
-  '群众'
-]
-
-// 行业大类选项
-const industryCategories = [
-  '半导体',
-  '人工智能',
-  '新能源',
-  '生物医药',
-  '智能制造',
-  '新材料',
-  '航空航天',
-  '信息技术',
-  '互联网',
-  '金融科技',
-  '股权投资',
-  '电子商务',
-  '物联网',
-  '云计算',
-  '大数据',
-  '区块链',
-  '新能源汽车',
-  '智能硬件',
-  '工业互联网',
-  '电子加工装配',
-  '医疗器械',
-  '其他'
-]
 
 export default function PersonEditModal({ person, open, onOpenChange, onSave }: PersonEditModalProps) {
   const [loading, setLoading] = useState(false)
@@ -130,6 +48,11 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
     companyAchievements: '',
     companyDemands: ''
   })
+
+  // 企业规模选项：老数据里可能存着不在标准档位中的值（如 "0-50人"），追加进来保证编辑时仍能正常显示
+  const scaleOptions = formData.companyScale && !COMPANY_SCALE_OPTIONS.includes(formData.companyScale)
+    ? [...COMPANY_SCALE_OPTIONS, formData.companyScale]
+    : COMPANY_SCALE_OPTIONS
 
   const [companyPositions, setCompanyPositions] = useState<CompanyPosition[]>([
     { company: '', position: '' }
@@ -206,7 +129,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       // 初始化供应商和客户数据 - 从企业信息中获取（异步加载云端数据）
       const loadCompanyData = async () => {
         try {
-          const { loadCompaniesFromCloudIfAvailable, getCompanies } = await import('@/lib/dataStore')
+          const { loadCompaniesFromCloudIfAvailable, getCompanies, normalizeCompanyName } = await import('@/lib/dataStore')
           
           // 优先从云端加载，如果失败则使用本地数据
           const cloudCompanies = await loadCompaniesFromCloudIfAvailable()
@@ -217,13 +140,6 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
           const mainCompany = person.allCompanies?.[0]?.company || person.company
           if (mainCompany) {
             // 使用标准化名称进行查找，确保找到正确的企业
-            const normalizeCompanyName = (name: string): string => {
-              return name.trim()
-                .replace(/\s+/g, ' ') // 多个空格替换为单个空格
-                .replace(/[（(].*?[）)]/g, '') // 移除括号内容
-                .trim()
-            }
-            
             const normalizedMainCompany = normalizeCompanyName(mainCompany)
             const companyData = companies.find((c: any) => 
               normalizeCompanyName(c.name) === normalizedMainCompany
@@ -639,7 +555,6 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
       // 同步更新企业的供应商和客户信息
       try {
         const { addOrUpdateCompany } = await import('@/lib/dataStore')
-        const { upsertCompanyToCloud } = await import('@/lib/cloudStore')
         const mainCompany = companyPositions[0]?.company?.trim()
         if (mainCompany) {
           // 过滤掉空的供应商和客户
@@ -667,16 +582,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             additionalInfo: ''
           }
           
-          // 使用智能添加或更新功能，自动处理去重和合并
-          const updatedCompany = addOrUpdateCompany(companyUpdateData as any)
-          
-          // 同步到云端
-          try {
-            await upsertCompanyToCloud(updatedCompany)
-            console.log('企业信息已智能更新并同步到云端:', updatedCompany.name)
-          } catch (cloudError) {
-            console.warn('企业信息云端同步失败:', cloudError)
-          }
+          // 智能添加或更新（自动去重合并），内部会通过 /api/sync-data 同步到云端
+          addOrUpdateCompany(companyUpdateData as any)
         }
       } catch (e) {
         console.warn('更新企业上下游信息失败（不影响人物信息保存）:', e)
@@ -785,7 +692,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            更喜欢填表格？可以先"下载Excel模板"，第一页是填写说明，第二页有完整示例（小明）教你怎么填，填完你自己的信息后再"上传填好的Excel"自动识别填充。
+            更喜欢填表格？可以先「下载Excel模板」，第一页是填写说明，第二页有完整示例教你怎么填，填完你自己的信息后再「上传填好的Excel」自动识别填充。
           </p>
           {extractSuccessMsg && (
             <div className="mt-3 flex items-start gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
@@ -1019,11 +926,8 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">请选择企业规模</option>
-                    <option value="0-50人">0-50人</option>
-                    <option value="50-100人">50-100人</option>
-                    <option value="100-500人">100-500人</option>
-                    <option value="500-1000人">500-1000人</option>
-                    <option value="1000人以上">1000人以上</option>
+
+                    {scaleOptions.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
               </div>
@@ -1131,7 +1035,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                           className="w-full h-9 px-2 rounded-md border border-gray-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">请选择行业大类</option>
-                          {industryCategories.map((category) => (
+                          {INDUSTRY_CATEGORIES.map((category) => (
                             <option key={category} value={category}>{category}</option>
                           ))}
                         </select>
@@ -1225,7 +1129,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                           className="w-full h-9 px-2 rounded-md border border-gray-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">请选择行业大类</option>
-                          {industryCategories.map((category) => (
+                          {INDUSTRY_CATEGORIES.map((category) => (
                             <option key={category} value={category}>{category}</option>
                           ))}
                         </select>
@@ -1353,7 +1257,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
                 <option value="">请选择</option>
-                {politicalParties.map(party => (
+                {PARTY_OPTIONS.map(party => (
                   <option key={party} value={party}>{party}</option>
                 ))}
               </select>

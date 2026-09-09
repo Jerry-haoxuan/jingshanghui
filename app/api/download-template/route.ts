@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 // 是因为原版免费版不支持写入单元格样式（加粗/背景色），没法把重点内容"标出来"。
 // 读取/解析Excel（/api/parse-profile-excel）不需要样式，继续用原版 xlsx 即可。
 import * as XLSX from 'xlsx-js-style'
-import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS } from '@/lib/profileTypes'
+import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS, INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS } from '@/lib/profileTypes'
 
 // 个人与企业信息模板：字段顺序需要和 /api/parse-profile-excel 里的列名一一对应，
 // 改这里的表头文字时务必同步改那边的读取逻辑，否则会读不到数据。
@@ -89,19 +89,6 @@ const SUPPLIER_CUSTOMER_COL_WIDTHS = [
   { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 },
   { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
 ]
-
-const INDUSTRY_CATEGORIES = [
-  '半导体', '人工智能', '新能源', '生物医药', '智能制造', '新材料', '航空航天', '信息技术',
-  '互联网', '金融科技', '股权投资', '电子商务', '物联网', '云计算', '大数据', '区块链', '新能源汽车',
-  '智能硬件', '工业互联网', '电子加工装配', '医疗器械', '其他'
-]
-
-const PARTY_OPTIONS = [
-  '中国共产党', '中国国民党革命委员会', '中国民主同盟', '中国民主建国会', '中国民主促进会',
-  '中国农工民主党', '中国致公党', '九三学社', '台湾民主自治同盟', '无党派人士', '群众'
-]
-
-const COMPANY_SCALE_OPTIONS = ['1-10人', '11-50人', '51-100人', '101-500人', '501-1000人', '1000人以上']
 
 // ---- 样式定义（xlsx-js-style 用法：给单元格对象加 .s 属性）----
 const STYLE_TITLE = { font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '1D4ED8' } }, alignment: { vertical: 'center' } }

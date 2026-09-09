@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { percentEncode, buildAliyunRpcSignature } from './aliyunSign'
 
 // AccessKey 与 OCR 服务共用（同一个 RAM 用户，见 lib/ocrService.ts）
 const ALIYUN_ACCESS_KEY_ID = process.env.ALIYUN_ACCESS_KEY_ID || ''
@@ -71,24 +72,7 @@ function generateCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-// ========== 阿里云短信 API 签名与发送（RPC 风格签名，无需额外 SDK 依赖）==========
-function percentEncode(str: string): string {
-  return encodeURIComponent(str)
-    .replace(/\+/g, '%20')
-    .replace(/\*/g, '%2A')
-    .replace(/%7E/g, '~')
-}
-
-function buildSignature(params: Record<string, string>): string {
-  const sorted = Object.keys(params).sort()
-  const canonicalized = sorted
-    .map(key => `${percentEncode(key)}=${percentEncode(params[key])}`)
-    .join('&')
-  const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonicalized)}`
-  const hmac = crypto.createHmac('sha1', `${ALIYUN_ACCESS_KEY_SECRET}&`)
-  return hmac.update(stringToSign).digest('base64')
-}
-
+// ========== 阿里云短信 API 发送（RPC 风格签名，无需额外 SDK 依赖）==========
 async function sendSmsViaAliyun(phone: string, code: string): Promise<{ success: boolean; message: string }> {
   const params: Record<string, string> = {
     AccessKeyId: ALIYUN_ACCESS_KEY_ID,
@@ -105,7 +89,7 @@ async function sendSmsViaAliyun(phone: string, code: string): Promise<{ success:
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     Version: '2017-05-25',
   }
-  const signature = buildSignature(params)
+  const signature = buildAliyunRpcSignature(params, ALIYUN_ACCESS_KEY_SECRET)
   const finalParams = { ...params, Signature: signature }
 
   const body = Object.entries(finalParams)

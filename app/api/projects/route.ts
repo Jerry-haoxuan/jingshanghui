@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       partner_person_id,
     })
     if (!project) {
-      return NextResponse.json({ error: '创建失败，请检查 Supabase 配置' }, { status: 500 })
+      return NextResponse.json({ error: '创建失败，请检查数据库配置' }, { status: 500 })
     }
     return NextResponse.json({ project }, { status: 201 })
   } catch (e) {

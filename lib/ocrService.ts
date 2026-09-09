@@ -1,6 +1,7 @@
 // 阿里云通用文字识别 OCR 服务：用于"上传名片/扫描件图片，自动识别文字"
 // 与短信服务共用同一对 RAM 用户 AccessKey（见 lib/smsService.ts）
 import crypto from 'crypto'
+import { percentEncode, buildAliyunRpcSignature } from './aliyunSign'
 
 const ALIYUN_ACCESS_KEY_ID = process.env.ALIYUN_ACCESS_KEY_ID || ''
 const ALIYUN_ACCESS_KEY_SECRET = process.env.ALIYUN_ACCESS_KEY_SECRET || ''
@@ -8,23 +9,6 @@ const ALIYUN_ACCESS_KEY_SECRET = process.env.ALIYUN_ACCESS_KEY_SECRET || ''
 export const isOcrConfigured = Boolean(ALIYUN_ACCESS_KEY_ID && ALIYUN_ACCESS_KEY_SECRET)
 
 const OCR_ENDPOINT = 'https://ocr-api.cn-hangzhou.aliyuncs.com/'
-
-function percentEncode(str: string): string {
-  return encodeURIComponent(str)
-    .replace(/\+/g, '%20')
-    .replace(/\*/g, '%2A')
-    .replace(/%7E/g, '~')
-}
-
-function buildSignature(params: Record<string, string>): string {
-  const sorted = Object.keys(params).sort()
-  const canonicalized = sorted
-    .map(key => `${percentEncode(key)}=${percentEncode(params[key])}`)
-    .join('&')
-  const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonicalized)}`
-  const hmac = crypto.createHmac('sha1', `${ALIYUN_ACCESS_KEY_SECRET}&`)
-  return hmac.update(stringToSign).digest('base64')
-}
 
 export interface OcrResult {
   success: boolean
@@ -52,7 +36,7 @@ export async function recognizeImageText(imageBuffer: Buffer): Promise<OcrResult
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     Version: '2021-07-07',
   }
-  const signature = buildSignature(params)
+  const signature = buildAliyunRpcSignature(params, ALIYUN_ACCESS_KEY_SECRET)
   const finalParams = { ...params, Signature: signature }
   const query = Object.entries(finalParams)
     .map(([k, v]) => `${percentEncode(k)}=${percentEncode(v)}`)

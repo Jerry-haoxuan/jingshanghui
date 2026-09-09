@@ -1,9 +1,7 @@
 // 用户账号管理系统
 // 注册账号存储在阿里云 RDS PostgreSQL，无法连接时降级到 localStorage
 
-import pool from './db'
-
-const isSupabaseReady = Boolean(process.env.DATABASE_URL)
+import pool, { isDbReady } from './db'
 
 export interface UserAccount {
   id: string
@@ -90,7 +88,7 @@ export function hashPassword(password: string): string {
   return hash.toString(16).padStart(8, '0')
 }
 
-// ========== Supabase 数据库操作 ==========
+// ========== 数据库操作 ==========
 type DbUserAccount = {
   id: string
   username: string
@@ -101,7 +99,7 @@ type DbUserAccount = {
 }
 
 async function findUserInCloud(username: string): Promise<DbUserAccount | null> {
-  if (!isSupabaseReady) return null
+  if (!isDbReady) return null
   try {
     const { rows } = await pool.query(
       'SELECT * FROM public.user_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1',
@@ -115,7 +113,7 @@ async function findUserInCloud(username: string): Promise<DbUserAccount | null> 
 }
 
 async function insertUserToCloud(user: UserAccount): Promise<boolean> {
-  if (!isSupabaseReady) return false
+  if (!isDbReady) return false
   try {
     await pool.query(
       'INSERT INTO public.user_accounts (id, username, password_hash, role, invitation_code, person_name) VALUES ($1,$2,$3,$4,$5,$6)',
@@ -129,7 +127,7 @@ async function insertUserToCloud(user: UserAccount): Promise<boolean> {
 }
 
 async function checkInviteCodeUsedInCloud(code: string): Promise<boolean> {
-  if (!isSupabaseReady) return false
+  if (!isDbReady) return false
   try {
     const { rows } = await pool.query(
       'SELECT id FROM public.user_accounts WHERE invitation_code=$1 LIMIT 1',
@@ -143,7 +141,7 @@ async function checkInviteCodeUsedInCloud(code: string): Promise<boolean> {
 }
 
 async function checkManagerExistsInCloud(): Promise<boolean> {
-  if (!isSupabaseReady) return false
+  if (!isDbReady) return false
   try {
     const { rows } = await pool.query(
       "SELECT id FROM public.user_accounts WHERE role='manager' LIMIT 1"
@@ -202,7 +200,7 @@ export async function registerUser(
   let role: 'member' | 'manager'
   if (invitationCode === ADMIN_INVITATION_CODE) {
     // 管理者：检查是否已存在
-    const managerExists = isSupabaseReady
+    const managerExists = isDbReady
       ? await checkManagerExistsInCloud()
       : getLocalUsers().some(u => u.role === 'manager')
     if (managerExists) {
@@ -211,7 +209,7 @@ export async function registerUser(
     role = 'manager'
   } else if (BETA_INVITATION_CODES.includes(invitationCode)) {
     // 会员：检查邀请码是否已用
-    const codeUsed = isSupabaseReady
+    const codeUsed = isDbReady
       ? await checkInviteCodeUsedInCloud(invitationCode)
       : getLocalUsers().some(u => u.invitationCode === invitationCode)
     if (codeUsed) {
@@ -223,7 +221,7 @@ export async function registerUser(
   }
 
   // 检查用户名是否已存在
-  if (isSupabaseReady) {
+  if (isDbReady) {
     const existing = await findUserInCloud(trimmedName)
     if (existing) return { success: false, message: '用户名已被占用，请换一个' }
   } else {
@@ -242,8 +240,8 @@ export async function registerUser(
     createdAt: new Date().toISOString(),
   }
 
-  // 优先存 Supabase，失败降级到 localStorage
-  if (isSupabaseReady) {
+  // 优先存数据库，失败降级到 localStorage
+  if (isDbReady) {
     const ok = await insertUserToCloud(newUser)
     if (!ok) return { success: false, message: '注册失败，请检查网络后重试' }
   } else {
@@ -288,8 +286,8 @@ export async function loginUser(username: string, password: string): Promise<Log
 
   const passwordHash = hashPassword(password)
 
-  // 2. 从 Supabase 查找
-  if (isSupabaseReady) {
+  // 2. 从数据库查找
+  if (isDbReady) {
     const dbUser = await findUserInCloud(name) as DbUserAccountFull | null
     if (dbUser) {
       if (dbUser.password_hash !== passwordHash) {

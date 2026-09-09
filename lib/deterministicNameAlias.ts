@@ -138,20 +138,3 @@ export function findPeopleByAliasName(aliasName: string, people: any[]): any[] {
   
   return matchedPeople
 }
-
-// 为了兼容性，提供一个简单的反向查找（仅用于开发调试）
-// 注意：这不是完美的反向映射，因为可能存在哈希冲突
-export function debugFindPossibleRealNames(aliasName: string): string[] {
-  const possibleNames: string[] = []
-  
-  // 这里仅作为示例，实际应用中应该从数据库获取所有真实姓名
-  const testNames = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十']
-  
-  for (const name of testNames) {
-    if (deterministicAliasName(name) === aliasName) {
-      possibleNames.push(name)
-    }
-  }
-  
-  return possibleNames
-}

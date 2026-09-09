@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import mammoth from 'mammoth'
 import { recognizeImageText, isOcrConfigured } from '@/lib/ocrService'
-import { ExtractedProfile, buildEmptyProfile } from '@/lib/profileTypes'
+import { ExtractedProfile, buildEmptyProfile, INDUSTRY_CATEGORIES, COMPANY_SCALE_OPTIONS } from '@/lib/profileTypes'
 
 // DeepSeek API配置：全站统一使用一把服务器端专用Key，不再区分管理员/会员
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
@@ -76,8 +76,8 @@ const EXTRACTION_PROMPT = `你是一个专业的商圈档案信息提取助手�
     "expectations": "本人期待获得的资源或帮助，如有提及",
     "workHistory": "工作履历，按时间顺序简要概括",
     "additionalInfo": "其他不属于以上字段的重要补充信息",
-    "companyIndustry": "公司所属行业大类",
-    "companyScale": "公司规模，如 1-10人/11-50人/51-100人/101-500人/501-1000人/1000人以上，无法判断则留空",
+    "companyIndustry": "公司所属行业大类，优先从给定列表中选：${INDUSTRY_CATEGORIES.join('、')}",
+    "companyScale": "公司规模，必须是以下之一或留空：${COMPANY_SCALE_OPTIONS.join('/')}",
     "companyPositioning": "企业定位，即公司主要做什么、核心产品/服务",
     "companyValue": "企业核心价值/差异化优势，客户为什么选择这家公司",
     "companyAchievements": "企业关键成就，如里程碑、奖项、知名客户等",

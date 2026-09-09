@@ -1,5 +1,63 @@
 // 人物/企业档案的统一结构，供"上传Word/PDF/图片AI识别"和"上传Excel模板"两条录入链路共用，
-// 前端拿到后用同一套逻辑回填表单（app/add/page.tsx、components/PersonEditModal.tsx）。
+// 前端拿到后用同一套逻辑回填表单（components/AddPersonForm.tsx、components/PersonEditModal.tsx）。
+
+// ---- 表单/模板共用的下拉选项（单一来源，改这里即可同步到录入页、编辑弹窗、Excel 模板、AI 提示词）----
+export const INDUSTRY_CATEGORIES = [
+  '半导体', '人工智能', '新能源', '生物医药', '智能制造', '新材料', '航空航天', '信息技术',
+  '互联网', '金融科技', '股权投资', '电子商务', '物联网', '云计算', '大数据', '区块链', '新能源汽车',
+  '智能硬件', '工业互联网', '电子加工装配', '医疗器械', '其他'
+]
+
+export const PARTY_OPTIONS = [
+  '中国共产党', '中国国民党革命委员会', '中国民主同盟', '中国民主建国会', '中国民主促进会',
+  '中国农工民主党', '中国致公党', '九三学社', '台湾民主自治同盟', '无党派人士', '群众'
+]
+
+export const COMPANY_SCALE_OPTIONS = ['1-10人', '11-50人', '51-100人', '101-500人', '501-1000人', '1000人以上']
+
+// ---- 共用的子结构 ----
+export interface CompanyPosition {
+  company: string
+  position: string
+}
+
+export interface Education {
+  level: '本科' | '硕士' | '博士' | 'EMBA'
+  school: string
+  major?: string
+  year?: string
+}
+
+export interface SupplierInfo {
+  materialName: string
+  materialCategory: string
+  supplierName: string
+  industryCategory: string  // 行业大类（下拉选择）
+  subTitle: string          // 核心业务类别（用户输入）
+  keywords: string
+  keyPerson1: string
+  keyPerson1Position?: string
+  keyPerson2: string
+  keyPerson2Position?: string
+  keyPerson3: string
+  keyPerson3Position?: string
+}
+
+export interface CustomerInfo {
+  productName: string
+  productCategory: string
+  customerName: string
+  industryCategory: string
+  subTitle: string
+  keywords: string
+  keyPerson1: string
+  keyPerson1Position?: string
+  keyPerson2: string
+  keyPerson2Position?: string
+  keyPerson3: string
+  keyPerson3Position?: string
+}
+
 export interface ExtractedProfile {
   formData: {
     name: string
@@ -26,36 +84,10 @@ export interface ExtractedProfile {
   }
   phones: string[]
   socialOrganizations: string[]
-  companyPositions: { company: string; position: string }[]
-  educations: { level: '本科' | '硕士' | '博士' | 'EMBA'; school: string; major: string; year: string }[]
-  supplierInfos: {
-    materialName: string
-    materialCategory: string
-    supplierName: string
-    industryCategory: string
-    subTitle: string
-    keywords: string
-    keyPerson1: string
-    keyPerson1Position: string
-    keyPerson2: string
-    keyPerson2Position: string
-    keyPerson3: string
-    keyPerson3Position: string
-  }[]
-  customerInfos: {
-    productName: string
-    productCategory: string
-    customerName: string
-    industryCategory: string
-    subTitle: string
-    keywords: string
-    keyPerson1: string
-    keyPerson1Position: string
-    keyPerson2: string
-    keyPerson2Position: string
-    keyPerson3: string
-    keyPerson3Position: string
-  }[]
+  companyPositions: CompanyPosition[]
+  educations: Education[]
+  supplierInfos: SupplierInfo[]
+  customerInfos: CustomerInfo[]
 }
 
 export function buildEmptyProfile(): ExtractedProfile {

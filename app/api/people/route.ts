@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import pool from '@/lib/db'
-
-const isDbReady = Boolean(process.env.DATABASE_URL)
+import pool, { isDbReady } from '@/lib/db'
 
 type DbPerson = {
   id: string

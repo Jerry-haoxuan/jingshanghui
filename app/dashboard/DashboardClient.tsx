@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, User, Building2, Star, Trash2, MessageSquare, Download, Edit, Network, FolderOpen, ChevronDown, ChevronUp, Cpu, Settings, Sparkles, Layers, Zap, Car, Heart, Globe, TrendingUp, Award } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Building2, MessageSquare, Download, Edit, Network, FolderOpen, Cpu, Settings, Sparkles, Layers, Zap, Car, Heart, Globe, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getMyCards /* resetToDefaultData, clearAllData, hasStoredData */ } from '@/lib/dataStore'
+import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getMyCards } from '@/lib/dataStore'
 import PersonEditModal from '@/components/PersonEditModal'
-import { subscribeCloud, deletePersonFromCloud, deleteCompanyFromCloud } from '@/lib/cloudStore'
 import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { getCurrentUser } from '@/lib/session'
@@ -24,13 +23,12 @@ export default function DashboardClient() {
   const [people, setPeople] = useState<PersonData[]>([])
   const [companies, setCompanies] = useState<CompanyData[]>([])
   const [isClient, setIsClient] = useState(false)
-  const [supabaseWarning, setSupabaseWarning] = useState<string | null>(null)
+  const [dbWarning, setDbWarning] = useState<string | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
   const [myCards, setMyCards] = useState<PersonData[]>([])
   const [isAnalyzingRelationships, setIsAnalyzingRelationships] = useState(false)
   const [expandedIndustries, setExpandedIndustries] = useState<Set<string>>(new Set())
-  /* const [showDataPanel, setShowDataPanel] = useState(false) */
 
   // 确保客户端渲染的标志
   useEffect(() => {
@@ -64,19 +62,19 @@ export default function DashboardClient() {
         // 云端数据可用
         peopleData = cloudPeople
         companiesData = cloudCompanies
-        setSupabaseWarning(null)
+        setDbWarning(null)
       } else if (process.env.NODE_ENV === 'production') {
         // 生产环境但数据库未能加载
         console.error('⚠️ 生产环境中数据库未能加载！请检查服务器 DATABASE_URL 环境变量配置。')
-        setSupabaseWarning('⚠️ 数据库连接失败！请联系管理员检查服务器配置。')
+        setDbWarning('⚠️ 数据库连接失败！请联系管理员检查服务器配置。')
       } else {
         // 开发环境，允许使用本地数据
         peopleData = cloudPeople !== null ? cloudPeople : getPeople()
         companiesData = cloudCompanies !== null ? cloudCompanies : getCompanies()
         if (!cloudPeople) {
-          setSupabaseWarning('⚠️ 开发环境: 数据库未连接，使用本地数据。请在 .env.local 中配置 DATABASE_URL。')
+          setDbWarning('⚠️ 开发环境: 数据库未连接，使用本地数据。请在 .env.local 中配置 DATABASE_URL。')
         } else {
-          setSupabaseWarning(null)
+          setDbWarning(null)
         }
       }
       
@@ -148,26 +146,6 @@ export default function DashboardClient() {
     return () => clearTimeout(timer)
   }, [searchParams, router])
 
-  // Realtime subscribe
-  useEffect(() => {
-    const unsubscribers: Array<() => void> = []
-    try {
-      const peopleSub = subscribeCloud('people', async () => {
-        const cloud = await loadPeopleFromCloudIfAvailable()
-        if (cloud) setPeople(cloud)
-      })
-      unsubscribers.push(() => peopleSub.unsubscribe())
-      const companySub = subscribeCloud('companies', async () => {
-        const cloud = await loadCompaniesFromCloudIfAvailable()
-        if (cloud) setCompanies(cloud)
-      })
-      unsubscribers.push(() => companySub.unsubscribe())
-    } catch (_) {}
-    return () => {
-      unsubscribers.forEach(u => u())
-    }
-  }, [])
-
   // 过滤搜索结果
   const filteredPeople = people.filter(person => {
     const displayName = deterministicAliasName(person.name)
@@ -188,7 +166,7 @@ export default function DashboardClient() {
       return
     }
 
-    if (!confirm(`确定要批量分析所有人员（${people.length}人）的关系吗？\n\n这将重新生成所有关系数据并同步到Supabase。`)) {
+    if (!confirm(`确定要批量分析所有人员（${people.length}人）的关系吗？\n\n这将重新生成所有关系数据并同步到数据库。`)) {
       return
     }
 
@@ -197,7 +175,7 @@ export default function DashboardClient() {
       const { forceAnalyzeAllRelationships } = await import('@/lib/relationshipManager')
       await forceAnalyzeAllRelationships()
       
-      alert(`✅ 批量关系分析完成！\n\n已为 ${people.length} 人生成关系数据并同步到Supabase。\n现在可以在人物详情页查看关系网络图。`)
+      alert(`✅ 批量关系分析完成！\n\n已为 ${people.length} 人生成关系数据并同步到数据库。\n现在可以在人物详情页查看关系网络图。`)
     } catch (error) {
       console.error('批量分析关系失败:', error)
       alert('❌ 批量分析关系失败: ' + (error as Error).message)
@@ -206,31 +184,9 @@ export default function DashboardClient() {
     }
   }
 
-  // 数据管理功能（已移除）
-  /* const handleResetData = () => { }
-  const handleClearData = () => { }
-  const checkDataStatus = () => { } */
-
   // 获取关注列表
   const followedPeople = people.filter(p => p.isFollowed)
   const followedCompanies = companies.filter(c => c.isFollowed)
-
-  // 切换关注状态
-  const toggleFollow = (type: 'person' | 'company', id: string) => {
-    if (type === 'person') {
-      const updatedPeople = people.map(p =>
-        p.id === id ? { ...p, isFollowed: !p.isFollowed } : p
-      )
-      setPeople(updatedPeople)
-      savePeople(updatedPeople)
-    } else {
-      const updatedCompanies = companies.map(c =>
-        c.id === id ? { ...c, isFollowed: !c.isFollowed } : c
-      )
-      setCompanies(updatedCompanies)
-      saveCompanies(updatedCompanies)
-    }
-  }
 
   // 编辑保存后，更新本地people并刷新"我的卡片"
   const handleEditSave = (updated: PersonData) => {
@@ -254,66 +210,10 @@ export default function DashboardClient() {
     } catch (_) {}
   }
 
-  // 删除项目（云端 + 本地同步）
-  const deleteItem = async (type: 'person' | 'company', id: string) => {
-    const itemName = type === 'person' 
-      ? people.find(p => p.id === id)?.name || '未知' 
-      : companies.find(c => c.id === id)?.name || '未知'
-    
-    if (!confirm(`确定要删除 "${itemName}" 吗？\n\n此操作将从云端数据库中永久删除，不可恢复！`)) return
-    
-    try {
-      if (type === 'person') {
-        // 先从云端删除，确保数据一致性
-        await deletePersonFromCloud(id)
-        
-        // 云端删除成功后，更新本地状态
-        const updatedPeople = people.filter(p => p.id !== id)
-        setPeople(updatedPeople)
-        savePeople(updatedPeople)
-        
-        console.log(`成功删除人物: ${itemName} (ID: ${id})`)
-      } else {
-        // 先从云端删除，确保数据一致性
-        await deleteCompanyFromCloud(id)
-        
-        // 云端删除成功后，更新本地状态
-        const updatedCompanies = companies.filter(c => c.id !== id)
-        setCompanies(updatedCompanies)
-        saveCompanies(updatedCompanies)
-        
-        console.log(`成功删除企业: ${itemName} (ID: ${id})`)
-      }
-      
-      // 显示成功提示
-      const successMsg = `已成功删除 "${itemName}"`
-      // 使用临时提示替代 alert
-      const toast = document.createElement('div')
-      toast.style.cssText = `
-        position: fixed; top: 20px; right: 20px; z-index: 10000;
-        background: #10b981; color: white; padding: 12px 20px;
-        border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-size: 14px; max-width: 300px;
-      `
-      toast.textContent = successMsg
-      document.body.appendChild(toast)
-      setTimeout(() => {
-        if (document.body.contains(toast)) {
-          document.body.removeChild(toast)
-        }
-      }, 3000)
-      
-    } catch (err) {
-      console.error('删除失败:', err)
-      const errorMsg = err instanceof Error ? err.message : '未知错误'
-      alert(`删除失败：${errorMsg}\n\n请检查网络连接或 Supabase 配置后重试。`)
-    }
-  }
-
   // 导出人物为Excel（与导入模板字段一致）
   const handleExportPeople = async () => {
     if (!isManager()) return
-    const XLSX = await import('xlsx')
+    const XLSX = await import('xlsx-js-style')
 
     const header = [
       '姓名', '出生年月日', '电话1', '电话2', '微信号', '邮箱',
@@ -386,7 +286,7 @@ export default function DashboardClient() {
   // 导出企业为Excel（多工作表：企业信息/上游供应商明细/下游客户明细）
   const handleExportCompanies = async () => {
     if (!isManager()) return
-    const XLSX = await import('xlsx')
+    const XLSX = await import('xlsx-js-style')
 
     const mainHeader = [
       '企业名称', '所属行业', '企业规模', '企业定位', '企业价值', '关键成就', '企业诉求', '上游供应商(名称列表)', '下游客户(名称列表)', '其他补充信息'
@@ -459,7 +359,6 @@ export default function DashboardClient() {
                 onClick={async () => {
                   await fetch('/api/auth/logout', { method: 'POST' })
                   localStorage.removeItem('userRole')
-                  localStorage.removeItem('currentUser')
                   router.push('/')
                 }}
                 className="text-2xl font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
@@ -571,10 +470,10 @@ export default function DashboardClient() {
       {/* 右侧内容区 */}
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
-          {/* Supabase 配置警告 */}
-          {supabaseWarning && (
+          {/* 数据库配置警告 */}
+          {dbWarning && (
             <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">{supabaseWarning}</p>
+              <p className="text-sm text-yellow-800">{dbWarning}</p>
             </div>
           )}
 

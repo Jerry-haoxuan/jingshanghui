@@ -186,7 +186,7 @@ export default function ImportCompanies() {
         {loading ? (
           <div className="text-center py-20 text-gray-400">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-blue-400" />
-            <p>正在从 Supabase 读取数据…</p>
+            <p>正在从数据库读取数据…</p>
           </div>
         ) : preview.length === 0 && !result ? (
           <div className="text-center py-20 text-gray-400">

@@ -119,8 +119,10 @@ export default function StarryBackground() {
         }
       }
       
-      requestAnimationFrame(animation)
+      raf = requestAnimationFrame(animation)
     }
+
+    let raf = 0
 
     // 处理窗口大小变化
     const handleResize = () => {
@@ -137,10 +139,11 @@ export default function StarryBackground() {
     }
 
     window.addEventListener('resize', handleResize)
-    animation()
+    raf = requestAnimationFrame(animation)
 
     // 清理函数
     return () => {
+      cancelAnimationFrame(raf)
       window.removeEventListener('resize', handleResize)
     }
   }, [])

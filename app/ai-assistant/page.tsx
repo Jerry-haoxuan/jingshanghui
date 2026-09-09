@@ -350,7 +350,6 @@ export default function AIAssistant() {
               onClick={async () => {
                 await fetch('/api/auth/logout', { method: 'POST' })
                 localStorage.removeItem('userRole')
-                localStorage.removeItem('currentUser')
                 router.push('/')
               }}
               className="text-lg font-bold text-blue-600 hover:text-blue-700 truncate cursor-pointer"

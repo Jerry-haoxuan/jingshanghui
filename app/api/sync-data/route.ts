@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPeople, getCompanies, savePeople, saveCompanies } from '@/lib/dataStore'
 import { listPeopleFromCloud, listCompaniesFromCloud, upsertPersonToCloud, upsertCompanyToCloud } from '@/lib/cloudStore'
 
 export async function POST(request: NextRequest) {
@@ -64,11 +63,7 @@ export async function POST(request: NextRequest) {
           peopleCount: cloudPeople.length,
           companiesCount: cloudCompanies.length
         })
-        
-        // 保存到本地
-        savePeople(cloudPeople)
-        saveCompanies(cloudCompanies)
-        
+
         return NextResponse.json({
           success: true,
           message: '云端数据已同步到本地',

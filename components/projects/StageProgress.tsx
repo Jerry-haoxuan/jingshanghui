@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Check, ChevronRight } from 'lucide-react'
-import { STAGE_LABELS, STAGE_ORDER, ProjectStage } from '@/lib/projectStore'
+import { STAGE_LABELS, STAGE_ORDER, ProjectStage } from '@/lib/projectTypes'
 
 interface StageProgressProps {
   currentStage: ProjectStage

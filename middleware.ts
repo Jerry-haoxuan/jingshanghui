@@ -1,74 +1,49 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// 不需要保护的路由（公开路由）
+// 不需要登录就能访问的精确路径（分享落地、登录页、公开下载、鉴权接口）
 const publicRoutes = [
   '/',
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/auth/login-check',
+  '/api/auth/register-phone',
+  '/api/auth/send-code',
   '/api/download-template',
-  '/api/download-customer-template',
-  '/api/download-supplier-template'
 ]
 
-// 需要保护的路由前缀
+// 需要登录才能打开的页面前缀。API 不放这里：登录页、Excel 解析、AI 对话都要在未登录或跨页时能调。
 const protectedPrefixes = [
   '/dashboard',
   '/person',
   '/company',
   '/data-input',
   '/ai-assistant',
-  '/add',
-  '/company-input'
+  '/projects',
+  '/import-companies',
 ]
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
-  
-  // 添加调试日志
-  console.log('[Middleware] 访问路径:', pathname)
-  
-  // 检查是否是公开路由
+
   if (publicRoutes.includes(pathname)) {
-    console.log('[Middleware] 公开路由，允许访问')
     return NextResponse.next()
   }
-  
-  // 检查是否是需要保护的路由
+
   const isProtectedRoute = protectedPrefixes.some(prefix => pathname.startsWith(prefix))
-  
   if (isProtectedRoute) {
-    // 检查用户角色Cookie
     const userRole = request.cookies.get('userRole')?.value
-    
-    console.log('[Middleware] 受保护路由:', pathname)
-    console.log('[Middleware] userRole Cookie:', userRole)
-    
-    // 如果没有用户角色，重定向到首页
     if (!userRole || (userRole !== 'member' && userRole !== 'manager')) {
-      console.log('[Middleware] 未找到有效用户角色，重定向到首页')
       const redirectUrl = new URL('/', request.url)
       return NextResponse.redirect(redirectUrl)
     }
-    
-    console.log('[Middleware] 用户已认证，角色:', userRole, '- 允许访问')
-  } else {
-    console.log('[Middleware] 非保护路由，直接放行')
   }
-  
+
   return NextResponse.next()
 }
 
-// 配置中间件应用的路径
 export const config = {
   matcher: [
-    /*
-     * 匹配所有路径除了：
-     * - _next/static (静态文件)
-     * - _next/image (图片优化文件)
-     * - favicon.ico (网站图标)
-     * - public 文件夹中的文件
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-} 
+}

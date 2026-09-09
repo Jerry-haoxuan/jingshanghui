@@ -26,7 +26,7 @@ import {
   STATUS_COLORS,
   ProjectStage,
   ProjectStatus,
-} from '@/lib/projectStore'
+} from '@/lib/projectTypes'
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
 import { isManager } from '@/lib/userRole'

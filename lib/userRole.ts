@@ -59,17 +59,6 @@ export const getUserRole = (): UserRole | null => {
   return null;
 };
 
-// 清除用户角色（登出时使用）
-export const clearUserRole = (): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('userRole');
-    // 清除cookie
-    document.cookie = 'userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    // 清除角色缓存
-    clearRoleCache();
-  }
-};
-
 // 检查是否为管理者
 export const isManager = (): boolean => {
   return getUserRole() === UserRole.MANAGER;

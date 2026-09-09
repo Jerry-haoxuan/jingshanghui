@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeAllRelationships, getPersonRelationships, recommendConnections } from '@/lib/relationshipAnalyzer'
 import { PersonData, CompanyData } from '@/lib/dataStore'
+import { isDbReady } from '@/lib/db'
 import { deterministicAliasName, shouldAliasName, findPersonByAliasName, findPeopleByAliasName } from '@/lib/deterministicNameAlias'
 import { getYongxinPortfolio, getCompanyFullProfile, formatCompanyProfile, searchCompany } from '@/lib/tianyancha'
 
@@ -402,21 +403,20 @@ export async function POST(request: NextRequest) {
      const shouldAliasName = () => aliasMode
      const deterministicAliasName = aliasNameFn
 
-    // 始终优先从 Supabase 拉取最新完整数据，保证数据全面性
-    // 客户端传来的数据只作为 Supabase 不可用时的降级备用
+    // 始终优先从数据库拉取最新完整数据，保证数据全面性
+    // 客户端传来的数据只作为数据库不可用时的降级备用
     let peopleData: PersonData[] = []
     let companyData: CompanyData[] = []
 
     try {
-      const isSupabaseReady = Boolean(process.env.DATABASE_URL)
-      if (isSupabaseReady) {
+      if (isDbReady) {
         const { listPeopleFromCloud, listCompaniesFromCloud } = await import('@/lib/cloudStore')
         console.log('[AI Chat] 从数据库拉取最新完整数据...')
         ;[peopleData, companyData] = await Promise.all([
           listPeopleFromCloud(),
           listCompaniesFromCloud(),
         ])
-        console.log(`[AI Chat] Supabase 数据加载完成：${peopleData.length} 人，${companyData.length} 家企业档案`)
+        console.log(`[AI Chat] 数据库数据加载完成：${peopleData.length} 人，${companyData.length} 家企业档案`)
         // 调试：打印每家企业的上下游明细数量
         for (const c of companyData) {
           const si = c.supplierInfos?.length || 0
@@ -436,10 +436,10 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (e) {
-      console.error('[AI Chat] Supabase 加载失败，降级使用客户端数据:', e)
+      console.error('[AI Chat] 数据库加载失败，降级使用客户端数据:', e)
     }
 
-    // Supabase 不可用时，降级使用客户端传来的数据
+    // 数据库不可用时，降级使用客户端传来的数据
     if (peopleData.length === 0) {
       peopleData = Array.isArray(people) ? people : []
       console.warn('[AI Chat] 使用客户端降级数据，人物数量:', peopleData.length)
@@ -451,7 +451,7 @@ export async function POST(request: NextRequest) {
 
     if (peopleData.length === 0) {
       return NextResponse.json({
-        response: '抱歉，我当前无法访问到数据库数据。请检查 Supabase 配置，或稍后重试。'
+        response: '抱歉，我当前无法访问到数据库数据。请检查数据库配置，或稍后重试。'
       })
     }
     

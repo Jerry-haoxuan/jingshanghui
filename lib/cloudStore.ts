@@ -1,7 +1,6 @@
-import pool from './db'
+import pool, { isDbReady } from './db'
 import type { PersonData, CompanyData } from './dataStore'
-
-export const isSupabaseReady = Boolean(process.env.DATABASE_URL)
+import type { RelationshipData } from './relationshipManager'
 
 // Helpers to map fields between app types and DB rows
 type DbPerson = {
@@ -152,13 +151,13 @@ const mapAppCompanyToDb = (c: CompanyData): DbCompany => ({
 })
 
 export async function listPeopleFromCloud(): Promise<PersonData[]> {
-  if (!isSupabaseReady) return []
+  if (!isDbReady) return []
   const { rows } = await pool.query('SELECT * FROM public.people ORDER BY created_at DESC')
   return (rows as DbPerson[]).map(mapDbPersonToApp)
 }
 
 export async function upsertPersonToCloud(person: PersonData): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isDbReady) return
   const row = mapAppPersonToDb(person)
   await pool.query(
     `INSERT INTO public.people (id, name, company, position, tags, current_city, hometown, home_address, company_address, industry, is_followed, phone, phones, wechat_id, email, political_party, social_organizations, hobbies, skills, expectations, educations, work_history, additional_info, all_companies, birth_date, school, products)
@@ -185,23 +184,18 @@ export async function upsertPersonToCloud(person: PersonData): Promise<void> {
 }
 
 export async function deletePersonFromCloud(id: string): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isDbReady) return
   await pool.query('DELETE FROM public.people WHERE id = $1', [id])
 }
 
-export async function setPersonFollowInCloud(id: string, isFollowed: boolean): Promise<void> {
-  if (!isSupabaseReady) return
-  await pool.query('UPDATE public.people SET is_followed = $1 WHERE id = $2', [isFollowed, id])
-}
-
 export async function listCompaniesFromCloud(): Promise<CompanyData[]> {
-  if (!isSupabaseReady) return []
+  if (!isDbReady) return []
   const { rows } = await pool.query('SELECT * FROM public.companies ORDER BY created_at DESC')
   return (rows as DbCompany[]).map(mapDbCompanyToApp)
 }
 
 export async function upsertCompanyToCloud(company: CompanyData): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isDbReady) return
   const row = mapAppCompanyToDb(company)
   const { rows: existing } = await pool.query(
     'SELECT id FROM public.companies WHERE name = $1 LIMIT 1', [company.name]
@@ -231,22 +225,11 @@ export async function upsertCompanyToCloud(company: CompanyData): Promise<void> 
 }
 
 export async function deleteCompanyFromCloud(id: string): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isDbReady) return
   await pool.query('DELETE FROM public.companies WHERE id = $1', [id])
 }
 
-export async function setCompanyFollowInCloud(id: string, isFollowed: boolean): Promise<void> {
-  if (!isSupabaseReady) return
-  await pool.query('UPDATE public.companies SET is_followed = $1 WHERE id = $2', [isFollowed, id])
-}
-
-export function subscribeCloud(_table: 'people' | 'companies', _onChange: () => void) {
-  return { unsubscribe: () => {} }
-}
-
 // ==================== 关系数据云端同步 ====================
-
-import type { RelationshipData } from './relationshipManager'
 
 type DbRelationship = {
   id: string
@@ -283,13 +266,13 @@ const mapAppRelationshipToDb = (rel: RelationshipData): DbRelationship => ({
 })
 
 export async function listRelationshipsFromCloud(): Promise<RelationshipData[]> {
-  if (!isSupabaseReady) return []
+  if (!isDbReady) return []
   const { rows } = await pool.query('SELECT * FROM public.relationships ORDER BY created_at DESC')
   return (rows as DbRelationship[]).map(mapDbRelationshipToApp)
 }
 
 export async function upsertRelationshipToCloud(relationship: RelationshipData): Promise<void> {
-  if (!isSupabaseReady) return
+  if (!isDbReady) return
   const row = mapAppRelationshipToDb(relationship)
   await pool.query(
     `INSERT INTO public.relationships (id, person_id, related_person_id, related_company_id, relationship_type, strength, description)
@@ -304,40 +287,8 @@ export async function upsertRelationshipToCloud(relationship: RelationshipData):
 }
 
 export async function batchUpsertRelationshipsToCloud(relationships: RelationshipData[]): Promise<void> {
-  if (!isSupabaseReady || relationships.length === 0) return
+  if (!isDbReady || relationships.length === 0) return
   for (const rel of relationships) {
     await upsertRelationshipToCloud(rel)
-  }
-}
-
-export async function deleteRelationshipFromCloud(id: string): Promise<void> {
-  if (!isSupabaseReady) return
-  await pool.query('DELETE FROM public.relationships WHERE id = $1', [id])
-}
-
-/**
- * 按姓名查找 people 记录，若不存在则自动创建一条基础记录。
- * 用于普通注册用户（有 personName 但尚未录入完整档案）。
- */
-export async function findOrCreatePersonByName(name: string): Promise<PersonData | null> {
-  if (!isSupabaseReady || !name) return null
-  try {
-    const { rows } = await pool.query(
-      'SELECT * FROM public.people WHERE name = $1 LIMIT 1',
-      [name]
-    )
-    if (rows.length > 0) {
-      return mapDbPersonToApp(rows[0] as DbPerson)
-    }
-    // 不存在则自动创建最基础的记录
-    const id = `person_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const { rows: inserted } = await pool.query(
-      `INSERT INTO public.people (id, name, company, position, tags, is_followed)
-       VALUES ($1, $2, '', '', '{}', false) RETURNING *`,
-      [id, name]
-    )
-    return inserted.length > 0 ? mapDbPersonToApp(inserted[0] as DbPerson) : null
-  } catch {
-    return null
   }
 }

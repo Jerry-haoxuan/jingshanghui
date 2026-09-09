@@ -13,7 +13,7 @@ import { deterministicAliasName } from '@/lib/deterministicNameAlias'
 import { isMember, isManager } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import PersonEditModal from '@/components/PersonEditModal'
-import { isViewingOwnCard } from '@/lib/memberKeys'
+import { getCurrentUser } from '@/lib/session'
 
 export default function PersonDetail() {
   const params = useParams()
@@ -28,6 +28,11 @@ export default function PersonDetail() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editFormData, setEditFormData] = useState<PersonData | null>(null)
   const [viewingOwnCard, setViewingOwnCard] = useState(false)
+  // 是否在看自己的名片：与 Dashboard "我的卡片" 使用同一判定（登录账号绑定的姓名）
+  const isViewingOwnCard = (p: PersonData) => {
+    const me = getCurrentUser()?.personName
+    return Boolean(me) && me === p.name
+  }
   
   // 获取显示名称（如果是查看自己的卡片，显示真实信息）
   const getDisplayName = (realName: string) => {
@@ -126,27 +131,6 @@ export default function PersonDetail() {
         })
       }
     })
-    
-    // 注释掉学校节点的添加 - 根据用户要求，不显示人与学校的连接
-    // const addedSchools = new Set();
-    // (currentPerson?.educations || (currentPerson?.school ? [{school: currentPerson?.school || '', level: '', major: '', year: ''}] : [])).forEach((edu: {school: string, level?: string, major?: string, year?: string}) => {
-    //   if (edu.school && !addedSchools.has(edu.school)) {
-    //     addedSchools.add(edu.school)
-    //     const schoolId = `school_${edu.school}`
-    //     nodes.push({
-    //       id: schoolId,
-    //       name: `${edu.level ? edu.level + ' - ' : ''}${edu.school}`,
-    //       type: 'school',
-    //       group: 3
-    //     })
-    //     links.push({
-    //       source: currentPerson.id,
-    //       target: schoolId,
-    //       relationship: `${edu.major ? edu.major + ' 毕业于' : '毕业于'}${edu.year ? ' (' + edu.year + ')' : ''}`,
-    //       strength: 0.7
-    //     })
-    //   }
-    // })
     
     // 添加关系网络中的人物节点
     console.log('[generateGraphData] 开始处理', relationships.length, '个关系')
@@ -320,7 +304,7 @@ export default function PersonDetail() {
           setError('')
           
           // 检查是否是查看自己的卡片
-          const isOwnCard = isViewingOwnCard(foundPerson.id)
+          const isOwnCard = isViewingOwnCard(foundPerson)
           setViewingOwnCard(isOwnCard)
           console.log('[PersonDetail] 查看自己的卡片:', isOwnCard)
           
@@ -354,7 +338,7 @@ export default function PersonDetail() {
             setError('')
             
             // 检查是否是查看自己的卡片
-            const isOwnCard = isViewingOwnCard(foundPersonStr.id)
+            const isOwnCard = isViewingOwnCard(foundPersonStr)
             setViewingOwnCard(isOwnCard)
             console.log('[PersonDetail] 查看自己的卡片:', isOwnCard)
             // 尝试使用之前加载的云端关系数据
