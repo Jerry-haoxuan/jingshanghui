@@ -34,21 +34,22 @@ const MAIN_NOTE_ROW = [
   '可选(多个用逗号分隔)', '可选(多个用逗号分隔)', '可选', '可选', '可选'
 ]
 
-// 唯一的示例：小明——用一个虚构的名字演示各种字段（多家公司、多段学历）怎么填。
-// 注意：不能用网站里真实存在的人名（比如以前用过的"宋江""徐翔"），避免和真实用户混淆。
+// 唯一的示例：徐翔（精尚慧创始人）——用他本人的真实数据演示各种字段（多家公司、多段学历）怎么填，
+// 客户可以直接对照这一行的真实填法，比虚构占位人物（以前用过的"小明"）更有参考价值。
+// 这一行内容和单独发给客户"描红"参考用的《精尚慧信息录入模板-真实示例版(徐翔).xlsx》保持一致。
 const EXAMPLE_ROW = [
-  EXAMPLE_PERSON_NAMES[0], '1985-06-15', '13900000000', '', 'xiaoming_szkj', 'xiaoming@example.com',
-  '江苏苏州', '江苏南京', '江苏省苏州市示例路1号',
-  '苏州示例科技有限公司', '总经理', '南京示例贸易有限公司', '股东', '', '', '江苏省苏州市工业园区示例大厦8楼',
-  '智能制造', '51-100人', '专注精密零部件研发与生产，服务新能源、半导体等行业客户', '拥有自主研发能力，交付周期短、良率高', '累计服务客户50余家，年产值超3000万元', '希望结识更多下游整机厂客户，同时寻找优质原材料供应商',
-  '中国共产党', '苏州市工商联理事', '', '',
-  '南京大学', '机械工程', '2007',
+  EXAMPLE_PERSON_NAMES[1], '1974-03-15', '18951108822', '', 'xx18951108822', 'xuxiang@jsh-china.com',
+  '苏州市', '苏州市', '苏州工业园区津梁街朗诗国际17-1804',
+  '苏州永鑫方舟股权投资管理合伙企业（普通合伙）', '合伙人', '苏州福润科技有限公司', '总经理', '', '', '苏州工业园区人工智能产业园G3-2201',
+  '股权投资', '0-50人', '硬科技行业的股权投资（一级市场）', '产业链赋能能力强，生态圈', '已投公司8家上市，管理规模30亿+', '需要介绍LP投资人，需要对接硬科技拟上市企业',
+  '群众', '苏州小红帽义工协会监事长', '西交利物浦大学国际商学院兼职教授', '清华大学五道口金融学院苏州校友会秘书长',
+  '沈阳工业大学', '工业外贸', '1996',
+  '同济大学', 'MBA', '2001',
   '', '', '',
-  '', '', '',
-  '', '',
-  '摄影,健身,阅读', '生产管理,客户谈判', '希望结识更多同行业上下游合作伙伴，拓展业务网络',
-  '2007-2012 某国企工程师；2012-2018 某上市制造企业生产总监；2018至今 创办苏州示例科技',
-  '这是示例数据，请删除本行后填写你自己的真实信息'
+  '清华大学五道口金融学院', '2026',
+  '跑步,诗词', '制造业的供应链对接,社群运营经验丰富,硬科技投资', '获取高净值人群投资人，结交产业龙头企业高层，发现硬科技项目',
+  '1996-1997 莱克电气 进出口专员；1998-2010 德尔福电子 采购总监；2010-2014 莱克电气 海外营业部总经理；2014至今 西交利物浦大学国际商学院兼职教授、精尚慧创始人、永鑫控股合伙人',
+  '这是真实示例（徐翔），请在下方新增一行填写你自己的真实信息，本行删不删都没关系，系统上传时会自动识别并跳过'
 ]
 
 const MAIN_COL_WIDTHS = [
@@ -70,16 +71,18 @@ const MAIN_COL_WIDTHS = [
 // 不是按表头文字读取，所以重复表头不会互相覆盖，但改列顺序时务必同步改那边的下标。
 const SUPPLIER_HEADERS = ['供应商名称', '采购物料/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
 const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '', '可选', '', '可选', '']
+// 用徐翔所在永鑫方舟的真实供应商（苏州工业园区国际科技园）做示例，比虚构占位公司更有参考价值。
 const SUPPLIER_EXAMPLE_ROWS = [
   (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position }) =>
-    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position])(EXAMPLE_SUPPLIER_ROWS[0]),
+    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position])(EXAMPLE_SUPPLIER_ROWS[1]),
 ]
 
 const CUSTOMER_HEADERS = ['客户名称', '销售产品/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
 const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '', '可选', '', '可选', '']
+// 用永鑫方舟真实投后客户（中际旭创）做示例，比虚构占位公司更有参考价值。
 const CUSTOMER_EXAMPLE_ROWS = [
   (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position }) =>
-    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position])(EXAMPLE_CUSTOMER_ROWS[0]),
+    [name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position])(EXAMPLE_CUSTOMER_ROWS[1]),
 ]
 
 const SUPPLIER_CUSTOMER_COL_WIDTHS = [
@@ -139,16 +142,16 @@ export async function GET() {
 
     // ---- Sheet 1：填写说明（放在最前面，第一眼就能看到，重点内容加粗标红/高亮）----
     const helpRows: string[] = [
-      '精尚慧个人信息导入模板 - 填写说明',
+      '精尚慧个人信息导入模板 - 填写说明（真实示例版）',
       '',
       '⚠️ 请先看这里，再去填表，能帮你省很多事：',
-      '① 打开后面的"个人与企业信息"表，第3行是示例（小明），照着它的格式在下面新增一行，填你自己的真实信息，然后删除"小明"这一行。',
+      '① 打开后面的"个人与企业信息"表，第3行是一个真实示例（徐翔，精尚慧创始人，方便你直接参考实际填法），照着它的格式在下面新增一行，填你自己的真实信息。',
       '② 必填项只有4个：姓名、电话1、公司1、企业所属行业。其余字段都可以留空，不影响使用。',
       '③ 每次上传只会导入"你自己"这一条信息，不会把表格里的其他行也导进来，所以不用担心示例数据被误当成你的信息。',
-      '④ 即使忘记删除"小明"这一示例行，系统上传时也会自动识别并跳过，不会混入你的数据——但还是建议手动删掉，保持表格干净。',
+      '④ 示例行（徐翔，以及"上游供应商""下游客户"里的示例企业）不用手动删除，系统上传时会自动识别并跳过，不会混入你的数据。',
       '',
       '② 怎么填"上游供应商" / "下游客户"表（可选，不填不影响其他信息导入）：',
-      '这两张表和"个人与企业信息"表一样，每一行代表一个供应商/客户；你有几个主要的，就填几行，同样删除示例行、只保留你自己的数据。每个关键人物后面都跟着一列"职位"，如果知道对方职位建议一并填上，方便后续对接。',
+      '这两张表里已经放了徐翔所在永鑫方舟的真实供应商/客户作为示例（比如中际旭创），你有几个主要的上下游伙伴，就在下面新增几行填你自己的，不用管示例行。每个关键人物后面都跟着一列"职位"，如果知道对方职位建议一并填上，方便后续对接。',
       '',
       '③ 日期格式：出生年月日请填 YYYY-MM-DD，例如 1990-01-15。',
       '④ 多个值用逗号分隔的字段：个人爱好、擅长能力、关键词，例如：摄影,旅行,阅读。',
@@ -179,7 +182,7 @@ export async function GET() {
     })
     XLSX.utils.book_append_sheet(workbook, helpSheet, '填写说明')
 
-    // ---- Sheet 2：个人与企业信息（含1行示例：小明）----
+    // ---- Sheet 2：个人与企业信息（含1行真实示例：徐翔）----
     const mainSheet = XLSX.utils.aoa_to_sheet([MAIN_HEADERS, MAIN_NOTE_ROW, EXAMPLE_ROW])
     mainSheet['!cols'] = MAIN_COL_WIDTHS
     mainSheet['!rows'] = [{ hpt: 22 }]

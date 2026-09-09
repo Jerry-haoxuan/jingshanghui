@@ -79,10 +79,9 @@ export function buildEmptyProfile(): ExtractedProfile {
 // Excel 模板里用来"演示怎么填"的示例数据，姓名/公司名固定为下面这些值。
 // 模板生成（/api/download-template）和模板解析（/api/parse-profile-excel）都引用同一份常量，
 // 确保"生成的示例"和"解析时自动跳过的示例"两边永远保持一致，不会因为改了模板忘改解析而对不上。
-// 注意：网站默认模板的示例统一用"小明"占位，避免和真实用户混淆。
-// "徐翔"是另一份专门给客户"描红"参考用的真实示例版模板（不在网站上，单独发给客户），
-// 用他的真实数据演示怎么填；这里把"徐翔"也加入跳过名单，是为了保证：
-// 不管客户拿到的是哪一版模板，只要示例行没删干净，上传时都会被自动过滤，不会把示例当成客户自己的数据导入。
+// 注意：网站默认模板（/api/download-template）现在直接用"徐翔"（精尚慧创始人）的真实数据做示例，
+// 比虚构占位人物更有参考价值；"小明"是老版本用过的虚构占位示例，保留在跳过名单里是为了兼容
+// 之前已经分发出去、可能还在被使用的旧版模板文件（万一有人上传时忘删"小明"那一行，照样能被过滤掉）。
 export const EXAMPLE_PERSON_NAMES = ['小明', '徐翔']
 
 // 上游供应商/下游客户的示例行改成"整行精确匹配"才跳过（而不是只看名字），
@@ -105,15 +104,17 @@ export interface ExampleRowShape {
 }
 
 export const EXAMPLE_SUPPLIER_ROWS: ExampleRowShape[] = [
-  // 网站默认模板（小明版）用的通用占位示例
+  // 旧版虚构占位示例（不再用于网站模板，仅保留在过滤名单里防止旧版模板文件的示例行被误当成真实数据导入）
   { name: '示例供应商有限公司', extra: '原材料', industryCategory: '新材料', subTitle: '原材料供应', keywords: '原材料,加工', keyPerson1: '张三', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' },
-  // 徐翔真实示例版模板：他所在永鑫方舟的真实上游资源（老板修改后的真实数据版本）
+  // 徐翔真实示例：他所在永鑫方舟的真实上游资源（老板修改后的真实数据版本），现在网站默认模板和
+  // 单独的"徐翔真实示例版"模板都用这一条
   { name: '苏州工业园区国际科技园', extra: '租赁办公室', industryCategory: '其他', subTitle: '产业园', keywords: '国资产业园', keyPerson1: '张峰', keyPerson1Position: '董事长', keyPerson2: '吴琦', keyPerson2Position: '招商经理', keyPerson3: '', keyPerson3Position: '' },
 ]
 
 export const EXAMPLE_CUSTOMER_ROWS: ExampleRowShape[] = [
-  // 网站默认模板（小明版）用的通用占位示例
+  // 旧版虚构占位示例（不再用于网站模板，仅保留在过滤名单里防止旧版模板文件的示例行被误当成真实数据导入）
   { name: '示例客户有限公司', extra: '精密零部件', industryCategory: '智能制造', subTitle: '整机组装采购', keywords: '零部件,采购', keyPerson1: '李四', keyPerson1Position: '', keyPerson2: '', keyPerson2Position: '', keyPerson3: '', keyPerson3Position: '' },
-  // 徐翔真实示例版模板：永鑫方舟真实投后企业客户（老板改成只保留中际旭创这一条，信息填得更完整）
+  // 徐翔真实示例：永鑫方舟真实投后企业客户（老板改成只保留中际旭创这一条，信息填得更完整），现在
+  // 网站默认模板和单独的"徐翔真实示例版"模板都用这一条
   { name: '中际旭创股份有限公司', extra: '光模块', industryCategory: '人工智能', subTitle: '人工智能', keywords: '谷歌英伟达供应商', keyPerson1: '刘圣', keyPerson1Position: '董事长', keyPerson2: '丁海', keyPerson2Position: '副总裁', keyPerson3: '郑学哲', keyPerson3Position: '研究院院长' },
 ]
