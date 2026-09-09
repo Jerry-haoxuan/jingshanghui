@@ -13,8 +13,7 @@ import {
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
-import { isManager } from '@/lib/userRole'
-import { deterministicAliasName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import MilestoneForm, { MilestoneInput } from '@/components/projects/MilestoneForm'
 
 const STEPS = ['项目命名', '邀请企业家', '时间节点']
@@ -63,16 +62,14 @@ export default function NewProjectPage() {
     init()
   }, [router])
 
-  const displayName = (person: PersonData) => {
-    if (isManager()) return `${person.name}（${deterministicAliasName(person.name)}）`
-    return deterministicAliasName(person.name)
-  }
+  const displayName = (person: PersonData) => getViewerFacingName(person.name)
 
   const filteredPeople = people.filter(p => {
     const q = searchQuery.toLowerCase()
     return (
+      getViewerFacingName(p.name).toLowerCase().includes(q) ||
+      forceGetAliasName(p.name).toLowerCase().includes(q) ||
       p.name.toLowerCase().includes(q) ||
-      deterministicAliasName(p.name).toLowerCase().includes(q) ||
       p.company.toLowerCase().includes(q) ||
       (p.industry ?? '').toLowerCase().includes(q)
     )

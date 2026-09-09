@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Building2, GraduationCap, MapPin, Users } from 'lucide-react'
-import { deterministicAliasName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName } from '@/lib/deterministicNameAlias'
 
 interface GraphNode {
   id: string
@@ -174,12 +174,11 @@ export default function StaticRelationshipGraph({
                 className="text-sm font-medium fill-gray-700"
                 style={{ fontSize: isCenterNode ? '14px' : '12px' }}
               >
-                {node.type === 'person' 
-                  ? (deterministicAliasName(node.name).length > 8 
-                      ? deterministicAliasName(node.name).substring(0, 8) + '...' 
-                      : deterministicAliasName(node.name))
-                  : (node.name.length > 8 ? node.name.substring(0, 8) + '...' : node.name)
-                }
+                {(() => {
+                  const label = node.type === 'person' ? getViewerFacingName(node.name) : node.name
+                  const maxLen = node.type === 'person' ? 10 : 8
+                  return label.length > maxLen ? label.substring(0, maxLen) + '...' : label
+                })()}
               </text>
               
               {/* 中心节点额外信息 */}

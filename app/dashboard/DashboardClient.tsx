@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getMyCards } from '@/lib/dataStore'
 import PersonEditModal from '@/components/PersonEditModal'
-import { deterministicAliasName, forceGetAliasName } from '@/lib/deterministicNameAlias'
+import { forceGetAliasName, getViewerFacingName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { getCurrentUser } from '@/lib/session'
 import PortfolioVerticalCarousel from '@/components/PortfolioVerticalCarousel'
@@ -148,10 +148,13 @@ export default function DashboardClient() {
 
   // 过滤搜索结果
   const filteredPeople = people.filter(person => {
-    const displayName = deterministicAliasName(person.name)
-    return displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    const q = searchQuery.toLowerCase()
+    const alias = forceGetAliasName(person.name)
+    return getViewerFacingName(person.name).toLowerCase().includes(q) ||
+      alias.toLowerCase().includes(q) ||
+      (isManager() && person.name.toLowerCase().includes(q)) ||
+      person.company.toLowerCase().includes(q) ||
+      person.tags.some(tag => tag.toLowerCase().includes(q))
   })
 
   const filteredCompanies = companies.filter(company =>
@@ -406,7 +409,7 @@ export default function DashboardClient() {
                       onClick={() => router.push(`/person/${card.id}`)}
                       className="w-full text-left px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded"
                     >
-                      {card.name}
+                      {getViewerFacingName(card.name)}
                     </button>
                   ))}
                 </div>
@@ -439,9 +442,7 @@ export default function DashboardClient() {
                     onClick={() => router.push(`/person/${person.id}`)}
                   >
                     <div className="font-medium text-sm">
-                      {isManager() 
-                        ? `${person.name}（${deterministicAliasName(person.name)}）` 
-                        : deterministicAliasName(person.name)}
+                      {getViewerFacingName(person.name)}
                     </div>
                     <div className="text-xs text-gray-500">{person.company}</div>
                   </div>
@@ -539,7 +540,7 @@ export default function DashboardClient() {
                           </div>
                           <div className="min-w-0">
                             <h3 className="font-semibold text-sm truncate">
-                              {isManager() ? `${person.name}（${forceGetAliasName(person.name)}）` : deterministicAliasName(person.name)}
+                              {getViewerFacingName(person.name)}
                             </h3>
                             <p className="text-xs text-gray-500 truncate">{person.position} · {person.company}</p>
                           </div>

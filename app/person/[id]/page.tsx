@@ -9,8 +9,8 @@ import Link from 'next/link'
 import { getPeople, getCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
 import { getPersonRelationships } from '@/lib/relationshipManager'
-import { deterministicAliasName } from '@/lib/deterministicNameAlias'
-import { isMember, isManager } from '@/lib/userRole'
+import { getViewerFacingName } from '@/lib/deterministicNameAlias'
+import { isMember } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import PersonEditModal from '@/components/PersonEditModal'
 import { getCurrentUser } from '@/lib/session'
@@ -32,14 +32,6 @@ export default function PersonDetail() {
   const isViewingOwnCard = (p: PersonData) => {
     const me = getCurrentUser()?.personName
     return Boolean(me) && me === p.name
-  }
-  
-  // 获取显示名称（如果是查看自己的卡片，显示真实信息）
-  const getDisplayName = (realName: string) => {
-    if (viewingOwnCard || isManager()) {
-      return realName
-    }
-    return deterministicAliasName(realName)
   }
 
   // 判断这个人是否填过任何有分析价值的资料（公司/职位/行业/学校等）。
@@ -539,13 +531,11 @@ export default function PersonDetail() {
             <CardHeader className="pb-4 flex-shrink-0">
               <div className="flex items-center space-x-4">
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
-                  {getDisplayName(person.name).charAt(0)}
+                  {getViewerFacingName(person.name).charAt(0)}
                 </div>
                 <div>
                   <CardTitle className="text-2xl">
-                    {(isManager() && !viewingOwnCard)
-                      ? `${person.name}（${deterministicAliasName(person.name)}）` 
-                      : getDisplayName(person.name)}
+                    {getViewerFacingName(person.name)}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Briefcase className="h-4 w-4" />
@@ -908,7 +898,7 @@ export default function PersonDetail() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogTitle>获取联系方式</DialogTitle>
           <DialogDescription className="text-gray-600 mt-4">
-            若想了解 {getDisplayName(person.name)} 的具体信息，可以联系精尚慧管理者徐翔，王丽平，李莉，覃浩轩。
+            若想了解 {getViewerFacingName(person.name)} 的具体信息，可以联系精尚慧管理者徐翔，王丽平，李莉，覃浩轩。
           </DialogDescription>
           <div className="flex justify-end mt-4">
             <Button onClick={() => setShowContactDialog(false)}>

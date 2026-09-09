@@ -29,9 +29,8 @@ import {
 } from '@/lib/projectTypes'
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
-import { isManager } from '@/lib/userRole'
 import { getUserRole } from '@/lib/userRole'
-import { deterministicAliasName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName } from '@/lib/deterministicNameAlias'
 import StageProgress from '@/components/projects/StageProgress'
 import ProjectTimeline from '@/components/projects/ProjectTimeline'
 import AiPanel from '@/components/projects/AiPanel'
@@ -67,10 +66,7 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState<'timeline' | 'files' | 'milestones'>('timeline')
 
   const displayName = useCallback(
-    (person: PersonData) => {
-      if (isManager()) return person.name
-      return deterministicAliasName(person.name)
-    },
+    (person: PersonData) => getViewerFacingName(person.name),
     []
   )
 
@@ -129,7 +125,7 @@ export default function ProjectDetailPage() {
       const me = allPeople.find(p => p.name === currentUser.personName)
       if (me) {
         setCurrentPersonId(me.id)
-        setCurrentPersonName(isManager() ? me.name : deterministicAliasName(me.name))
+        setCurrentPersonName(getViewerFacingName(me.name))
       }
       await Promise.all([loadProject(), loadLogs(), loadFiles(), loadReviews(), loadMilestones()])
       setLoading(false)

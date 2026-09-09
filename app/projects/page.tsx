@@ -7,8 +7,7 @@ import { Plus, FolderOpen, ChevronLeft, Loader2, Trash2 } from 'lucide-react'
 import { Project, ProjectStatus, STATUS_LABELS } from '@/lib/projectTypes'
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
-import { isManager } from '@/lib/userRole'
-import { deterministicAliasName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName } from '@/lib/deterministicNameAlias'
 import ProjectCard from '@/components/projects/ProjectCard'
 
 const STATUS_FILTERS: { key: 'all' | ProjectStatus; label: string }[] = [
@@ -65,10 +64,7 @@ export default function ProjectsPage() {
 
   const getPersonById = (id: string) => people.find(p => p.id === id)
 
-  const displayName = (person: PersonData) => {
-    if (isManager()) return person.name
-    return deterministicAliasName(person.name)
-  }
+  const displayName = (person: PersonData) => getViewerFacingName(person.name)
 
   const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter)
 

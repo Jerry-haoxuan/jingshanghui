@@ -41,18 +41,33 @@ let cachedUserRole: string | null = null
 let lastCheckTime = 0
 const CACHE_DURATION = 5000 // 5秒缓存
 
+function getStoredUserRole(): string | null {
+  if (typeof window === 'undefined') return null
+  const now = Date.now()
+  if (!cachedUserRole || now - lastCheckTime > CACHE_DURATION) {
+    cachedUserRole = localStorage.getItem('userRole')
+    if (!cachedUserRole) {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('userRole='))
+        ?.split('=')[1] ?? null
+      if (cookieValue) {
+        try {
+          localStorage.setItem('userRole', cookieValue)
+        } catch {
+          // ignore quota / private mode
+        }
+        cachedUserRole = cookieValue
+      }
+    }
+    lastCheckTime = now
+  }
+  return cachedUserRole
+}
+
 // 检查是否需要AI化（基于用户角色）
 export function shouldAliasName(): boolean {
-  if (typeof window !== 'undefined') {
-    const now = Date.now()
-    // 如果缓存过期或未初始化，重新读取
-    if (!cachedUserRole || now - lastCheckTime > CACHE_DURATION) {
-      cachedUserRole = localStorage.getItem('userRole')
-      lastCheckTime = now
-    }
-    return cachedUserRole === 'member'
-  }
-  return false
+  return getStoredUserRole() === 'member'
 }
 
 // 纯确定性的名字AI化函数
@@ -85,6 +100,18 @@ export function forceGetAliasName(realName: string): string {
   
   // 直接返回对应的AI化名字
   return CHARACTER_NAMES[index]
+}
+
+/** 会员只显示虚拟名；管理员显示 真名（虚拟名） */
+export function getViewerFacingName(realName: string): string {
+  if (!realName) return realName
+  const alias = forceGetAliasName(realName)
+  const role = getStoredUserRole()
+  if (role === 'manager') {
+    return alias === realName ? realName : `${realName}（${alias}）`
+  }
+  if (role === 'member') return alias
+  return realName
 }
 
 // 清除缓存（在用户角色改变时调用）
