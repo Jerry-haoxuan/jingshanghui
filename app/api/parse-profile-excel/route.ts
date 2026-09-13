@@ -30,12 +30,20 @@ function normalizeDate(v: unknown): string {
     }
   }
   const s = String(v).trim()
-  // 常见的 M/D/YYYY 或 YYYY/M/D 格式，尽量归一成 YYYY-MM-DD
+  const expandYear = (y: string): string => {
+    if (y.length === 4) return y
+    const n = parseInt(y, 10)
+    if (Number.isNaN(n)) return y
+    return String(n <= 30 ? 2000 + n : 1900 + n)
+  }
+  // 常见的 M/D/YYYY、M/D/YY 或 YYYY/M/D 格式，尽量归一成 YYYY-MM-DD
   const slashMatch = s.match(/^(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})$/)
   if (slashMatch) {
     const [, a, b, c] = slashMatch
     if (a.length === 4) return `${a}-${b.padStart(2, '0')}-${c.padStart(2, '0')}`
-    if (c.length === 4) return `${c}-${a.padStart(2, '0')}-${b.padStart(2, '0')}`
+    if (c.length === 2 || c.length === 4) {
+      return `${expandYear(c)}-${a.padStart(2, '0')}-${b.padStart(2, '0')}`
+    }
   }
   return s
 }

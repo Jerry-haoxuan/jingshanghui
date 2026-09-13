@@ -153,6 +153,34 @@ async function checkManagerExistsInCloud(): Promise<boolean> {
   }
 }
 
+/** 注册时对上已经录入的人物档案：优先精确姓名，再用注册手机号对电话。 */
+async function resolveLinkedPersonName(realName: string | undefined, phone: string): Promise<string | undefined> {
+  const trimmed = realName?.trim() || ''
+  if (!isDbReady) return trimmed || undefined
+  try {
+    if (trimmed) {
+      const { rows } = await pool.query(
+        'SELECT name FROM public.people WHERE TRIM(name) = $1 LIMIT 1',
+        [trimmed]
+      )
+      if (rows.length) return rows[0].name as string
+    }
+    if (phone) {
+      const { rows } = await pool.query(
+        `SELECT name FROM public.people
+         WHERE phone = $1
+            OR phones::text LIKE $2
+         LIMIT 1`,
+        [phone, `%${phone}%`]
+      )
+      if (rows.length) return rows[0].name as string
+    }
+  } catch (err) {
+    console.error('[resolveLinkedPersonName] 查询失败:', err)
+  }
+  return trimmed || undefined
+}
+
 // ========== localStorage 降级存储 ==========
 function getLocalUsers(): UserAccount[] {
   if (typeof window === 'undefined') return []
@@ -236,7 +264,7 @@ export async function registerUser(
     passwordHash: hashPassword(password),
     role,
     invitationCode,
-    personName: personName?.trim() || undefined,
+    personName: await resolveLinkedPersonName(personName, trimmedName),
     createdAt: new Date().toISOString(),
   }
 

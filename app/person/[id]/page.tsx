@@ -14,6 +14,7 @@ import { isMember } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import PersonEditModal from '@/components/PersonEditModal'
 import { getCurrentUser } from '@/lib/session'
+import { personMatchesUser } from '@/lib/personMatch'
 
 export default function PersonDetail() {
   const params = useParams()
@@ -29,10 +30,7 @@ export default function PersonDetail() {
   const [editFormData, setEditFormData] = useState<PersonData | null>(null)
   const [viewingOwnCard, setViewingOwnCard] = useState(false)
   // 是否在看自己的名片：与 Dashboard "我的卡片" 使用同一判定（登录账号绑定的姓名）
-  const isViewingOwnCard = (p: PersonData) => {
-    const me = getCurrentUser()?.personName
-    return Boolean(me) && me === p.name
-  }
+  const isViewingOwnCard = (p: PersonData) => personMatchesUser(p, getCurrentUser())
 
   // 判断这个人是否填过任何有分析价值的资料（公司/职位/行业/学校等）。
   // 像"注册了手机号但从没填过信息"的空壳档案，AI分析永远只会得到0条结果，

@@ -38,15 +38,29 @@ export async function GET(request: NextRequest) {
   if (!isDbReady) return NextResponse.json({ people: [] })
 
   const { searchParams } = new URL(request.url)
-  const ensureName = searchParams.get('ensureName')
+  const ensureName = searchParams.get('ensureName')?.trim() || ''
+  const ensurePhone = searchParams.get('ensurePhone')?.trim() || ''
 
-  // 若当前用户的 personName 在 people 表里不存在，则自动创建
-  if (ensureName) {
-    const { rows } = await pool.query(
-      'SELECT id FROM public.people WHERE name = $1 LIMIT 1',
-      [ensureName]
-    )
-    if (rows.length === 0) {
+  // 若当前用户的姓名或手机号已经对应一条人物档案，就不要再建空壳记录
+  if (ensureName || ensurePhone) {
+    let existingId: string | undefined
+    if (ensureName) {
+      const { rows } = await pool.query(
+        'SELECT id FROM public.people WHERE TRIM(name) = $1 LIMIT 1',
+        [ensureName]
+      )
+      existingId = rows[0]?.id
+    }
+    if (!existingId && ensurePhone) {
+      const { rows } = await pool.query(
+        `SELECT id FROM public.people
+         WHERE phone = $1 OR phones::text LIKE $2
+         LIMIT 1`,
+        [ensurePhone, `%${ensurePhone}%`]
+      )
+      existingId = rows[0]?.id
+    }
+    if (!existingId && ensureName) {
       const id = `person_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
       await pool.query(
         `INSERT INTO public.people (id, name, company, position, tags, is_followed)

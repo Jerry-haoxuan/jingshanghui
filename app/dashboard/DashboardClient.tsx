@@ -12,6 +12,7 @@ import PersonEditModal from '@/components/PersonEditModal'
 import { forceGetAliasName, getViewerFacingName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { getCurrentUser } from '@/lib/session'
+import { findPersonForUser } from '@/lib/personMatch'
 import PortfolioVerticalCarousel from '@/components/PortfolioVerticalCarousel'
 
 export default function DashboardClient() {
@@ -113,11 +114,9 @@ export default function DashboardClient() {
       // 加载"我的卡片"
       try {
         if (isMember()) {
-          // 如果是会员，根据当前登录账号查找对应的人物
+          // 如果是会员，根据当前登录账号查找对应的人物（姓名或注册手机号）
           const currentUser = getCurrentUser()
-          const myPerson = currentUser?.personName
-            ? peopleData.find(p => p.name === currentUser.personName) ?? null
-            : null
+          const myPerson = findPersonForUser(peopleData, currentUser)
           if (myPerson) {
             setMyCards([myPerson])
             console.log('[Dashboard] 会员卡片已加载:', myPerson.name)
@@ -199,9 +198,7 @@ export default function DashboardClient() {
     try { 
       if (isMember()) {
         const currentUser = getCurrentUser()
-        const myPerson = currentUser?.personName
-          ? next.find(p => p.name === currentUser.personName) ?? null
-          : null
+        const myPerson = findPersonForUser(next, currentUser)
         if (myPerson) {
           setMyCards([myPerson])
         } else {

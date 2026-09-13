@@ -31,6 +31,7 @@ import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
 import { getUserRole } from '@/lib/userRole'
 import { getViewerFacingName } from '@/lib/deterministicNameAlias'
+import { findPersonForUser } from '@/lib/personMatch'
 import StageProgress from '@/components/projects/StageProgress'
 import ProjectTimeline from '@/components/projects/ProjectTimeline'
 import AiPanel from '@/components/projects/AiPanel'
@@ -116,13 +117,13 @@ export default function ProjectDetailPage() {
       setLoading(true)
       // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录），
       // 避免直接在客户端调用需要数据库连接的云端方法
-      const ensureParam = currentUser.personName
-        ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
-        : ''
-      const peopleRes = await fetch(`/api/people${ensureParam}`)
+      const peopleQuery = new URLSearchParams()
+      if (currentUser.personName) peopleQuery.set('ensureName', currentUser.personName)
+      if (currentUser.username) peopleQuery.set('ensurePhone', currentUser.username)
+      const peopleRes = await fetch(`/api/people?${peopleQuery.toString()}`)
       const { people: allPeople } = await peopleRes.json() as { people: PersonData[] }
       setPeople(allPeople)
-      const me = allPeople.find(p => p.name === currentUser.personName)
+      const me = findPersonForUser(allPeople, currentUser)
       if (me) {
         setCurrentPersonId(me.id)
         setCurrentPersonName(getViewerFacingName(me.name))

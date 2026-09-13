@@ -7,6 +7,7 @@ import { Plus, FolderOpen, ChevronLeft, Loader2, Trash2 } from 'lucide-react'
 import { Project, ProjectStatus, STATUS_LABELS } from '@/lib/projectTypes'
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
+import { findPersonForUser } from '@/lib/personMatch'
 import { getViewerFacingName } from '@/lib/deterministicNameAlias'
 import ProjectCard from '@/components/projects/ProjectCard'
 
@@ -45,13 +46,13 @@ export default function ProjectsPage() {
     }
     // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录），
     // 避免直接在客户端调用需要数据库连接的云端方法
-    const ensureParam = currentUser.personName
-      ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
-      : ''
-    fetch(`/api/people${ensureParam}`)
+    const peopleQuery = new URLSearchParams()
+    if (currentUser.personName) peopleQuery.set('ensureName', currentUser.personName)
+    if (currentUser.username) peopleQuery.set('ensurePhone', currentUser.username)
+    fetch(`/api/people?${peopleQuery.toString()}`)
       .then(res => res.json())
       .then(({ people: allPeople }: { people: PersonData[] }) => {
-        const me = allPeople.find(p => p.name === currentUser.personName)
+        const me = findPersonForUser(allPeople, currentUser)
         setPeople(allPeople)
         if (me) {
           setCurrentPersonId(me.id)

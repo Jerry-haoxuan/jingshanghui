@@ -10,6 +10,7 @@ import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesF
 import { getUserRole, UserRole, isManager, isMember } from '@/lib/userRole'
 import PersonEditModal from '@/components/PersonEditModal'
 import { getCurrentUser } from '@/lib/session'
+import { findPersonForUser } from '@/lib/personMatch'
 
 interface Message {
   id: string
@@ -312,10 +313,7 @@ export default function AIAssistant() {
       await loadPeopleFromCloudIfAvailable().catch(() => {})
       if (isMember()) {
         const people = getPeople()
-        const currentUser = getCurrentUser()
-        const myPerson = currentUser?.personName
-          ? people.find(p => p.name === currentUser.personName) ?? null
-          : null
+        const myPerson = findPersonForUser(people, getCurrentUser())
         setMyCards(myPerson ? [myPerson] : [])
       } else {
         setMyCards(getMyCards())

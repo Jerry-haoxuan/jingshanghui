@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
+import { findPersonForUser } from '@/lib/personMatch'
 import { getViewerFacingName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import MilestoneForm, { MilestoneInput } from '@/components/projects/MilestoneForm'
 
@@ -45,13 +46,13 @@ export default function NewProjectPage() {
     const init = async () => {
       // 通过 API 路由获取人员列表（同时在服务端为当前用户自动创建 people 记录），
       // 避免直接在客户端调用需要数据库连接的云端方法
-      const ensureParam = currentUser.personName
-        ? `?ensureName=${encodeURIComponent(currentUser.personName)}`
-        : ''
-      const res = await fetch(`/api/people${ensureParam}`)
+      const peopleQuery = new URLSearchParams()
+      if (currentUser.personName) peopleQuery.set('ensureName', currentUser.personName)
+      if (currentUser.username) peopleQuery.set('ensurePhone', currentUser.username)
+      const res = await fetch(`/api/people?${peopleQuery.toString()}`)
       const { people: allPeople } = await res.json() as { people: PersonData[] }
 
-      const me = allPeople.find(p => p.name === currentUser.personName)
+      const me = findPersonForUser(allPeople, currentUser)
       if (me) {
         setCurrentPersonId(me.id)
       }
