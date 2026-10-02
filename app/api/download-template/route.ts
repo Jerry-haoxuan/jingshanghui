@@ -178,7 +178,6 @@ export async function GET() {
       '',
       '⑨ "行业大类"下拉选项（企业所属行业、供应商/客户行业大类是同一套；没有完全匹配的请选"其他"）：',
       INDUSTRY_CATEGORIES.join('、'),
-      '本次相对旧版新增/调整：法律服务、机械加工制造、检验检测认证服务、设施运维服务、环保、人力资源服务、工业贸易、工业控制、船舶制造、电动工具和园林工具、电子零部件制造、包装和包装机械、非金属制造业、政府相关、输配电设备、电子化学品/材料、物流装备、造纸业和装备、专用设备制造；原「教育培训」已拓展为「教育培训和咨询」。',
       '',
       '⑩ "企业规模"下拉选项：',
       COMPANY_SCALE_OPTIONS.join('、'),
@@ -192,14 +191,19 @@ export async function GET() {
     helpSheet['!cols'] = [{ wch: 110 }]
     // 标题行
     styleNoteSheetRow(helpSheet, 0, STYLE_TITLE)
-    helpSheet['!rows'] = helpRows.map((_, i) => (i === 0 ? { hpt: 26 } : { hpt: 18 }))
+    helpSheet['!rows'] = helpRows.map((_, i) => {
+      if (i === 0) return { hpt: 26 }
+      if (i === 19) return { hpt: 72 }
+      return { hpt: 18 }
+    })
     // 重点提醒整段（第2行"⚠️请先看这里"）+ ①②③④ 四条最关键的操作提示，用醒目的黄底红字。
     // 注意：这里改成显式指定行号，而不是用"文本是否以①②③④开头"的正则去匹配——
     // 之前用正则的话，后面⑤⑥⑦...等小节标题也会被同一个正则命中，反而把这四行的红色高亮
     // 样式覆盖成了蓝色，导致视觉上和"党派/行业大类"之类的普通小节标题分不出来。
     ;[2, 3, 4, 5, 6].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_WARNING))
     // 剩余小节标题行，用蓝色加粗，跟正文区分开（同样显式指定行号，避免匹配到上面已经是红色的行）
-    ;[8, 11, 12, 14, 18, 22, 25].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_SECTION))
+    ;[8, 11, 12, 14, 18, 21, 24].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_SECTION))
+    styleNoteSheetRow(helpSheet, 19, STYLE_NORMAL)
     XLSX.utils.book_append_sheet(workbook, helpSheet, '填写说明')
 
     // ---- Sheet 2：个人与企业信息（含1行真实示例：徐翔）----
