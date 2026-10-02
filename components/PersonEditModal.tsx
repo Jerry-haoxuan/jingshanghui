@@ -8,10 +8,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
-import { cities, universities, industries } from '@/lib/locationData'
+import { cities, universities } from '@/lib/locationData'
 import { PersonData, updatePerson } from '@/lib/dataStore'
 import { Plus, X, Save, Loader2, UploadCloud, CheckCircle2, AlertCircle, FileSpreadsheet, Download } from 'lucide-react'
-import { INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS, type CompanyPosition, type Education, type SupplierInfo, type CustomerInfo } from '@/lib/profileTypes'
+import { INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS, withExtraOption, type CompanyPosition, type Education, type SupplierInfo, type CustomerInfo } from '@/lib/profileTypes'
 
 interface PersonEditModalProps {
   person: PersonData | null
@@ -844,13 +844,18 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
 
             <div>
               <Label htmlFor="industry">行业</Label>
-              <AutocompleteInput
+              <select
                 id="industry"
+                name="industry"
                 value={formData.industry}
-                onChange={(value) => setFormData(prev => ({ ...prev, industry: value }))}
-                suggestions={industries}
-                placeholder="选择或输入行业"
-              />
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">请选择行业大类</option>
+                {withExtraOption(INDUSTRY_CATEGORIES, formData.industry).map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
             </div>
           </TabsContent>
 
@@ -908,13 +913,18 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="companyIndustry">所属行业</Label>
-                  <AutocompleteInput
+                  <select
                     id="companyIndustry"
+                    name="companyIndustry"
                     value={formData.companyIndustry}
-                    onChange={(value) => setFormData(prev => ({ ...prev, companyIndustry: value }))}
-                    placeholder="请选择或输入企业所属行业"
-                    suggestions={industries}
-                  />
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">请选择企业所属行业</option>
+                    {withExtraOption(INDUSTRY_CATEGORIES, formData.companyIndustry).map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <Label htmlFor="companyScale">企业规模</Label>
@@ -1035,7 +1045,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                           className="w-full h-9 px-2 rounded-md border border-gray-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">请选择行业大类</option>
-                          {INDUSTRY_CATEGORIES.map((category) => (
+                          {withExtraOption(INDUSTRY_CATEGORIES, supplier.industryCategory).map((category) => (
                             <option key={category} value={category}>{category}</option>
                           ))}
                         </select>
@@ -1129,7 +1139,7 @@ export default function PersonEditModal({ person, open, onOpenChange, onSave }: 
                           className="w-full h-9 px-2 rounded-md border border-gray-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">请选择行业大类</option>
-                          {INDUSTRY_CATEGORIES.map((category) => (
+                          {withExtraOption(INDUSTRY_CATEGORIES, customer.industryCategory).map((category) => (
                             <option key={category} value={category}>{category}</option>
                           ))}
                         </select>

@@ -12,10 +12,10 @@ import { ArrowLeft, Save, Loader2, Plus, X, UploadCloud, CheckCircle2, AlertCirc
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AutocompleteInput } from '@/components/AutocompleteInput'
-import { cities, universities, industries } from '@/lib/locationData'
+import { cities, universities } from '@/lib/locationData'
 import { addPerson, addOrUpdateCompany } from '@/lib/dataStore'
 import { updateRelationshipNetwork } from '@/lib/relationshipManager'
-import { INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS, type CompanyPosition, type Education, type SupplierInfo, type CustomerInfo } from '@/lib/profileTypes'
+import { INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS, withExtraOption, type CompanyPosition, type Education, type SupplierInfo, type CustomerInfo } from '@/lib/profileTypes'
 
 // 信息录入表单（个人 + 关联企业）。由 /data-input 页面挂载。
 export default function AddPersonForm() {
@@ -660,14 +660,19 @@ export default function AddPersonForm() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="companyIndustry">所属行业 *</Label>
-                        <AutocompleteInput
+                        <select
                           id="companyIndustry"
+                          name="companyIndustry"
                           value={formData.companyIndustry}
-                          onChange={(value) => handleAutocompleteChange('companyIndustry', value)}
-                          placeholder="请选择或输入企业所属行业"
-                          suggestions={industries}
+                          onChange={handleInputChange}
                           required
-                        />
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="">请选择企业所属行业</option>
+                          {withExtraOption(INDUSTRY_CATEGORIES, formData.companyIndustry).map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="companyScale">企业规模</Label>
@@ -803,7 +808,7 @@ export default function AddPersonForm() {
                                 className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               >
                                 <option value="">请选择行业大类</option>
-                                {INDUSTRY_CATEGORIES.map((category) => (
+                                {withExtraOption(INDUSTRY_CATEGORIES, supplier.industryCategory).map((category) => (
                                   <option key={category} value={category}>{category}</option>
                                 ))}
                               </select>
@@ -916,7 +921,7 @@ export default function AddPersonForm() {
                                 className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               >
                                 <option value="">请选择行业大类</option>
-                                {INDUSTRY_CATEGORIES.map((category) => (
+                                {withExtraOption(INDUSTRY_CATEGORIES, customer.industryCategory).map((category) => (
                                   <option key={category} value={category}>{category}</option>
                                 ))}
                               </select>

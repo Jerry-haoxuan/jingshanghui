@@ -3,7 +3,13 @@ import { NextResponse } from 'next/server'
 // 是因为原版免费版不支持写入单元格样式（加粗/背景色），没法把重点内容"标出来"。
 // 读取/解析Excel（/api/parse-profile-excel）不需要样式，继续用原版 xlsx 即可。
 import * as XLSX from 'xlsx-js-style'
-import { EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS, INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS } from '@/lib/profileTypes'
+import { cities, universities } from '@/lib/locationData'
+import { addExcelDropdowns } from '@/lib/xlsxZip'
+import {
+  EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS,
+  INDUSTRY_CATEGORIES, PARTY_OPTIONS, COMPANY_SCALE_OPTIONS,
+  POSITION_OPTIONS, MAJOR_OPTIONS, GRADUATION_YEAR_OPTIONS,
+} from '@/lib/profileTypes'
 
 // 个人与企业信息模板：字段顺序需要和 /api/parse-profile-excel 里的列名一一对应，
 // 改这里的表头文字时务必同步改那边的读取逻辑，否则会读不到数据。
@@ -23,14 +29,14 @@ const MAIN_HEADERS = [
 
 const MAIN_NOTE_ROW = [
   '必填', '可选(格式YYYY-MM-DD)', '必填', '可选', '可选', '可选',
-  '可选', '可选', '可选',
-  '必填', '可选', '可选', '可选', '可选', '可选', '可选',
-  '必填', '可选(见"填写说明")', '可选', '可选', '可选', '可选',
-  '可选(见"填写说明")', '可选', '可选', '可选',
-  '可选', '可选', '可选',
-  '可选', '可选', '可选',
-  '可选', '可选', '可选',
-  '可选', '可选',
+  '可选(下拉选择)', '可选(下拉选择)', '可选',
+  '必填', '可选(下拉选择)', '可选', '可选(下拉选择)', '可选', '可选(下拉选择)', '可选',
+  '必填(下拉选择)', '可选(下拉选择)', '可选', '可选', '可选', '可选',
+  '可选(下拉选择)', '可选', '可选', '可选',
+  '可选(下拉选择)', '可选(下拉选择)', '可选(下拉选择)',
+  '可选(下拉选择)', '可选(下拉选择)', '可选(下拉选择)',
+  '可选(下拉选择)', '可选(下拉选择)', '可选(下拉选择)',
+  '可选(下拉选择)', '可选(下拉选择)',
   '可选(多个用逗号分隔)', '可选(多个用逗号分隔)', '可选', '可选', '可选'
 ]
 
@@ -56,7 +62,7 @@ const MAIN_COL_WIDTHS = [
   10, 14, 12, 12, 16, 20,
   10, 10, 26,
   22, 14, 22, 14, 16, 12, 26,
-  14, 16, 30, 30, 30, 30,
+  20, 16, 30, 30, 30, 30,
   10, 18, 18, 18,
   16, 14, 10,
   16, 14, 10,
@@ -70,7 +76,7 @@ const MAIN_COL_WIDTHS = [
 // 注意：这3个"职位"表头文字是重复的，解析那边（/api/parse-profile-excel）按"列位置"读取，
 // 不是按表头文字读取，所以重复表头不会互相覆盖，但改列顺序时务必同步改那边的下标。
 const SUPPLIER_HEADERS = ['供应商名称', '采购物料/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
-const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选', '可选', '可选', '可选']
+const SUPPLIER_NOTE_ROW = ['必填', '可选', '可选(下拉选择)', '可选', '可选(多个用逗号分隔)', '可选', '可选(下拉选择)', '可选', '可选(下拉选择)', '可选', '可选(下拉选择)']
 // 用徐翔所在永鑫方舟的真实供应商（苏州工业园区国际科技园）做示例，比虚构占位公司更有参考价值。
 const SUPPLIER_EXAMPLE_ROWS = [
   (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position }) =>
@@ -78,7 +84,7 @@ const SUPPLIER_EXAMPLE_ROWS = [
 ]
 
 const CUSTOMER_HEADERS = ['客户名称', '销售产品/类别', '行业大类', '核心业务类别', '关键词', '关键人物1', '职位', '关键人物2', '职位', '关键人物3', '职位']
-const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(见"填写说明")', '可选', '可选(多个用逗号分隔)', '可选', '可选', '可选', '可选', '可选', '可选']
+const CUSTOMER_NOTE_ROW = ['必填', '可选', '可选(下拉选择)', '可选', '可选(多个用逗号分隔)', '可选', '可选(下拉选择)', '可选', '可选(下拉选择)', '可选', '可选(下拉选择)']
 // 用永鑫方舟真实投后客户（中际旭创）做示例，比虚构占位公司更有参考价值。
 const CUSTOMER_EXAMPLE_ROWS = [
   (({ name, extra, industryCategory, subTitle, keywords, keyPerson1, keyPerson1Position, keyPerson2, keyPerson2Position, keyPerson3, keyPerson3Position }) =>
@@ -86,7 +92,7 @@ const CUSTOMER_EXAMPLE_ROWS = [
 ]
 
 const SUPPLIER_CUSTOMER_COL_WIDTHS = [
-  { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 },
+  { wch: 26 }, { wch: 18 }, { wch: 22 }, { wch: 20 }, { wch: 16 },
   { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
 ]
 
@@ -119,8 +125,29 @@ function styleNoteRowByContent(sheet: XLSX.WorkSheet, rowIndex: number, noteRow:
   noteRow.forEach((text, c) => {
     const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c })
     if (!sheet[cellRef]) return
-    sheet[cellRef].s = text === '必填' ? STYLE_REQUIRED_NOTE : STYLE_OPTIONAL_NOTE
+    sheet[cellRef].s = text === '必填' || text.startsWith('必填') ? STYLE_REQUIRED_NOTE : STYLE_OPTIONAL_NOTE
   })
+}
+
+const OPTIONS_SHEET_NAME = '下拉选项'
+const DROPDOWN_FIRST_ROW = 4
+const DROPDOWN_LAST_ROW = 200
+
+function optionRange(colLetter: string, count: number): string {
+  return `'${OPTIONS_SHEET_NAME}'!$${colLetter}$1:$${colLetter}$${count}`
+}
+
+function sheetColsRef(cols: string[]): string {
+  return cols.map(c => `${c}${DROPDOWN_FIRST_ROW}:${c}${DROPDOWN_LAST_ROW}`).join(' ')
+}
+
+function buildOptionsSheetRows(columns: string[][]): string[][] {
+  const max = Math.max(...columns.map(col => col.length), 1)
+  const rows: string[][] = []
+  for (let r = 0; r < max; r++) {
+    rows.push(columns.map(col => col[r] || ''))
+  }
+  return rows
 }
 
 export async function GET() {
@@ -145,13 +172,18 @@ export async function GET() {
       '⑥ 日期格式：出生年月日请填 YYYY-MM-DD，例如 1990-01-15。',
       '⑦ 多个值用逗号分隔的字段：个人爱好、擅长能力、关键词，例如：摄影,旅行,阅读。',
       '',
-      '⑧ "行业大类"可选值参考（企业所属行业、供应商/客户行业大类均可参考此列表，没有完全匹配的可填"其他"）：',
-      INDUSTRY_CATEGORIES.join('、'),
+      '⑧ 大部分字段已改成下拉选择：点中单元格后，右侧会出现下拉箭头，请从列表里选，不要自己手打（手打容易和系统分类对不上）。第2行灰色说明里标注了"下拉选择"的列都已开通下拉。请从第4行开始填你自己的信息（第3行是示例）。',
+      '带下拉的列：现居地、家乡、职位1/2/3、企业所属行业、企业规模、党派、本科/硕士/博士/EMBA院校、本科/硕士/博士专业、各毕业年份；上游供应商/下游客户的「行业大类」和关键人物「职位」。',
+      '仍需手填的列：姓名、电话、微信号、邮箱、详细地址、公司名称、企业定位/价值/成就/诉求、社会组织、个人爱好、擅长能力、期望、工作履历、其他备注，以及供应商/客户名称、物料或产品、核心业务类别、关键词、关键人物姓名。',
       '',
-      '⑨ "企业规模"可选值参考：',
+      '⑨ "行业大类"下拉选项（企业所属行业、供应商/客户行业大类是同一套；没有完全匹配的请选"其他"）：',
+      INDUSTRY_CATEGORIES.join('、'),
+      '本次相对旧版新增/调整：法律服务、机械加工制造、检验检测认证服务、设施运维服务、环保、人力资源服务、工业贸易、工业控制、船舶制造、电动工具和园林工具、电子零部件制造、包装和包装机械、非金属制造业、政府相关、输配电设备、电子化学品/材料、物流装备、造纸业和装备、专用设备制造；原「教育培训」已拓展为「教育培训和咨询」。',
+      '',
+      '⑩ "企业规模"下拉选项：',
       COMPANY_SCALE_OPTIONS.join('、'),
       '',
-      '⑩ "党派"可选值参考：',
+      '⑪ "党派"下拉选项：',
       PARTY_OPTIONS.join('、'),
       '',
       '技术支持：请联系平台管理员',
@@ -167,7 +199,7 @@ export async function GET() {
     // 样式覆盖成了蓝色，导致视觉上和"党派/行业大类"之类的普通小节标题分不出来。
     ;[2, 3, 4, 5, 6].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_WARNING))
     // 剩余小节标题行，用蓝色加粗，跟正文区分开（同样显式指定行号，避免匹配到上面已经是红色的行）
-    ;[8, 11, 12, 14, 17, 20].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_SECTION))
+    ;[8, 11, 12, 14, 18, 22, 25].forEach(i => styleNoteSheetRow(helpSheet, i, STYLE_SECTION))
     XLSX.utils.book_append_sheet(workbook, helpSheet, '填写说明')
 
     // ---- Sheet 2：个人与企业信息（含1行真实示例：徐翔）----
@@ -195,7 +227,36 @@ export async function GET() {
     CUSTOMER_EXAMPLE_ROWS.forEach((_, i) => styleDataSheetRow(customerSheet, 2 + i, CUSTOMER_HEADERS.length, STYLE_EXAMPLE_ROW))
     XLSX.utils.book_append_sheet(workbook, customerSheet, '下游客户')
 
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+    // ---- Sheet 5：下拉选项（隐藏，供数据验证引用；列表太长不能写进 Excel 公式的 255 字限制）----
+    const optionColumns = [
+      INDUSTRY_CATEGORIES,
+      COMPANY_SCALE_OPTIONS,
+      PARTY_OPTIONS,
+      cities,
+      universities,
+      POSITION_OPTIONS,
+      GRADUATION_YEAR_OPTIONS,
+      MAJOR_OPTIONS,
+    ]
+    const optionsSheet = XLSX.utils.aoa_to_sheet(buildOptionsSheetRows(optionColumns))
+    optionsSheet['!cols'] = optionColumns.map(() => ({ wch: 22 }))
+    XLSX.utils.book_append_sheet(workbook, optionsSheet, OPTIONS_SHEET_NAME)
+
+    const rawBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+    const buffer = addExcelDropdowns(rawBuffer, [
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['G', 'H']), range: optionRange('D', cities.length) },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['K', 'M', 'O']), range: optionRange('F', POSITION_OPTIONS.length) },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['Q']), range: optionRange('A', INDUSTRY_CATEGORIES.length), strict: true },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['R']), range: optionRange('B', COMPANY_SCALE_OPTIONS.length), strict: true },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['W']), range: optionRange('C', PARTY_OPTIONS.length), strict: true },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['AA', 'AD', 'AG', 'AJ']), range: optionRange('E', universities.length) },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['AB', 'AE', 'AH']), range: optionRange('H', MAJOR_OPTIONS.length) },
+      { sheetName: '个人与企业信息', sqref: sheetColsRef(['AC', 'AF', 'AI', 'AK']), range: optionRange('G', GRADUATION_YEAR_OPTIONS.length) },
+      { sheetName: '上游供应商', sqref: sheetColsRef(['C']), range: optionRange('A', INDUSTRY_CATEGORIES.length), strict: true },
+      { sheetName: '上游供应商', sqref: sheetColsRef(['G', 'I', 'K']), range: optionRange('F', POSITION_OPTIONS.length) },
+      { sheetName: '下游客户', sqref: sheetColsRef(['C']), range: optionRange('A', INDUSTRY_CATEGORIES.length), strict: true },
+      { sheetName: '下游客户', sqref: sheetColsRef(['G', 'I', 'K']), range: optionRange('F', POSITION_OPTIONS.length) },
+    ], OPTIONS_SHEET_NAME)
 
     return new NextResponse(buffer, {
       status: 200,

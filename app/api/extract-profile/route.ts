@@ -87,8 +87,8 @@ const EXTRACTION_PROMPT = `你是一个专业的商圈档案信息提取助手�
   "socialOrganizations": ["社会组织身份，如商会、协会职务等，可以有多个"],
   "companyPositions": [{ "company": "公司全称", "position": "职位" }],
   "educations": [{ "level": "本科/硕士/博士/EMBA其中之一", "school": "学校名称", "major": "专业", "year": "毕业年份" }],
-  "supplierInfos": [{ "materialName": "采购物料/类别", "materialCategory": "", "supplierName": "上游供应商名称", "industryCategory": "供应商所属行业大类", "subTitle": "核心业务类别", "keywords": "", "keyPerson1": "", "keyPerson1Position": "", "keyPerson2": "", "keyPerson2Position": "", "keyPerson3": "", "keyPerson3Position": "" }],
-  "customerInfos": [{ "productName": "销售产品/类别", "productCategory": "", "customerName": "下游客户名称", "industryCategory": "客户所属行业大类", "subTitle": "核心业务类别", "keywords": "", "keyPerson1": "", "keyPerson1Position": "", "keyPerson2": "", "keyPerson2Position": "", "keyPerson3": "", "keyPerson3Position": "" }]
+  "supplierInfos": [{ "materialName": "采购物料/类别", "materialCategory": "", "supplierName": "上游供应商名称", "industryCategory": "供应商所属行业大类，优先从给定列表中选：${INDUSTRY_CATEGORIES.join('、')}", "subTitle": "核心业务类别", "keywords": "", "keyPerson1": "", "keyPerson1Position": "", "keyPerson2": "", "keyPerson2Position": "", "keyPerson3": "", "keyPerson3Position": "" }],
+  "customerInfos": [{ "productName": "销售产品/类别", "productCategory": "", "customerName": "下游客户名称", "industryCategory": "客户所属行业大类，优先从给定列表中选：${INDUSTRY_CATEGORIES.join('、')}", "subTitle": "核心业务类别", "keywords": "", "keyPerson1": "", "keyPerson1Position": "", "keyPerson2": "", "keyPerson2Position": "", "keyPerson3": "", "keyPerson3Position": "" }]
 }
 
 如果文字中没有提到供应商、客户或教育经历，对应数组返回空数组 []。
