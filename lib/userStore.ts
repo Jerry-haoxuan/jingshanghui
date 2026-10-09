@@ -27,6 +27,30 @@ export const BETA_INVITATION_CODES_BATCH3: string[] = [
   'ECO-INV-DPHQ6BQW',
 ]
 
+// ========== 内测邀请码（第四批，20个，每个只能注册一次）==========
+export const BETA_INVITATION_CODES_BATCH4: string[] = [
+  'ECO-INV-KPTXWJUS',
+  'ECO-INV-M8S97F4K',
+  'ECO-INV-Y9LL84QR',
+  'ECO-INV-UR376K6M',
+  'ECO-INV-TGT3P6WK',
+  'ECO-INV-XZHNQ4AD',
+  'ECO-INV-JJ826MGU',
+  'ECO-INV-E2PGCBRP',
+  'ECO-INV-4GHHHJLD',
+  'ECO-INV-33LAS6YH',
+  'ECO-INV-SDLC4U8S',
+  'ECO-INV-GC88BSPN',
+  'ECO-INV-DNTRKX7H',
+  'ECO-INV-7DYARHDB',
+  'ECO-INV-PR7B4CQW',
+  'ECO-INV-W5JTPTU2',
+  'ECO-INV-X7J37JWE',
+  'ECO-INV-RJNA4VRD',
+  'ECO-INV-3AB38R67',
+  'ECO-INV-SQZ2C4G9',
+]
+
 // 面试官/作品集演示专用邀请码，单独一批，方便和真实内测用户的邀请码区分管理
 export const INTERVIEWER_DEMO_CODES: string[] = [
   'ECO-INV-G4ZOUW5T',
@@ -35,6 +59,7 @@ export const INTERVIEWER_DEMO_CODES: string[] = [
 
 export const BETA_INVITATION_CODES: string[] = [
   ...BETA_INVITATION_CODES_BATCH3,
+  ...BETA_INVITATION_CODES_BATCH4,
   ...INTERVIEWER_DEMO_CODES,
 ]
 
