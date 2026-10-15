@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 // 是因为原版免费版不支持写入单元格样式（加粗/背景色），没法把重点内容"标出来"。
 // 读取/解析Excel（/api/parse-profile-excel）不需要样式，继续用原版 xlsx 即可。
 import * as XLSX from 'xlsx-js-style'
-import { cities, universities } from '@/lib/locationData'
+import { cities } from '@/lib/locationData'
 import { addExcelDropdowns } from '@/lib/xlsxZip'
 import {
   EXAMPLE_PERSON_NAMES, EXAMPLE_SUPPLIER_ROWS, EXAMPLE_CUSTOMER_ROWS,
@@ -33,10 +33,10 @@ const MAIN_NOTE_ROW = [
   '必填', '可选(下拉选择)', '可选', '可选(下拉选择)', '可选', '可选(下拉选择)', '可选',
   '必填(下拉选择)', '可选(下拉选择)', '可选', '可选', '可选', '可选',
   '可选(下拉选择)', '可选', '可选', '可选',
-  '可选(下拉选择)', '可选(下拉选择)', '可选(下拉选择)',
-  '可选(下拉选择)', '可选(下拉选择)', '可选(下拉选择)',
-  '可选(下拉选择)', '可选(下拉选择)', '可选(下拉选择)',
-  '可选(下拉选择)', '可选(下拉选择)',
+  '可选(自行填写学校全称)', '可选(下拉选择)', '可选(下拉选择)',
+  '可选(自行填写学校全称)', '可选(下拉选择)', '可选(下拉选择)',
+  '可选(自行填写学校全称)', '可选(下拉选择)', '可选(下拉选择)',
+  '可选(自行填写学校全称)', '可选(下拉选择)',
   '可选(多个用逗号分隔)', '可选(多个用逗号分隔)', '可选', '可选', '可选'
 ]
 
@@ -173,8 +173,8 @@ export async function GET() {
       '⑦ 多个值用逗号分隔的字段：个人爱好、擅长能力、关键词，例如：摄影,旅行,阅读。',
       '',
       '⑧ 大部分字段已改成下拉选择：点中单元格后，右侧会出现下拉箭头，请从列表里选，不要自己手打（手打容易和系统分类对不上）。第2行灰色说明里标注了"下拉选择"的列都已开通下拉。请从第4行开始填你自己的信息（第3行是示例）。',
-      '带下拉的列：现居地、家乡、职位1/2/3、企业所属行业、企业规模、党派、本科/硕士/博士/EMBA院校、本科/硕士/博士专业、各毕业年份；上游供应商/下游客户的「行业大类」和关键人物「职位」。',
-      '仍需手填的列：姓名、电话、微信号、邮箱、详细地址、公司名称、企业定位/价值/成就/诉求、社会组织、个人爱好、擅长能力、期望、工作履历、其他备注，以及供应商/客户名称、物料或产品、核心业务类别、关键词、关键人物姓名。',
+      '带下拉的列：现居地、家乡、职位1/2/3、企业所属行业、企业规模、党派、本科/硕士/博士专业、各毕业年份；上游供应商/下游客户的「行业大类」和关键人物「职位」。',
+      '仍需手填的列：姓名、电话、微信号、邮箱、详细地址、公司名称、本科/硕士/博士/EMBA院校（请填学校全称，例如“苏州大学”，学校太多列表放不下，所以不做下拉）、企业定位/价值/成就/诉求、社会组织、个人爱好、擅长能力、期望、工作履历、其他备注，以及供应商/客户名称、物料或产品、核心业务类别、关键词、关键人物姓名。',
       '',
       '⑨ "行业大类"下拉选项（企业所属行业、供应商/客户行业大类是同一套；没有完全匹配的请选"其他"）：',
       INDUSTRY_CATEGORIES.join('、'),
@@ -237,7 +237,7 @@ export async function GET() {
       COMPANY_SCALE_OPTIONS,
       PARTY_OPTIONS,
       cities,
-      universities,
+      [], // 原“院校”下拉已取消，改为自行填写（保留空列，避免改动其他列的位置）
       POSITION_OPTIONS,
       GRADUATION_YEAR_OPTIONS,
       MAJOR_OPTIONS,
@@ -253,7 +253,6 @@ export async function GET() {
       { sheetName: '个人与企业信息', sqref: sheetColsRef(['Q']), range: optionRange('A', INDUSTRY_CATEGORIES.length), strict: true },
       { sheetName: '个人与企业信息', sqref: sheetColsRef(['R']), range: optionRange('B', COMPANY_SCALE_OPTIONS.length), strict: true },
       { sheetName: '个人与企业信息', sqref: sheetColsRef(['W']), range: optionRange('C', PARTY_OPTIONS.length), strict: true },
-      { sheetName: '个人与企业信息', sqref: sheetColsRef(['AA', 'AD', 'AG', 'AJ']), range: optionRange('E', universities.length) },
       { sheetName: '个人与企业信息', sqref: sheetColsRef(['AB', 'AE', 'AH']), range: optionRange('H', MAJOR_OPTIONS.length) },
       { sheetName: '个人与企业信息', sqref: sheetColsRef(['AC', 'AF', 'AI', 'AK']), range: optionRange('G', GRADUATION_YEAR_OPTIONS.length) },
       { sheetName: '上游供应商', sqref: sheetColsRef(['C']), range: optionRange('A', INDUSTRY_CATEGORIES.length), strict: true },
