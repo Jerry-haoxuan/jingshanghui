@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Network, MessageSquare, Send, Bot, Edit, FolderOpen, Brain, ChevronDown, ChevronUp, Sparkles, Globe, ExternalLink, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Network, MessageSquare, Send, Bot, Edit, FolderOpen, Brain, Sparkles, Globe, ExternalLink, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getPeople, getCompanies, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, PersonData, savePeople, getMyCards } from '@/lib/dataStore'
@@ -17,7 +17,6 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
-  thinkingContent?: string
   isDeepThinking?: boolean
   webSearch?: boolean
   webSources?: string[]
@@ -117,7 +116,6 @@ export default function AIAssistant() {
   const [editingPerson, setEditingPerson] = useState<PersonData | null>(null)
   const [myCards, setMyCards] = useState<PersonData[]>([])
   const [deepThinking, setDeepThinking] = useState(true)
-  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
 
   // 对话历史
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -280,7 +278,6 @@ export default function AIAssistant() {
           role: 'assistant',
           content: data.response,
           timestamp: new Date(),
-          thinkingContent: data.reasoning || undefined,
           isDeepThinking: deepThinking && !!data.reasoning,
           webSearch: data.webSearch || false,
           webSources: data.webSources || undefined,
@@ -478,30 +475,6 @@ export default function AIAssistant() {
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className="max-w-[80%] flex flex-col gap-2">
-                  {/* 深度思考折叠块 */}
-                  {message.thinkingContent && (
-                    <div className="rounded-lg border border-purple-200 bg-purple-50 overflow-hidden">
-                      <button
-                        onClick={() => setExpandedThinking(prev => {
-                          const next = new Set(prev)
-                          next.has(message.id) ? next.delete(message.id) : next.add(message.id)
-                          return next
-                        })}
-                        className="w-full flex items-center justify-between px-3 py-2 text-purple-700 hover:bg-purple-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 text-xs font-medium">
-                          <Brain className="h-3.5 w-3.5" />
-                          <span>深度思考过程</span>
-                        </div>
-                        {expandedThinking.has(message.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
-                      {expandedThinking.has(message.id) && (
-                        <div className="px-3 pb-3 text-xs text-purple-600 leading-relaxed whitespace-pre-wrap border-t border-purple-200 pt-2">
-                          {message.thinkingContent}
-                        </div>
-                      )}
-                    </div>
-                  )}
                   {/* 气泡 */}
                   <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     message.role === 'user'
