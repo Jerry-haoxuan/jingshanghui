@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { getPeople, getCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
 import { getPersonRelationships } from '@/lib/relationshipManager'
-import { getViewerFacingName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName, forceGetAliasName } from '@/lib/deterministicNameAlias'
 import { isMember } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import PersonEditModal from '@/components/PersonEditModal'
@@ -533,8 +533,15 @@ export default function PersonDetail() {
                 </div>
                 <div>
                   <CardTitle className="text-2xl">
-                    {getViewerFacingName(person.name)}
+                    {viewingOwnCard && isMember()
+                      ? `${person.name}（${forceGetAliasName(person.name)}）`
+                      : getViewerFacingName(person.name)}
                   </CardTitle>
+                  {viewingOwnCard && forceGetAliasName(person.name) !== person.name && (
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500 bg-blue-50 border border-blue-100 rounded-md px-2 py-1">
+                      括号里「{forceGetAliasName(person.name)}」是您在平台的虚拟名字，由系统从四大名著人物中随机分配，分配后固定不变。其他会员看到的是这个虚拟名字，不会看到您的真实姓名。
+                    </p>
+                  )}
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Briefcase className="h-4 w-4" />
                     {person?.allCompanies && person.allCompanies.length > 0 ? (
@@ -589,9 +596,9 @@ export default function PersonDetail() {
                   <div className="space-y-2 ml-7">
                     {person.educations.map((edu: {level: string, school: string, major?: string, year?: string}, index: number) => (
                       <div key={index}>
-                        <p className="text-sm font-medium text-gray-900">
-                          <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs mr-2">{edu.level}</span>
-                          {edu.school}
+                        <p className="text-base font-semibold text-gray-900 flex items-center flex-wrap gap-2">
+                          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-md text-sm font-semibold">{edu.level}</span>
+                          <span>{edu.school}</span>
                         </p>
                         {edu.major && <p className="text-sm text-gray-600 mt-1">专业：{edu.major}</p>}
                         {edu.year && <p className="text-sm text-gray-500 mt-1">毕业年份：{edu.year}</p>}

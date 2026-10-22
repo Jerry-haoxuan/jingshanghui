@@ -324,8 +324,8 @@ export default function Home() {
 
         {/* 登录/注册弹窗 */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="sm:max-w-[440px] bg-black/90 backdrop-blur-xl border border-white/20 p-0 overflow-hidden">
-            <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogContent className="sm:max-w-[440px] bg-black/90 backdrop-blur-xl border border-white/20 p-0 overflow-y-auto max-h-[94vh]">
+            <DialogHeader className="px-5 pt-4 pb-0">
               <DialogTitle className="text-white text-xl flex items-center gap-2">
                 <Network className="h-5 w-5 text-blue-400" />
                 精尚慧生态圈
@@ -336,7 +336,7 @@ export default function Home() {
             </DialogHeader>
 
             <Tabs defaultValue="login" className="w-full">
-              <div className="px-6 pt-4">
+              <div className="px-5 pt-3">
                 <TabsList className="w-full bg-white/10 border border-white/10">
                   <TabsTrigger
                     value="login"
@@ -410,7 +410,7 @@ export default function Home() {
               </TabsContent>
 
               {/* 注册 */}
-              <TabsContent value="register" className="px-6 pb-6 mt-0">
+              <TabsContent value="register" className="px-5 pb-4 mt-0">
                 {regSuccess ? (
                   <div className="py-8 text-center space-y-3">
                     <div className="text-4xl">🎉</div>
@@ -418,19 +418,19 @@ export default function Home() {
                     <p className="text-gray-400 text-sm">正在为您跳转...</p>
                   </div>
                 ) : (
-                  <div className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">手机号</Label>
+                  <div className="space-y-2.5 pt-3">
+                    <div className="space-y-1">
+                      <Label className="text-gray-300 text-xs">手机号</Label>
                       <Input
                         placeholder="请输入手机号"
                         value={regPhone}
                         maxLength={11}
                         onChange={e => { setRegPhone(e.target.value.replace(/\D/g, '')); setRegError('') }}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                        className="h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">验证码</Label>
+                    <div className="space-y-1">
+                      <Label className="text-gray-300 text-xs">验证码</Label>
                       <div className="flex gap-2">
                         <Input
                           placeholder="请输入验证码"
@@ -438,44 +438,45 @@ export default function Home() {
                           maxLength={6}
                           onChange={e => { setRegCode(e.target.value.replace(/\D/g, '')); setRegError('') }}
                           onKeyDown={e => e.key === 'Enter' && handleRegister()}
-                          className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                          className="h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
                         />
                         <Button
                           type="button"
                           onClick={handleSendCode}
                           disabled={sendCodeLoading || codeCooldown > 0}
-                          className="shrink-0 whitespace-nowrap bg-white/10 border border-white/20 hover:bg-white/20 text-white"
+                          className="shrink-0 whitespace-nowrap h-9 text-sm bg-white/10 border border-white/20 hover:bg-white/20 text-white"
                         >
                           {codeCooldown > 0 ? `${codeCooldown}秒后重试` : sendCodeLoading ? '发送中...' : '获取验证码'}
                         </Button>
                       </div>
                       {devCodeHint && (
-                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
-                          <p className="text-sm text-amber-400">
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-md px-2.5 py-1">
+                          <p className="text-xs text-amber-400">
                             短信服务尚未开通，本次验证码为：
-                            <span className="font-mono font-bold text-base ml-1">{devCodeHint}</span>
+                            <span className="font-mono font-bold text-sm ml-1">{devCodeHint}</span>
                           </p>
                         </div>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">真实姓名 <span className="text-purple-400">*</span></Label>
+                    <div className="space-y-1">
+                      <Label className="text-gray-300 text-xs">真实姓名 <span className="text-purple-400">*</span></Label>
                       <Input
-                        placeholder="请输入您的真实姓名（用于商圈识别）"
+                        placeholder="您的真实姓名（用于识别名片）"
                         value={regRealName}
                         onChange={e => { setRegRealName(e.target.value); setRegError('') }}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                        className="h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">密码</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-gray-300 text-xs">密码</Label>
                       <div className="relative">
                         <Input
                           type={showRegPassword ? 'text' : 'password'}
-                          placeholder="请设置密码（至少6位）"
+                          placeholder="至少6位"
                           value={regPassword}
                           onChange={e => { setRegPassword(e.target.value); setRegError('') }}
-                          className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 pr-10"
+                          className="h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 pr-10"
                         />
                         <button
                           type="button"
@@ -486,38 +487,38 @@ export default function Home() {
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">确认密码</Label>
+                    <div className="space-y-1">
+                      <Label className="text-gray-300 text-xs">确认密码</Label>
                       <Input
                         type="password"
-                        placeholder="再次输入密码"
+                        placeholder="再次输入"
                         value={regConfirmPassword}
                         onChange={e => { setRegConfirmPassword(e.target.value); setRegError('') }}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
+                        className="h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">内测邀请码</Label>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-gray-300 text-xs">内测邀请码</Label>
                       <Input
                         placeholder="请输入邀请码（如：ECO-INV-XXXXXXXX）"
                         value={regInviteCode}
                         onChange={e => { setRegInviteCode(e.target.value.toUpperCase()); setRegError('') }}
                         onKeyDown={e => e.key === 'Enter' && handleRegister()}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 font-mono"
+                        className="h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-gray-500 focus:border-purple-400 font-mono"
                       />
-                      <p className="text-xs text-gray-500">需要有效的内测邀请码才能注册</p>
                     </div>
 
                     {regError && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2">
-                        <p className="text-sm text-red-400">{regError}</p>
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-md px-2.5 py-1">
+                        <p className="text-xs text-red-400">{regError}</p>
                       </div>
                     )}
 
                     <Button
                       onClick={handleRegister}
                       disabled={regLoading}
-                      className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white border-0 h-10"
+                      className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white border-0 h-9"
                     >
                       {regLoading ? '注册中...' : '注册账号'}
                     </Button>
