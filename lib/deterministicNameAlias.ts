@@ -10,7 +10,7 @@ const CHARACTER_NAMES = [
   '郝思文', '韩滔', '彭玘', '单廷圭', '魏定国', '萧让', '裴宣', '欧鹏', '邓飞', '燕顺',
   '孔明', '孔亮', '项充', '李衮', '金大坚', '马麟', '童威', '童猛', '孟康', '侯健',
   '陈达', '杨春', '郑天寿', '陶宗旺', '宋清', '乐和', '龚旺', '丁得孙', '穆春', '曹正',
-  '宋万', '杜迁', '薛永', '李忠', '周通', '汤隆', '杜兴', '邹润', '蔡福', '蔡庆',
+  '宋万', '杜迁', '汉莫仕', '李忠', '周通', '汤隆', '杜兴', '邹润', '蔡福', '蔡庆',
   '李立', '李云', '焦挺', '石勇', '孙新', '顾大嫂', '张青', '孙二娘', '王英', '扈三娘',
   '鲍旭', '樊瑞', '郭盛', '吕方', '杨林', '凌振', '蒋敬',
   
@@ -22,8 +22,27 @@ const CHARACTER_NAMES = [
 ]
 
 // 指定人物的别名覆盖（优先级最高）
-const ALIAS_OVERRIDES: Record<string, string> = {
+// 注意：慧慧AI接口（app/api/ai-chat）也引用这里，改这里即可全站生效。
+export const ALIAS_OVERRIDES: Record<string, string> = {
   '徐翔': '宋江',
+  '仇泽启': '汉莫仕',
+}
+
+// 第二虚拟名（又名）：会员看到的主名是 ALIAS_OVERRIDES / 哈希生成的名字，又名只作为补充展示，
+// 搜索又名同样能找到此人，慧慧AI回答时统一使用主名。
+export const ALIAS_SECONDARY: Record<string, string> = {
+  '仇泽启': '杨林',
+}
+
+export function getSecondaryAliasName(realName: string): string | null {
+  return ALIAS_SECONDARY[realName] || null
+}
+
+// 某人所有可用于搜索的虚拟名（主名 + 又名）
+function allAliasNamesOf(realName: string): string[] {
+  const primary = deterministicAliasName(realName)
+  const secondary = ALIAS_SECONDARY[realName]
+  return secondary ? [primary, secondary] : [primary]
 }
 
 // 简单的字符串哈希函数
@@ -129,10 +148,11 @@ export function findPersonByAliasName(aliasName: string, people: any[]): any | n
   
   // 遍历所有人物，找到AI化名字匹配的人
   for (const person of people) {
-    const personAliasName = deterministicAliasName(person.name)
-    if (personAliasName === aliasName || 
-        personAliasName.toLowerCase().includes(aliasName.toLowerCase()) ||
-        aliasName.toLowerCase().includes(personAliasName.toLowerCase())) {
+    const hit = allAliasNamesOf(person.name).some(personAliasName =>
+      personAliasName === aliasName ||
+      personAliasName.toLowerCase().includes(aliasName.toLowerCase()) ||
+      aliasName.toLowerCase().includes(personAliasName.toLowerCase()))
+    if (hit) {
       return person
     }
   }
@@ -155,10 +175,11 @@ export function findPeopleByAliasName(aliasName: string, people: any[]): any[] {
   // 遍历所有人物，找到AI化名字匹配的人
   const matchedPeople: any[] = []
   for (const person of people) {
-    const personAliasName = deterministicAliasName(person.name)
-    if (personAliasName === aliasName || 
-        personAliasName.toLowerCase().includes(aliasName.toLowerCase()) ||
-        aliasName.toLowerCase().includes(personAliasName.toLowerCase())) {
+    const hit = allAliasNamesOf(person.name).some(personAliasName =>
+      personAliasName === aliasName ||
+      personAliasName.toLowerCase().includes(aliasName.toLowerCase()) ||
+      aliasName.toLowerCase().includes(personAliasName.toLowerCase()))
+    if (hit) {
       matchedPeople.push(person)
     }
   }

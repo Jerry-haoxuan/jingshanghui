@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { getPeople, getCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable } from '@/lib/dataStore'
 import StaticRelationshipGraph from '@/components/StaticRelationshipGraph'
 import { getPersonRelationships } from '@/lib/relationshipManager'
-import { getViewerFacingName, forceGetAliasName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName, forceGetAliasName, getSecondaryAliasName } from '@/lib/deterministicNameAlias'
 import { isMember } from '@/lib/userRole'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import PersonEditModal from '@/components/PersonEditModal'
@@ -537,6 +537,11 @@ export default function PersonDetail() {
                       ? `${person.name}（${forceGetAliasName(person.name)}）`
                       : getViewerFacingName(person.name)}
                   </CardTitle>
+                  {getSecondaryAliasName(person.name) && (
+                    <span className="mt-1 inline-block text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2.5 py-0.5">
+                      又名：{getSecondaryAliasName(person.name)}
+                    </span>
+                  )}
                   {viewingOwnCard && forceGetAliasName(person.name) !== person.name && (
                     <p className="mt-1 text-xs leading-relaxed text-gray-500 bg-blue-50 border border-blue-100 rounded-md px-2 py-1">
                       括号里「{forceGetAliasName(person.name)}」是您在平台的虚拟名字，由系统从四大名著人物中随机分配，分配后固定不变。其他会员看到的是这个虚拟名字，不会看到您的真实姓名。
