@@ -507,16 +507,19 @@ export default function PersonDetail() {
             返回智能关系网
           </Button>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setEditFormData(person)
-                setShowEditDialog(true)
-              }}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              编辑信息
-            </Button>
+            {/* 会员只能编辑自己的名片：编辑弹窗里是真实姓名和完整联系方式 */}
+            {(!isMember() || viewingOwnCard) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditFormData(person)
+                  setShowEditDialog(true)
+                }}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                编辑信息
+              </Button>
+            )}
           </div>
         </div>
       </div>
