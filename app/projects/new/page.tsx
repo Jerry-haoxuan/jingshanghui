@@ -14,6 +14,7 @@ import {
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
 import { findPersonForUser } from '@/lib/personMatch'
+import { isManager } from '@/lib/userRole'
 import { getViewerFacingName, forceGetAliasName, getSecondaryAliasName } from '@/lib/deterministicNameAlias'
 import MilestoneForm, { MilestoneInput } from '@/components/projects/MilestoneForm'
 
@@ -71,7 +72,7 @@ export default function NewProjectPage() {
       getViewerFacingName(p.name).toLowerCase().includes(q) ||
       forceGetAliasName(p.name).toLowerCase().includes(q) ||
       (getSecondaryAliasName(p.name) ?? '').toLowerCase().includes(q) ||
-      p.name.toLowerCase().includes(q) ||
+      (isManager() && p.name.toLowerCase().includes(q)) ||
       p.company.toLowerCase().includes(q) ||
       (p.industry ?? '').toLowerCase().includes(q)
     )
