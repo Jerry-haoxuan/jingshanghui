@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getPeople, getCompanies, savePeople, saveCompanies, PersonData, CompanyData, loadPeopleFromCloudIfAvailable, loadCompaniesFromCloudIfAvailable, getMyCards } from '@/lib/dataStore'
 import PersonEditModal from '@/components/PersonEditModal'
-import { forceGetAliasName, getViewerFacingName } from '@/lib/deterministicNameAlias'
+import { forceGetAliasName, getViewerFacingName, getSecondaryAliasName } from '@/lib/deterministicNameAlias'
 import { isManager, getUserRole, isMember } from '@/lib/userRole'
 import { getCurrentUser } from '@/lib/session'
 import { findPersonForUser } from '@/lib/personMatch'
@@ -151,6 +151,7 @@ export default function DashboardClient() {
     const alias = forceGetAliasName(person.name)
     return getViewerFacingName(person.name).toLowerCase().includes(q) ||
       alias.toLowerCase().includes(q) ||
+      (getSecondaryAliasName(person.name) ?? '').toLowerCase().includes(q) ||
       (isManager() && person.name.toLowerCase().includes(q)) ||
       person.company.toLowerCase().includes(q) ||
       person.tags.some(tag => tag.toLowerCase().includes(q))

@@ -14,7 +14,7 @@ import {
 import { getCurrentUser } from '@/lib/session'
 import { PersonData } from '@/lib/dataStore'
 import { findPersonForUser } from '@/lib/personMatch'
-import { getViewerFacingName, forceGetAliasName } from '@/lib/deterministicNameAlias'
+import { getViewerFacingName, forceGetAliasName, getSecondaryAliasName } from '@/lib/deterministicNameAlias'
 import MilestoneForm, { MilestoneInput } from '@/components/projects/MilestoneForm'
 
 const STEPS = ['项目命名', '邀请企业家', '时间节点']
@@ -70,6 +70,7 @@ export default function NewProjectPage() {
     return (
       getViewerFacingName(p.name).toLowerCase().includes(q) ||
       forceGetAliasName(p.name).toLowerCase().includes(q) ||
+      (getSecondaryAliasName(p.name) ?? '').toLowerCase().includes(q) ||
       p.name.toLowerCase().includes(q) ||
       p.company.toLowerCase().includes(q) ||
       (p.industry ?? '').toLowerCase().includes(q)
