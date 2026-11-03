@@ -10,7 +10,7 @@ import { ArrowRight, Network, Users, Building2, Target, Eye, EyeOff, LogIn, User
 import { useRouter } from 'next/navigation'
 import StarryBackground from '@/components/StarryBackground'
 import PortfolioMarquee from '@/components/PortfolioMarquee'
-import { UserRole, setUserRole, getUserRole } from '@/lib/userRole'
+import { UserRole, setUserRole, getUserRole, clearUserRole } from '@/lib/userRole'
 import { saveCurrentUser, clearCurrentUser, type UserAccount } from '@/lib/session'
 
 export default function Home() {
@@ -44,13 +44,26 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true)
-    const existingRole = getUserRole()
-    if (!existingRole) return
+    if (!getUserRole()) return
 
-    setCurrentUserRole(existingRole)
+    // 浏览器记住的角色不一定还有效（旧版登录、凭证过期），必须先问服务器再跳转：
+    // 否则 middleware 把人退回首页、首页又跳去主页面，来回循环就再也登录不了了
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(({ authenticated, role }) => {
+        if (!authenticated) {
+          clearUserRole()
+          clearCurrentUser()
+          return
+        }
 
-    // 已登录：跳转到主页面（生态商圈）
-    router.push('/dashboard')
+        setUserRole(role)
+        setCurrentUserRole(role)
+
+        // 已登录：跳转到主页面（生态商圈）
+        router.push('/dashboard')
+      })
+      .catch(() => {})
   }, [])
 
   // 验证码倒计时

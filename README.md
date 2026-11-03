@@ -89,6 +89,7 @@
 | 数据库 | 阿里云 RDS PostgreSQL，实例：pgm-uf63572vz9s9fve1 |
 | 进程管理 | PM2，进程名：jsh |
 | HTTPS | Let's Encrypt 证书，自动续期 |
+| 登录凭证 | 服务器 `.env.local` 里的 `SESSION_SECRET`，必须配置，否则任何人都登录不了；换了这个值所有人要重新登录 |
 
 ---
 

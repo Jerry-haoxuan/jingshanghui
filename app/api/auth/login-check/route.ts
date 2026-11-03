@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loginUser } from '@/lib/userStore'
+import { attachSessionCookie } from '@/lib/authSession'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +11,11 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await loginUser(username, password)
-    return NextResponse.json(result, { status: result.success ? 200 : 401 })
+    const response = NextResponse.json(result, { status: result.success ? 200 : 401 })
+    if (result.success && result.account) {
+      await attachSessionCookie(response, result.account)
+    }
+    return response
   } catch (error) {
     console.error('[登录校验API] 出错:', error)
     return NextResponse.json({ success: false, message: '登录失败，请稍后重试' }, { status: 500 })

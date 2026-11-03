@@ -34,6 +34,15 @@ export const setUserRole = (role: UserRole): void => {
   }
 };
 
+// 清除本地记住的角色（登录失效时用）
+export const clearUserRole = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('userRole');
+    document.cookie = 'userRole=; path=/; max-age=0';
+    clearRoleCache();
+  }
+};
+
 // 获取当前用户角色
 export const getUserRole = (): UserRole | null => {
   if (typeof window !== 'undefined') {

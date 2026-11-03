@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { registerUser } from '@/lib/userStore'
 import { verifyCode, consumeVerificationCode, isValidChinesePhone } from '@/lib/smsService'
+import { attachSessionCookie } from '@/lib/authSession'
 
 // 手机号注册（服务器端执行，确保直接写入云端数据库，而不是浏览器本地存储）
 export async function POST(request: NextRequest) {
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       secure: isProduction,
       httpOnly: false,
     })
+    await attachSessionCookie(response, result.account)
 
     return response
   } catch (error) {
