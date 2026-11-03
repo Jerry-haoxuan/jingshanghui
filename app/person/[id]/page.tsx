@@ -735,7 +735,18 @@ export default function PersonDetail() {
                     {person.homeAddress && (
                       <div className="flex items-start gap-3">
                         <p className="text-xs text-gray-500 min-w-[60px]">家庭地址</p>
-                        <p className="text-sm font-medium text-gray-900">{person.homeAddress}</p>
+                        {(isMember() && !viewingOwnCard) ? (
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto text-sm text-blue-600 hover:text-blue-800"
+                            onClick={() => setShowContactDialog(true)}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            查看家庭地址
+                          </Button>
+                        ) : (
+                          <p className="text-sm font-medium text-gray-900">{person.homeAddress}</p>
+                        )}
                       </div>
                     )}
 
