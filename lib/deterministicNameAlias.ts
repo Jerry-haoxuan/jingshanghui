@@ -26,6 +26,7 @@ const CHARACTER_NAMES = [
 export const ALIAS_OVERRIDES: Record<string, string> = {
   '徐翔': '宋江',
   '仇泽启': '汉莫仕',
+  '洪钧': '林冲', // 哈希结果和成龙撞名（金大坚）
 }
 
 // 第二虚拟名（又名）：会员看到的主名是 ALIAS_OVERRIDES / 哈希生成的名字，又名只作为补充展示，
